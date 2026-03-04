@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(test:*)",
+      "Bash(cmd.exe /c \"dir /b \"\"E:\\\\Study\"\"\")"
+    ]
+  }
+}
