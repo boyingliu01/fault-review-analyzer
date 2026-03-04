@@ -1,6 +1,7 @@
 """fetch命令 - 获取故障数据"""
 
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -28,7 +29,7 @@ def fetch_single(
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
         console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -51,7 +52,7 @@ def fetch_single(
     ) as progress:
         progress.add_task(f"正在获取任务 {task_id}...", total=None)
 
-        async def _fetch():
+        async def _fetch() -> Any:
             async with APIClient(
                 base_url=config.api.base_url,
                 token=config.api.api_key,
@@ -85,7 +86,7 @@ def fetch_batch(
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
         console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,7 +125,7 @@ def fetch_batch(
 
     import asyncio
 
-    async def fetch_tasks():
+    async def fetch_tasks() -> None:
         nonlocal success_count, fail_count, skip_count
 
         async with APIClient(
@@ -174,7 +175,7 @@ def cache_status(
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
         console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
 
@@ -203,7 +204,7 @@ def cache_list(
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
         console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
     cache_manager = CacheManager(db_path=cache_path)

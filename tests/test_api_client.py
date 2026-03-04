@@ -42,7 +42,6 @@ class TestAPIClient:
 
     @pytest.mark.asyncio
     async def test_authentication(self, api_client):
-        # 直接测试_get_headers方法
         headers = api_client._get_headers()
         assert "Authorization" in headers
         assert headers["Authorization"] == "Bearer test-token"
@@ -139,6 +138,82 @@ class TestAPIClient:
             assert info.symptoms == "内存使用率达到98%"
             assert len(info.logs) == 1
 
+    @pytest.mark.asyncio
+    async def test_context_manager(self, api_client):
+        async with api_client as client:
+            assert client is api_client
+
+    @pytest.mark.asyncio
+    async def test_close_client(self, api_client):
+        api_client.ensure_client()
+        assert api_client._client is not None
+        await api_client.close()
+        assert api_client._client is None
+
+    def test_ensure_client(self, api_client):
+        api_client.ensure_client()
+        assert api_client._client is not None
+
+    def test_get_headers_with_bearer_prefix(self):
+        client = APIClient(
+            base_url="https://api.example.com",
+            token="Bearer existing-token",
+        )
+        headers = client._get_headers()
+        assert headers["Authorization"] == "Bearer existing-token"
+
+    def test_get_headers_with_api_key(self):
+        client = APIClient(
+            base_url="https://api.example.com",
+            api_key="api-key-value",
+        )
+        headers = client._get_headers()
+        assert headers["Authorization"] == "Bearer api-key-value"
+
+    @pytest.mark.asyncio
+    async def test_get_task_with_nested_response(self, api_client):
+        mock_response = {
+            "data": {
+                "apiTask": {
+                    "taskId": 12345,
+                    "taskTitle": "SQL查询导致OOM",
+                    "comments": "生产环境执行大表查询时发生内存溢出",
+                    "finishFlag": 1,
+                    "taskPriId": 15,
+                    "createdDate": "2024-01-15T10:00:00",
+                    "finishDate": "2024-01-15T12:00:00",
+                }
+            }
+        }
+
+        with patch.object(api_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            task = await api_client.get_task(12345)
+
+            assert task.task_id == 12345
+            assert task.title == "SQL查询导致OOM"
+
+    @pytest.mark.asyncio
+    async def test_get_task_with_alternative_fields(self, api_client):
+        mock_response = {
+            "task_id": 12345,
+            "title": "SQL查询导致OOM",
+            "description": "生产环境执行大表查询时发生内存溢出",
+            "finishFlag": 0,
+            "taskPriId": 10,
+            "create_time": "2024-01-15T10:00:00",
+        }
+
+        with patch.object(api_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            task = await api_client.get_task(12345)
+
+            assert task.task_id == 12345
+            assert task.title == "SQL查询导致OOM"
+            assert task.status == "open"
+
 
 class TestAPIDataModels:
     def test_task_info_model(self):
@@ -178,3 +253,49 @@ class TestAPIDataModels:
 
         assert info.symptoms == "内存使用率达到98%"
         assert len(info.logs) == 1
+
+    def test_task_info_with_resolve_time(self):
+        task = TaskInfo(
+            task_id=1,
+            title="Test",
+            description="Test",
+            status="closed",
+            priority="medium",
+            create_time=datetime(2024, 1, 1),
+            resolve_time=datetime(2024, 1, 2),
+        )
+
+        assert task.resolve_time is not None
+
+    def test_task_info_with_development(self):
+        task = TaskInfo(
+            task_id=1,
+            title="Test",
+            description="Test",
+            status="open",
+            priority="low",
+            create_time=datetime(2024, 1, 1),
+            development={
+                "commits": [],
+                "code_reviews": [],
+            },
+        )
+
+        assert task.development is not None
+
+    def test_task_info_with_production(self):
+        task = TaskInfo(
+            task_id=1,
+            title="Test",
+            description="Test",
+            status="open",
+            priority="low",
+            create_time=datetime(2024, 1, 1),
+            production={
+                "incident_time": datetime(2024, 1, 1),
+                "symptoms": "Test symptom",
+                "logs": [],
+            },
+        )
+
+        assert task.production is not None

@@ -1,5 +1,6 @@
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+
 from src.analyzer.labeling.generator import LabelGenerator
 
 
@@ -7,7 +8,7 @@ class MockProvider:
     def __init__(self, response: str):
         self.response = response
 
-    async def generate(self, system: str, user: str) -> str:
+    async def generate(self, system: str, user: str) -> str:  # noqa: ARG002
         return self.response
 
 

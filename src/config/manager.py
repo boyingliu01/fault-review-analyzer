@@ -53,6 +53,8 @@ class ConfigManager:
 
     def _validate_config(self) -> None:
         """Validate required configuration fields."""
+        if self._config is None:
+            raise ValueError("Configuration not loaded")
         if not self._config.api.base_url:
             raise ValueError(
                 "API base_url is required. Please set it in config.yaml or via "
@@ -142,7 +144,7 @@ class ConfigManager:
     @property
     def config(self) -> AppConfig:
         if self._config is None:
-            self.load()
+            return self.load()
         return self._config
 
     def get_config(self) -> AppConfig:

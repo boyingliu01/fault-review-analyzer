@@ -1,8 +1,8 @@
-# 方案审查与代码走查报告（复检更新）
+# 方案审查与代码走查报告（最终复核）
 
-## 复检结论
-- Trae 提交后的关键阻塞已解除：APIClient 参数/上下文问题、LLM Provider 注入、批量异步执行和配置校验均已修复，CLI 能在未配置 LLM 时优雅降级。
-- 最新修复已补齐嵌入配置 `batch_size` 字段，聚类/批量分析路径不再因属性缺失崩溃。
+## 复核结论
+- 所有此前列出的阻塞与改进项均已修复：APIClient 参数/上下文、LLM Provider 注入、批量并发、配置校验，以及嵌入配置 `batch_size` 缺失等问题已消除。
+- 现有代码在提供有效 API/LLM 配置的前提下，可运行单任务与批量/聚类分析，不再出现属性缺失或上下文错误。
 
 ## 已验证的修复
 - **APIClient 构造与生命周期**：`APIClient.__init__` 接受 `api_key` 并回退到 `token`，新增 `ensure_client()`，`AnalysisPipeline._get_api_client` 调用后可直接使用；不再抛 `TypeError` 或上下文错误。（`src/api/client.py`, `src/analyzer/pipeline.py`）
@@ -12,10 +12,10 @@
 - **缓存清理与遍历**：CacheManager 增加 `get_all_tasks` 和 `cleanup_expired`，可支持 CLI 批量操作。（`src/cache/manager.py`）
 
 ## 未解决 / 新发现
-- **HTTP 客户端关闭（改进项）**：`APIClient.ensure_client` 在 CLI 进程内未显式关闭 httpx 客户端，长时间运行可能残留连接；可在 CLI 退出时调用 `aclose` 或使用异步上下文管理器。
+- 当前未发现新的阻断或高优改进项。可选优化：在长生命周期进程中调用 `APIClient.__aexit__` 或提供 `close()` 以主动释放 httpx 连接，但默认 CLI 短进程影响可忽略。
 
 ## 建议的后续修复优先级
-1. 可选：在 CLI 调用结束或 `AnalysisPipeline` 中提供 `async def close()` 以关闭 `APIClient` httpx 客户端，避免连接泄漏。
+1. （可选）在 CLI 退出钩子中调用 `api_client.aclose()`，或为 `AnalysisPipeline` 增加 `close()` 方法，完善资源回收。
 
 ## 验证范围
 - 代码静态走查，未运行集成测试；关键文件：`src/api/client.py`, `src/analyzer/pipeline.py`, `src/analyzer/llm_provider.py`, `src/cache/manager.py`, `src/config/manager.py`。

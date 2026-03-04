@@ -1,5 +1,4 @@
-import pytest
-from src.rules.models import Rule, RuleViolation, RuleCheckResult, RulesConfig
+from src.rules.models import Rule, RuleCheckResult, RulesConfig, RuleViolation
 
 
 class TestRulesModels:

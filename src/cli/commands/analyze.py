@@ -32,7 +32,7 @@ def analyze_single(
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
         console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     pipeline_config = PipelineConfig(
         use_cache=use_cache,
@@ -53,7 +53,7 @@ def analyze_single(
 
     if result.error:
         console.print(f"[red]分析失败: {result.error}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     console.print("[green]分析完成![/green]")
 
@@ -103,7 +103,7 @@ def analyze_batch(
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
         console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
     cache_manager = CacheManager(db_path=cache_path)
@@ -174,7 +174,7 @@ def analyze_clusters(
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
         console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
     cache_manager = CacheManager(db_path=cache_path)
@@ -204,7 +204,7 @@ def analyze_clusters(
         console.print(f"  聚类数量: {result.get('cluster_count', 0)}")
         console.print(f"  噪声点: {result.get('noise_count', 0)}")
 
-        tasks_by_cluster = {}
+        tasks_by_cluster: dict[int, list[int]] = {}
         for task in result.get("tasks", []):
             cluster_id = task.get("cluster_id", -1)
             if cluster_id not in tasks_by_cluster:

@@ -1,9 +1,8 @@
-import pytest
 from src.report.models import (
-    ReportSection,
     AnalysisReport,
-    ClusterReport,
     BatchReport,
+    ClusterReport,
+    ReportSection,
 )
 
 

@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from src.analyzer.labeling import LabelGenerator
 from src.analyzer.llm_provider import create_llm_provider
 from src.analyzer.reasoning import RootCauseAnalyzer
@@ -11,6 +13,7 @@ from src.cache.manager import CacheManager
 from src.clustering.analyzer import ClusterAnalyzer
 from src.config.manager import ConfigManager
 from src.embedding.generator import EmbeddingGenerator
+from src.preprocessor.models import ProcessedTask
 from src.preprocessor.processor import DataPreprocessor
 from src.report.generator import ReportGenerator
 from src.rules.engine import RulesEngine
@@ -69,14 +72,19 @@ class AnalysisPipeline:
     async def __aenter__(self) -> "AnalysisPipeline":
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         await self.close()
 
     async def close(self) -> None:
         """Close all async resources."""
-        if self._api_client and self._api_client._client:
-            await self._api_client._client.aclose()
-            self._api_client._client = None
+        if self._api_client:
+            await self._api_client.close()
+            self._api_client = None
 
     async def run_single(self, task_id: int) -> PipelineResult:
         """Run analysis pipeline for a single task."""
@@ -157,19 +165,21 @@ class AnalysisPipeline:
         embeddings = await embedding_gen.embed_batch(texts)
 
         cluster_analyzer = self._get_cluster_analyzer()
-        labels = cluster_analyzer.fit_predict(embeddings)
+        embeddings_array = np.array(embeddings)
+        cluster_result = cluster_analyzer.fit_predict(embeddings_array)
+        labels_list = cluster_result.labels
 
         return {
             "tasks": [
                 {
                     "task_id": t.task_id,
-                    "cluster_id": int(labels[i]),
+                    "cluster_id": int(labels_list[i]),
                     "text": t.combined_text[:200],
                 }
                 for i, t in enumerate(processed_tasks)
             ],
-            "cluster_count": len(set(labels)) - (1 if -1 in labels else 0),
-            "noise_count": sum(1 for label in labels if label == -1),
+            "cluster_count": len(set(labels_list)) - (1 if -1 in labels_list else 0),
+            "noise_count": sum(1 for label in labels_list if label == -1),
             "total_requested": len(task_ids),
             "total_found": len(tasks_data),
         }
@@ -242,7 +252,7 @@ class AnalysisPipeline:
     async def _generate_labels(
         self,
         task_data: dict[str, Any],
-        preprocessed,
+        preprocessed: ProcessedTask,
     ) -> list[dict]:
         """Generate labels for task."""
         if self._label_generator is None:
@@ -271,7 +281,7 @@ class AnalysisPipeline:
     async def _analyze_root_cause(
         self,
         task_data: dict[str, Any],
-        preprocessed,
+        preprocessed: ProcessedTask,
     ) -> list[dict]:
         """Analyze root cause for task."""
         if self._root_cause_analyzer is None:

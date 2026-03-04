@@ -1,4 +1,5 @@
 import pytest
+
 from src.analyzer.reasoning.generator import RootCauseAnalyzer
 
 
@@ -6,7 +7,7 @@ class MockReasoningProvider:
     def __init__(self, response: str):
         self.response = response
 
-    async def generate(self, system: str, user: str) -> str:
+    async def generate(self, system: str, user: str) -> str:  # noqa: ARG002
         return self.response
 
 

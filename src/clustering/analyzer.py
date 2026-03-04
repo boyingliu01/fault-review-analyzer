@@ -1,4 +1,6 @@
 
+from typing import Any
+
 import numpy as np
 
 from src.clustering.models import ClusterInfo, ClusterResult
@@ -16,7 +18,7 @@ class ClusterAnalyzer:
         self.min_cluster_size = min_cluster_size
         self.min_samples = min_samples
         self.metric = metric
-        self._model = None
+        self._model: Any = None
 
     def fit_predict(self, embeddings: np.ndarray) -> ClusterResult:
         if embeddings.size == 0:
@@ -59,7 +61,8 @@ class ClusterAnalyzer:
             metric="euclidean",
         )
 
-        return self._model.fit_predict(embeddings_to_use)
+        result = self._model.fit_predict(embeddings_to_use)
+        return np.asarray(result)
 
     def _build_clusters(
         self,
@@ -90,7 +93,8 @@ class ClusterAnalyzer:
         cluster_id: int,
         labels: np.ndarray,
     ) -> list[int]:
-        return np.where(labels == cluster_id)[0].tolist()
+        result = np.where(labels == cluster_id)[0].tolist()
+        return [int(x) for x in result]
 
     def compute_cluster_quality(
         self,

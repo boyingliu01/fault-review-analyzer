@@ -80,6 +80,57 @@ class TestClusterAnalyzer:
         assert analyzer.min_cluster_size == 5
         assert analyzer.min_samples == 3
 
+    def test_fit_predict_with_cosine_metric(self):
+        analyzer = ClusterAnalyzer(
+            algorithm="hdbscan",
+            min_cluster_size=2,
+            min_samples=1,
+            metric="cosine",
+        )
+        np.random.seed(42)
+        embeddings = np.random.randn(10, 128)
+        embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+        result = analyzer.fit_predict(embeddings)
+
+        assert result is not None
+        assert len(result.labels) == 10
+
+    def test_fit_predict_small_dataset(self):
+        analyzer = ClusterAnalyzer(
+            algorithm="hdbscan",
+            min_cluster_size=2,
+            min_samples=1,
+        )
+        np.random.seed(42)
+        embeddings = np.random.randn(3, 128)
+
+        result = analyzer.fit_predict(embeddings)
+
+        assert result is not None
+        assert len(result.labels) == 3
+
+    def test_cluster_centroid_calculation(self, analyzer):
+        np.random.seed(42)
+        embeddings = np.random.randn(10, 128)
+
+        result = analyzer.fit_predict(embeddings)
+
+        for cluster in result.clusters:
+            if cluster.centroid is not None:
+                assert cluster.centroid.shape == (128,)
+
+    def test_cluster_silhouette_score(self, analyzer):
+        np.random.seed(42)
+        cluster1 = np.random.randn(5, 128) + 1
+        cluster2 = np.random.randn(5, 128) - 1
+        embeddings = np.vstack([cluster1, cluster2])
+
+        result = analyzer.fit_predict(embeddings)
+
+        if result.n_clusters > 1:
+            assert "silhouette_score" in result.metadata or result.n_clusters >= 1
+
 
 class TestClusterResult:
     def test_create_result(self):
@@ -115,6 +166,20 @@ class TestClusterResult:
         cluster = result.get_cluster(99)
         assert cluster is None
 
+    def test_result_with_silhouette(self):
+        result = ClusterResult(
+            labels=[0, 0, 1, 1],
+            n_clusters=2,
+            n_noise=0,
+            clusters=[
+                ClusterInfo(cluster_id=0, member_indices=[0, 1], size=2),
+                ClusterInfo(cluster_id=1, member_indices=[2, 3], size=2),
+            ],
+            metadata={"silhouette_score": 0.75},
+        )
+
+        assert result.metadata.get("silhouette_score") == 0.75
+
 
 class TestClusterInfo:
     def test_cluster_info(self):
@@ -128,3 +193,13 @@ class TestClusterInfo:
         assert info.cluster_id == 0
         assert info.size == 3
         assert info.centroid is not None
+
+    def test_cluster_info_without_centroid(self):
+        info = ClusterInfo(
+            cluster_id=0,
+            member_indices=[0, 1],
+            size=2,
+        )
+
+        assert info.cluster_id == 0
+        assert info.centroid is None

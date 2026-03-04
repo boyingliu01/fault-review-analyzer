@@ -139,5 +139,6 @@ module = [
     "sentence_transformers.*",
     "langchain.*",
     "langchain_openai.*",
+    "sklearn.*",
 ]
 ignore_missing_imports = true

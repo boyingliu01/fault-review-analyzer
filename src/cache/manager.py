@@ -46,7 +46,8 @@ class CacheManager:
             if datetime.now() > expires_at:
                 return None
 
-            return json.loads(row["data"])
+            data = json.loads(row["data"])
+            return data if isinstance(data, dict) else None
 
     def load_task(self, task_id: int) -> dict[str, Any] | None:
         return self.get_task(task_id)

@@ -68,7 +68,7 @@ BUILTIN_RULES: list[dict] = [
 class RulesEngine:
     """Rules engine for checking violations."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._rules: dict[str, Rule] = {}
         self._load_builtin_rules()
 

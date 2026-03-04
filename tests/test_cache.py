@@ -107,6 +107,52 @@ class TestCacheManager:
         assert stats["total_entries"] == 2
         assert stats["valid_entries"] == 2
 
+    def test_get_all_tasks(self, cache_manager):
+        cache_manager.save_task(1, {"task_id": 1, "title": "Test1"})
+        cache_manager.save_task(2, {"task_id": 2, "title": "Test2"})
+
+        all_tasks = cache_manager.get_all_tasks()
+
+        assert len(all_tasks) == 2
+        assert any(t["task_id"] == 1 for t in all_tasks)
+
+    def test_load_task_alias(self, cache_manager):
+        cache_manager.save_task(12345, {"task_id": 12345, "title": "Test"})
+
+        loaded = cache_manager.load_task(12345)
+
+        assert loaded is not None
+        assert loaded["task_id"] == 12345
+
+    def test_get_task_not_found(self, cache_manager):
+        loaded = cache_manager.get_task(99999)
+        assert loaded is None
+
+    def test_cache_cleanup(self, temp_dir):
+        db_path = temp_dir / "cache_cleanup.db"
+        cache_manager = CacheManager(db_path=db_path, ttl=1)
+
+        cache_manager.save_task(1, {"task_id": 1})
+        cache_manager.save_task(2, {"task_id": 2})
+        time.sleep(2)
+
+        cleaned = cache_manager.cleanup_expired()
+
+        assert cleaned == 2
+
+    def test_cache_stats_with_expired(self, temp_dir):
+        db_path = temp_dir / "cache_stats.db"
+        cache_manager = CacheManager(db_path=db_path, ttl=1)
+
+        cache_manager.save_task(1, {"task_id": 1})
+        cache_manager.save_task(2, {"task_id": 2})
+        time.sleep(2)
+
+        stats = cache_manager.get_stats()
+
+        assert stats["total_entries"] == 2
+        assert stats["expired_entries"] == 2
+
 
 class TestCacheModels:
     def test_cache_entry(self):

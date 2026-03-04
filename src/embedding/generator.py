@@ -1,5 +1,6 @@
 
 import numpy as np
+from openai import AsyncOpenAI
 
 from src.embedding.models import BatchEmbeddingResult, EmbeddingResult
 
@@ -18,18 +19,16 @@ class EmbeddingGenerator:
         self.api_key = api_key
         self.base_url = base_url
         self.batch_size = batch_size
-        self._client = None
+        self._client: AsyncOpenAI | None = None
         self._dimension_map = {
             "text-embedding-3-small": 1536,
             "text-embedding-3-large": 3072,
             "text-embedding-ada-002": 1536,
         }
 
-    def _get_client(self):
+    def _get_client(self) -> AsyncOpenAI | None:
         if self._client is None and self.provider == "openai":
-            import openai
-
-            self._client = openai.AsyncOpenAI(
+            self._client = AsyncOpenAI(
                 api_key=self.api_key,
                 base_url=self.base_url,
             )
@@ -40,6 +39,8 @@ class EmbeddingGenerator:
             raise ValueError("Text cannot be empty for embedding")
 
         client = self._get_client()
+        if client is None:
+            raise ValueError("Embedding client not initialized")
 
         response = await client.embeddings.create(
             model=self.model,
@@ -67,6 +68,8 @@ class EmbeddingGenerator:
 
     async def _embed_batch_internal(self, texts: list[str]) -> list[list[float]]:
         client = self._get_client()
+        if client is None:
+            raise ValueError("Embedding client not initialized")
 
         response = await client.embeddings.create(
             model=self.model,
@@ -119,4 +122,5 @@ class EmbeddingGenerator:
     def cosine_similarity_matrix(embeddings: np.ndarray) -> np.ndarray:
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         normalized = embeddings / (norms + 1e-10)
-        return np.dot(normalized, normalized.T)
+        result = np.dot(normalized, normalized.T)
+        return np.asarray(result)

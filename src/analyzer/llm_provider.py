@@ -17,7 +17,7 @@ class OpenAILLMProvider:
         self.base_url = base_url or "https://api.openai.com/v1"
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self._client = None
+        self._client: Any = None
 
     def _get_client(self) -> Any:
         """Get or create the async HTTP client."""

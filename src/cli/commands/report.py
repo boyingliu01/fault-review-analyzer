@@ -29,7 +29,7 @@ def generate(
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
         console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
     cache_manager = CacheManager(db_path=cache_path)

@@ -1,4 +1,3 @@
-import pytest
 from src.analyzer.labeling.models import (
     Label,
     LabelGenerationResult,

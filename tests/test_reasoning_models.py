@@ -1,8 +1,7 @@
-import pytest
 from src.analyzer.reasoning.models import (
+    CAUSE_TYPES,
     RootCause,
     RootCauseAnalysisResult,
-    CAUSE_TYPES,
 )
 
 

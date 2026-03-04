@@ -1,6 +1,8 @@
-import pytest
+import tempfile
 from pathlib import Path
+
 from src.report.generator import ReportGenerator
+from src.report.models import BatchReport, ClusterReport
 
 
 class TestReportGenerator:
@@ -86,8 +88,6 @@ class TestReportGenerator:
         assert "建议1" in report
 
     def test_generate_cluster_report(self):
-        from src.report.models import ClusterReport
-
         generator = ReportGenerator()
 
         cluster_report = ClusterReport(
@@ -105,8 +105,6 @@ class TestReportGenerator:
         assert "10" in report
 
     def test_generate_batch_report(self):
-        from src.report.models import BatchReport, ClusterReport
-
         generator = ReportGenerator()
 
         batch_report = BatchReport(
@@ -150,3 +148,107 @@ class TestReportGenerator:
 
         assert "故障复盘分析报告" in report
         assert "测试" in report
+
+    def test_generate_single_with_custom_template(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            template_dir = Path(tmpdir)
+            template_file = template_dir / "single.md.j2"
+            template_file.write_text("# Custom Template\nTask: {{ title }}", encoding="utf-8")
+
+            generator = ReportGenerator(template_dir=template_dir)
+            task_data = {"task_id": 1, "title": "测试任务", "summary": "总结"}
+            report = generator.generate_single(task_data)
+
+            assert "Custom Template" in report
+            assert "测试任务" in report
+
+    def test_generate_cluster_with_custom_template(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            template_dir = Path(tmpdir)
+            template_file = template_dir / "cluster.md.j2"
+            template_file.write_text("# Cluster {{ cluster_id }}\nCount: {{ task_count }}", encoding="utf-8")
+
+            generator = ReportGenerator(template_dir=template_dir)
+            cluster_report = ClusterReport(
+                cluster_id=1,
+                task_count=10,
+                labels=[],
+                common_root_causes=[],
+                summary="聚类",
+                suggestions=[],
+            )
+            report = generator.generate_cluster(cluster_report)
+
+            assert "Cluster 1" in report
+            assert "Count: 10" in report
+
+    def test_generate_batch_with_custom_template(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            template_dir = Path(tmpdir)
+            template_file = template_dir / "batch.md.j2"
+            template_file.write_text("# Batch Report\nTotal: {{ total_tasks }}", encoding="utf-8")
+
+            generator = ReportGenerator(template_dir=template_dir)
+            batch_report = BatchReport(
+                total_tasks=50,
+                cluster_count=3,
+                cluster_reports=[],
+                overall_summary="总结",
+                recommendations=[],
+            )
+            report = generator.generate_batch(batch_report)
+
+            assert "Batch Report" in report
+            assert "Total: 50" in report
+
+    def test_save_report_creates_parent_dirs(self, tmp_path):
+        generator = ReportGenerator()
+
+        content = "# 测试报告"
+        output_path = tmp_path / "subdir" / "test_report.md"
+
+        generator.save_report(content, output_path)
+
+        assert output_path.exists()
+        assert output_path.read_text(encoding="utf-8") == content
+
+    def test_render_cluster_markdown(self):
+        generator = ReportGenerator()
+
+        cluster_report = ClusterReport(
+            cluster_id=1,
+            task_count=5,
+            labels=[{"name": "标签1", "category": "cat1"}],
+            common_root_causes=[{"cause_type": "类型1", "description": "描述1"}],
+            summary="聚类总结",
+            suggestions=["建议1"],
+        )
+        report = generator._render_cluster_markdown(cluster_report)
+
+        assert "聚类分析报告" in report
+        assert "标签1" in report
+
+    def test_render_batch_markdown(self):
+        generator = ReportGenerator()
+
+        batch_report = BatchReport(
+            total_tasks=100,
+            cluster_count=5,
+            cluster_reports=[
+                ClusterReport(
+                    cluster_id=1,
+                    task_count=20,
+                    labels=[],
+                    common_root_causes=[],
+                    summary="聚类1",
+                    suggestions=[],
+                )
+            ],
+            overall_summary="总体总结",
+            recommendations=["建议1", "建议2"],
+        )
+        report = generator._render_batch_markdown(batch_report)
+
+        assert "批量故障分析报告" in report
+        assert "100" in report
+        assert "建议1" in report

@@ -47,8 +47,17 @@ class APIClient:
         self._owns_client = True
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self._client and self._owns_client:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
+        await self.close()
+
+    async def close(self) -> None:
+        """Close the HTTP client and release resources."""
+        if self._client:
             await self._client.aclose()
             self._client = None
             self._owns_client = False
@@ -78,7 +87,7 @@ class APIClient:
         self,
         method: str,
         endpoint: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         if self._client is None:
             self.ensure_client()
@@ -87,10 +96,12 @@ class APIClient:
 
         for attempt in range(self.retry):
             try:
+                assert self._client is not None
                 response = await self._client.request(method, endpoint, **kwargs)
 
                 if response.status_code == 200:
-                    return response.json()
+                    result = response.json()
+                    return result if isinstance(result, dict) else {}
                 elif response.status_code == 401:
                     raise AuthenticationError()
                 elif response.status_code == 404:
@@ -144,7 +155,8 @@ class APIClient:
 
     async def get_commits(self, task_id: int) -> list[CommitInfo]:
         response = await self._request("GET", f"/task/{task_id}/commits")
-        return [self._parse_commit(item) for item in response]
+        commits_data: list[Any] = response if isinstance(response, list) else []
+        return [self._parse_commit(item) for item in commits_data]
 
     async def get_production_info(self, task_id: int) -> ProductionInfo:
         response = await self._request("GET", f"/task/{task_id}/production")
@@ -195,21 +207,27 @@ class APIClient:
         return priority_map.get(pri_id, "medium")
 
     def _parse_commit(self, data: dict[str, Any]) -> CommitInfo:
+        from datetime import datetime as dt
+
+        commit_time = self._parse_datetime(
+            data.get("time", data.get("commitTime", ""))
+        )
         return CommitInfo(
             commit_id=data.get("commitId", data.get("commit_id", "")),
             message=data.get("message", ""),
             author=data.get("author", ""),
-            time=self._parse_datetime(
-                data.get("time", data.get("commitTime", ""))
-            ),
+            time=commit_time or dt.now(),
             changes=data.get("changes", data.get("files", [])),
         )
 
     def _parse_production_info(self, data: dict[str, Any]) -> ProductionInfo:
+        from datetime import datetime as dt
+
+        incident_time = self._parse_datetime(
+            data.get("incidentTime", data.get("incident_time", ""))
+        )
         return ProductionInfo(
-            incident_time=self._parse_datetime(
-                data.get("incidentTime", data.get("incident_time", ""))
-            ),
+            incident_time=incident_time or dt.now(),
             symptoms=data.get("symptoms", ""),
             logs=data.get("logs", []),
             stack_traces=data.get("stackTraces", data.get("stack_traces", [])),

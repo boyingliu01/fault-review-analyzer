@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
@@ -40,5 +41,5 @@ def setup_logger(
         )
 
 
-def get_logger(name: str = __name__):
+def get_logger(name: str = __name__) -> Any:
     return logger.bind(name=name)

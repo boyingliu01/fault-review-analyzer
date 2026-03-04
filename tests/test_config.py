@@ -197,3 +197,87 @@ api:
 
         assert config.llm.provider == "openai"
         assert config.cache.enabled is True
+
+    def test_config_property(self, temp_dir):
+        config_file = temp_dir / "config.yaml"
+        config_file.write_text("""
+api:
+  base_url: "https://api.example.com"
+""")
+        manager = ConfigManager(config_path=config_file)
+        config = manager.config
+        assert config.api.base_url == "https://api.example.com"
+
+    def test_get_config_method(self, temp_dir):
+        config_file = temp_dir / "config.yaml"
+        config_file.write_text("""
+api:
+  base_url: "https://api.example.com"
+""")
+        manager = ConfigManager(config_path=config_file)
+        config = manager.get_config()
+        assert config.api.base_url == "https://api.example.com"
+
+    def test_config_with_missing_api_key_warning(self, temp_dir, caplog):
+        import logging
+        config_file = temp_dir / "config.yaml"
+        config_file.write_text("""
+api:
+  base_url: "https://api.example.com"
+""")
+        manager = ConfigManager(config_path=config_file)
+        with caplog.at_level(logging.WARNING):
+            config = manager.load()
+        assert config.api.base_url == "https://api.example.com"
+
+    def test_set_nested_config_value(self, temp_dir):
+        config_file = temp_dir / "config.yaml"
+        config_file.write_text("""
+api:
+  base_url: "https://api.example.com"
+""")
+        manager = ConfigManager(config_path=config_file)
+        manager.load()
+        manager.set("cache.ttl", 3600)
+        assert manager.get("cache.ttl") == 3600
+
+    def test_load_config_with_all_sections(self, temp_dir):
+        config_file = temp_dir / "config.yaml"
+        config_file.write_text("""
+api:
+  base_url: "https://api.example.com"
+  api_key: "test-key"
+  timeout: 30
+  retry: 3
+llm:
+  provider: "openai"
+  model: "gpt-4"
+  api_key: "llm-key"
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-small"
+clustering:
+  algorithm: "hdbscan"
+  min_cluster_size: 5
+cache:
+  enabled: true
+  ttl: 86400
+rules:
+  builtin_enabled: true
+output:
+  format: "markdown"
+  directory: "./output"
+logging:
+  level: "DEBUG"
+""")
+        manager = ConfigManager(config_path=config_file)
+        config = manager.load()
+
+        assert config.api.base_url == "https://api.example.com"
+        assert config.llm.provider == "openai"
+        assert config.embedding.provider == "openai"
+        assert config.clustering.algorithm == "hdbscan"
+        assert config.cache.enabled is True
+        assert config.rules.builtin_enabled is True
+        assert config.output.format == "markdown"
+        assert config.logging.level == "DEBUG"
