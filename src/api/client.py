@@ -25,14 +25,18 @@ class APIClient:
         self,
         base_url: str,
         token: str = "",
+        api_key: str = "",
         timeout: int = 30,
         retry: int = 3,
+        api_path_prefix: str = "/portal/ai-gateway/devspace/rpc/v3/work-item",
     ):
         self.base_url = base_url.rstrip("/")
-        self.token = token
+        self.token = token or api_key
         self.timeout = timeout
         self.retry = retry
+        self.api_path_prefix = api_path_prefix
         self._client: httpx.AsyncClient | None = None
+        self._owns_client: bool = False
 
     async def __aenter__(self) -> "APIClient":
         self._client = httpx.AsyncClient(
@@ -40,12 +44,23 @@ class APIClient:
             timeout=self.timeout,
             headers=self._get_headers(),
         )
+        self._owns_client = True
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self._client:
+        if self._client and self._owns_client:
             await self._client.aclose()
             self._client = None
+            self._owns_client = False
+
+    def ensure_client(self) -> None:
+        """Ensure the client is initialized for non-context-manager usage."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                base_url=self.base_url,
+                timeout=self.timeout,
+                headers=self._get_headers(),
+            )
 
     def _get_headers(self) -> dict[str, str]:
         headers = {
@@ -53,7 +68,10 @@ class APIClient:
             "Accept": "application/json",
         }
         if self.token:
-            headers["Authorization"] = f"Bearer {self.token}"
+            if self.token.startswith("Bearer "):
+                headers["Authorization"] = self.token
+            else:
+                headers["Authorization"] = f"Bearer {self.token}"
         return headers
 
     async def _request(
@@ -63,7 +81,7 @@ class APIClient:
         **kwargs,
     ) -> dict[str, Any]:
         if self._client is None:
-            raise RuntimeError("APIClient must be used as async context manager")
+            self.ensure_client()
 
         last_error: Exception | None = None
 
@@ -101,8 +119,28 @@ class APIClient:
         raise last_error or APIConnectionError("Unknown error")
 
     async def get_task(self, task_id: int) -> TaskInfo:
-        response = await self._request("GET", f"/task/{task_id}")
+        response = await self._request("POST", f"{self.api_path_prefix}/{task_id}/detail", json=self._get_default_detail_body())
         return self._parse_task(response)
+
+    def _get_default_detail_body(self) -> dict[str, Any]:
+        return {
+            "withTaskFlowStage": "false",
+            "withOwnerUser": "false",
+            "withProductModule": "false",
+            "withAction": "false",
+            "withParent": "false",
+            "withTaskDoc": "false",
+            "withDevCase": "false",
+            "withTestCase": "false",
+            "withTaskType": "false",
+            "withProductVersion": "false",
+            "withBranchVersion": "false",
+            "withAttach": "false",
+            "withEdo": "false",
+            "withTaskImpact": "false",
+            "withConfig": "false",
+            "withAllTaskType": "false"
+        }
 
     async def get_commits(self, task_id: int) -> list[CommitInfo]:
         response = await self._request("GET", f"/task/{task_id}/commits")
@@ -131,19 +169,30 @@ class APIClient:
         return task
 
     def _parse_task(self, data: dict[str, Any]) -> TaskInfo:
-        return TaskInfo(
-            task_id=data.get("taskId", data.get("task_id", 0)),
-            title=data.get("title", ""),
-            description=data.get("description", ""),
-            status=data.get("status", ""),
-            priority=data.get("priority", "medium"),
-            create_time=self._parse_datetime(
-                data.get("createTime", data.get("create_time", ""))
-            ),
-            resolve_time=self._parse_datetime(
-                data.get("resolveTime", data.get("resolve_time"))
-            ),
+        task_data = data.get("data", {}).get("apiTask", data)
+        create_time = self._parse_datetime(
+            task_data.get("createdDate", task_data.get("create_time", ""))
         )
+        resolve_time = self._parse_datetime(
+            task_data.get("finishDate", task_data.get("resolveTime"))
+        )
+        from datetime import datetime as dt
+        now = dt.now()
+        return TaskInfo(
+            task_id=task_data.get("taskId", task_data.get("task_id", 0)),
+            title=task_data.get("taskTitle", task_data.get("title", "")),
+            description=task_data.get("comments", task_data.get("description", "")),
+            status="closed" if task_data.get("finishFlag") == 1 else "open",
+            priority=self._map_priority(task_data.get("taskPriId")),
+            create_time=create_time or now,
+            resolve_time=resolve_time,
+        )
+
+    def _map_priority(self, pri_id: int | None) -> str:
+        if pri_id is None:
+            return "medium"
+        priority_map = {5: "low", 10: "medium", 15: "high", 20: "critical"}
+        return priority_map.get(pri_id, "medium")
 
     def _parse_commit(self, data: dict[str, Any]) -> CommitInfo:
         return CommitInfo(

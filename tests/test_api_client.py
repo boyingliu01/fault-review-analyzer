@@ -23,12 +23,12 @@ class TestAPIClient:
     async def test_get_task_detail(self, api_client):
         mock_response = {
             "taskId": 12345,
-            "title": "SQL查询导致OOM",
-            "description": "生产环境执行大表查询时发生内存溢出",
-            "status": "resolved",
-            "priority": "high",
-            "createTime": "2024-01-15T10:00:00",
-            "resolveTime": "2024-01-15T12:00:00",
+            "taskTitle": "SQL查询导致OOM",
+            "comments": "生产环境执行大表查询时发生内存溢出",
+            "finishFlag": 1,
+            "taskPriId": 15,
+            "createdDate": "2024-01-15T10:00:00",
+            "finishDate": "2024-01-15T12:00:00",
         }
 
         with patch.object(api_client, "_request", new_callable=AsyncMock) as mock_request:
@@ -38,7 +38,7 @@ class TestAPIClient:
 
             assert task.task_id == 12345
             assert task.title == "SQL查询导致OOM"
-            assert task.status == "resolved"
+            assert task.status == "closed"
 
     @pytest.mark.asyncio
     async def test_authentication(self, api_client):
@@ -51,21 +51,31 @@ class TestAPIClient:
     async def test_retry_on_failure(self, api_client):
         call_count = 0
 
-        async def mock_request(*args, **kwargs):
+        async def mock_http_request(method, url, **kwargs):
             nonlocal call_count
             call_count += 1
             if call_count < 3:
                 raise httpx.ConnectError("Connection error")
-            return MagicMock(
-                status_code=200,
-                json=lambda: {"taskId": 12345, "title": "Test", "description": "Test task", "status": "open", "priority": "medium", "createTime": "2024-01-15T10:00:00", "resolveTime": "2024-01-15T12:00:00"},
-            )
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {
+                "taskId": 12345,
+                "taskTitle": "Test",
+                "comments": "Test task",
+                "finishFlag": 0,
+                "taskPriId": 10,
+                "createdDate": "2024-01-15T10:00:00",
+                "finishDate": None,
+            }
+            return mock_resp
 
-        with patch("asyncio.sleep"), patch("httpx.AsyncClient.request", side_effect=mock_request):
-            async with api_client:
-                result = await api_client.get_task(12345)
-                assert call_count == 3
-                assert result.task_id == 12345
+        api_client.ensure_client()
+        with patch("asyncio.sleep"), patch.object(
+            api_client._client, "request", side_effect=mock_http_request
+        ):
+            result = await api_client.get_task(12345)
+            assert call_count == 3
+            assert result.task_id == 12345
 
     @pytest.mark.asyncio
     async def test_error_handling_401(self, api_client):

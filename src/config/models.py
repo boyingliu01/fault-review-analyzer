@@ -7,6 +7,10 @@ class APIConfig(BaseModel):
     timeout: int = Field(default=30, ge=1, description="请求超时时间(秒)")
     retry: int = Field(default=3, ge=0, le=10, description="重试次数")
     api_key: str = Field(default="", description="API认证token")
+    api_path_prefix: str = Field(
+        default="/portal/ai-gateway/devspace/rpc/v3/work-item",
+        description="API路径前缀"
+    )
 
     @field_validator("base_url")
     @classmethod
@@ -45,6 +49,7 @@ class EmbeddingConfig(BaseModel):
     model: str = Field(default="text-embedding-3-small", description="模型名称")
     api_key: str = Field(default="", description="API密钥")
     base_url: str = Field(default="", description="API基础URL(可选)")
+    batch_size: int = Field(default=100, ge=1, le=512, description="批量嵌入时的最大文本条数")
 
     @field_validator("provider")
     @classmethod

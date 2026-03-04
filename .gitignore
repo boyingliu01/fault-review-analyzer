@@ -34,3 +34,4 @@ ENV/
 data/
 *.db
 .env
+config.yaml

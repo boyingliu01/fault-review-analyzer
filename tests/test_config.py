@@ -148,6 +148,8 @@ llm:
     def test_get_config_value(self, temp_dir):
         config_file = temp_dir / "config.yaml"
         config_file.write_text("""
+api:
+  base_url: "https://api.example.com"
 llm:
   provider: "openai"
   model: "gpt-4"
@@ -162,6 +164,8 @@ llm:
     def test_set_config_value(self, temp_dir):
         config_file = temp_dir / "config.yaml"
         config_file.write_text("""
+api:
+  base_url: "https://api.example.com"
 llm:
   provider: "openai"
 """)
@@ -173,6 +177,10 @@ llm:
 
     def test_save_config(self, temp_dir):
         config_file = temp_dir / "config.yaml"
+        config_file.write_text("""
+api:
+  base_url: "https://api.example.com"
+""")
         manager = ConfigManager(config_path=config_file)
         manager.load()
         manager.set("llm.provider", "qwen")
@@ -185,7 +193,7 @@ llm:
     def test_default_config_when_file_not_exists(self, temp_dir):
         nonexistent_file = temp_dir / "nonexistent.yaml"
         manager = ConfigManager(config_path=nonexistent_file)
-        config = manager.load()
+        config = manager.load(validate=False)
 
         assert config.llm.provider == "openai"
         assert config.cache.enabled is True

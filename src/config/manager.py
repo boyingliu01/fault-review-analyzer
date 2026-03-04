@@ -27,6 +27,7 @@ class ConfigManager:
             "EMBEDDING_MODEL": ("embedding", "model"),
             "EMBEDDING_API_KEY": ("embedding", "api_key"),
             "EMBEDDING_BASE_URL": ("embedding", "base_url"),
+            "EMBEDDING_BATCH_SIZE": ("embedding", "batch_size"),
             "CLUSTERING_ALGORITHM": ("clustering", "algorithm"),
             "CLUSTERING_MIN_CLUSTER_SIZE": ("clustering", "min_cluster_size"),
             "CLUSTERING_MIN_SAMPLES": ("clustering", "min_samples"),
@@ -42,11 +43,27 @@ class ConfigManager:
             "LOG_FILE": ("logging", "file"),
         }
 
-    def load(self) -> AppConfig:
+    def load(self, validate: bool = True) -> AppConfig:
         config_dict = self._load_from_file()
         self._apply_env_overrides(config_dict)
         self._config = AppConfig(**config_dict)
+        if validate:
+            self._validate_config()
         return self._config
+
+    def _validate_config(self) -> None:
+        """Validate required configuration fields."""
+        if not self._config.api.base_url:
+            raise ValueError(
+                "API base_url is required. Please set it in config.yaml or via "
+                "API_BASE_URL environment variable. See .env.example for reference."
+            )
+        if not self._config.api.api_key:
+            import logging
+            logging.warning(
+                "API API key not configured. Set via API_API_KEY env var or config.yaml. "
+                "API calls will fail without authentication."
+            )
 
     def _load_from_file(self) -> dict[str, Any]:
         if self.config_path and self.config_path.exists():
@@ -127,3 +144,6 @@ class ConfigManager:
         if self._config is None:
             self.load()
         return self._config
+
+    def get_config(self) -> AppConfig:
+        return self.config

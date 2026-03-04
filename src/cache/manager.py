@@ -48,6 +48,9 @@ class CacheManager:
 
             return json.loads(row["data"])
 
+    def load_task(self, task_id: int) -> dict[str, Any] | None:
+        return self.get_task(task_id)
+
     def save_task(self, task_id: int, data: dict[str, Any]) -> None:
         now = datetime.now()
         expires_at = now + timedelta(seconds=self.ttl)
@@ -130,6 +133,22 @@ class CacheManager:
                 "valid_entries": valid,
                 "expired_entries": total - valid,
             }
+
+    def get_all_tasks(self) -> list[dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT * FROM cache")
+            rows = cursor.fetchall()
+
+            result = []
+            now = datetime.now()
+            for row in rows:
+                expires_at = datetime.fromisoformat(row["expires_at"])
+                if now <= expires_at:
+                    data = json.loads(row["data"])
+                    result.append(data)
+
+            return result
 
     def cleanup_expired(self) -> int:
         with sqlite3.connect(self.db_path) as conn:

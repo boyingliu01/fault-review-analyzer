@@ -68,11 +68,9 @@ class EmbeddingGenerator:
     async def _embed_batch_internal(self, texts: list[str]) -> list[list[float]]:
         client = self._get_client()
 
-        processed_texts = [t if t and t.strip() else " " for t in texts]
-
         response = await client.embeddings.create(
             model=self.model,
-            input=processed_texts,
+            input=texts,
         )
 
         embeddings = [list(item.embedding) for item in response.data]

@@ -4,6 +4,12 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
+
+from src.analyzer import AnalysisPipeline, PipelineConfig
+from src.cache import CacheManager
+from src.config import ConfigManager
 
 app = typer.Typer(help="分析故障数据")
 console = Console()
@@ -14,19 +20,217 @@ def analyze_single(
     task_id: int = typer.Argument(..., help="任务ID"),
     output: Path | None = typer.Option(None, "--output", "-o", help="输出报告路径"),
     config_path: Path | None = typer.Option(None, "--config", "-c", help="配置文件路径"),
+    use_llm: bool = typer.Option(True, "--llm/--no-llm", help="是否使用LLM分析"),
+    use_cache: bool = typer.Option(True, "--cache/--no-cache", help="是否使用缓存"),
 ) -> None:
     """分析单个任务"""
-    console.print(f"[yellow]分析任务 {task_id}...[/yellow]")
-    console.print("[yellow]此功能需要完成分析引擎开发后可用[/yellow]")
+    console.print(f"[cyan]分析任务 {task_id}...[/cyan]")
+
+    try:
+        config_manager = ConfigManager(config_path)
+        config_manager.load()
+    except ValueError as e:
+        console.print(f"[red]配置错误: {e}[/red]")
+        console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
+        raise typer.Exit(1)
+
+    pipeline_config = PipelineConfig(
+        use_cache=use_cache,
+        use_llm=use_llm,
+        generate_report=True,
+    )
+
+    pipeline = AnalysisPipeline(config_manager, pipeline_config)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        progress.add_task("正在分析...", total=None)
+        import asyncio
+        result = asyncio.run(pipeline.run_single(task_id))
+
+    if result.error:
+        console.print(f"[red]分析失败: {result.error}[/red]")
+        raise typer.Exit(1)
+
+    console.print("[green]分析完成![/green]")
+
+    table = Table(title="分析结果")
+    table.add_column("项目", style="cyan")
+    table.add_column("值", style="white")
+
+    if result.preprocessed:
+        table.add_row("文本段数", str(len(result.preprocessed.get("segments", []))))
+
+    if result.labels:
+        label_names = [label.get("name", "") for label in result.labels]
+        table.add_row("标签", ", ".join(label_names[:3]))
+
+    if result.root_causes:
+        table.add_row("根因数", str(len(result.root_causes)))
+
+    if result.violations:
+        table.add_row("规范违规", str(len(result.violations)))
+
+    console.print(table)
+
+    if output:
+        if output.suffix:
+            output_path = output
+        else:
+            output.mkdir(parents=True, exist_ok=True)
+            output_path = output / f"task_{task_id}_report.md"
+        output_path.write_text(result.report, encoding="utf-8")
+        console.print(f"[green]报告已保存到: {output_path}[/green]")
 
 
 @app.command("batch")
 def analyze_batch(
     from_cache: bool = typer.Option(True, "--from-cache/--no-cache", help="从缓存读取"),
     cluster: bool = typer.Option(True, "--cluster/--no-cluster", help="是否进行聚类分析"),
+    min_cluster_size: int = typer.Option(3, "--min-size", help="最小聚类大小"),
     output: Path | None = typer.Option(None, "--output", "-o", help="输出报告路径"),
     config_path: Path | None = typer.Option(None, "--config", "-c", help="配置文件路径"),
 ) -> None:
-    """批量分析任务"""
-    console.print("[yellow]批量分析任务...[/yellow]")
-    console.print("[yellow]此功能需要完成分析引擎开发后可用[/yellow]")
+    """批量分析缓存中的任务"""
+    console.print("[cyan]批量分析任务...[/cyan]")
+
+    try:
+        config_manager = ConfigManager(config_path)
+        config = config_manager.load()
+    except ValueError as e:
+        console.print(f"[red]配置错误: {e}[/red]")
+        console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
+        raise typer.Exit(1)
+
+    cache_path = Path(config.cache.db_path)
+    cache_manager = CacheManager(db_path=cache_path)
+
+    all_tasks = cache_manager.get_all_tasks()
+
+    if not all_tasks:
+        console.print("[yellow]缓存中没有任务数据[/yellow]")
+        console.print("[yellow]请先使用 fetch 命令获取任务数据[/yellow]")
+        return
+
+    console.print(f"[cyan]找到 {len(all_tasks)} 个缓存任务[/cyan]")
+
+    task_ids = [task["task_id"] for task in all_tasks]
+
+    pipeline_config = PipelineConfig(
+        use_cache=from_cache,
+        use_llm=True,
+        generate_report=True,
+    )
+
+    pipeline = AnalysisPipeline(config_manager, pipeline_config)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        progress.add_task("正在批量分析...", total=None)
+
+        if cluster:
+            import asyncio
+            result = asyncio.run(pipeline.run_clustering(task_ids))
+
+            if "error" in result:
+                console.print(f"[red]聚类分析失败: {result['error']}[/red]")
+            else:
+                console.print("[green]聚类分析完成![/green]")
+                console.print(f"  聚类数量: {result.get('cluster_count', 0)}")
+                console.print(f"  噪声点: {result.get('noise_count', 0)}")
+        else:
+            import asyncio
+            results = asyncio.run(pipeline.run_batch(task_ids))
+
+            console.print(f"[green]批量分析完成! 共处理 {len(results)} 个任务[/green]")
+
+    if output:
+        if output.suffix:
+            output_path = output
+        else:
+            output.mkdir(parents=True, exist_ok=True)
+            output_path = output / "batch_analysis_report.md"
+        output_path.write_text(f"# 批量分析报告\n\n共分析 {len(task_ids)} 个任务", encoding="utf-8")
+        console.print(f"[green]报告已保存到: {output_path}[/green]")
+
+
+@app.command("clusters")
+def analyze_clusters(
+    output: Path | None = typer.Option(None, "--output", "-o", help="输出报告路径"),
+    config_path: Path | None = typer.Option(None, "--config", "-c", help="配置文件路径"),
+) -> None:
+    """对缓存中的任务进行聚类分析"""
+    console.print("[cyan]聚类分析...[/cyan]")
+
+    config_manager = ConfigManager(config_path)
+    try:
+        config = config_manager.load()
+    except ValueError as e:
+        console.print(f"[red]配置错误: {e}[/red]")
+        console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
+        raise typer.Exit(1)
+
+    cache_path = Path(config.cache.db_path)
+    cache_manager = CacheManager(db_path=cache_path)
+
+    all_tasks = cache_manager.get_all_tasks()
+
+    if not all_tasks:
+        console.print("[yellow]缓存中没有任务数据[/yellow]")
+        return
+
+    task_ids = [task["task_id"] for task in all_tasks]
+
+    import asyncio
+
+    from src.analyzer import AnalysisPipeline, PipelineConfig
+
+    pipeline_config = PipelineConfig(use_cache=True, use_llm=False)
+    pipeline = AnalysisPipeline(config_manager, pipeline_config)
+
+    result = asyncio.run(pipeline.run_clustering(task_ids))
+
+    if "error" in result:
+        console.print(f"[red]聚类分析失败: {result['error']}[/red]")
+    else:
+        console.print("[green]聚类分析完成![/green]")
+        console.print(f"  任务总数: {len(task_ids)}")
+        console.print(f"  聚类数量: {result.get('cluster_count', 0)}")
+        console.print(f"  噪声点: {result.get('noise_count', 0)}")
+
+        tasks_by_cluster = {}
+        for task in result.get("tasks", []):
+            cluster_id = task.get("cluster_id", -1)
+            if cluster_id not in tasks_by_cluster:
+                tasks_by_cluster[cluster_id] = []
+            tasks_by_cluster[cluster_id].append(task["task_id"])
+
+        table = Table(title="聚类分布")
+        table.add_column("聚类ID", style="cyan")
+        table.add_column("任务数量", style="white")
+
+        for cid, tids in sorted(tasks_by_cluster.items()):
+            table.add_row(str(cid), str(len(tids)))
+
+        console.print(table)
+
+    if output:
+        if output.suffix:
+            output_path = output
+        else:
+            output.mkdir(parents=True, exist_ok=True)
+            output_path = output / "cluster_analysis_report.md"
+        output_path.write_text(
+            f"# 聚类分析报告\n\n"
+            f"任务总数: {len(task_ids)}\n"
+            f"聚类数量: {result.get('cluster_count', 0)}\n"
+            f"噪声点: {result.get('noise_count', 0)}\n",
+            encoding="utf-8",
+        )
+        console.print(f"[green]报告已保存到: {output_path}[/green]")
