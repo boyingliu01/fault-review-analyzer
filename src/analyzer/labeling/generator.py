@@ -3,7 +3,7 @@ from typing import Any
 
 from src.rules.categories import FAULT_CATEGORIES
 
-from ..labeling.models import Label, LabelGenerationResult
+from ..labeling.models import Label, LabelGenerationResult, LLMProvider
 
 _MAX_SEGMENT_CHARS = 500
 _MAX_DESCRIPTION_CHARS = 200
@@ -55,7 +55,7 @@ def build_segment_details(segments: list[dict]) -> str:
 class LabelGenerator:
     """Generate labels for fault tasks using LLM."""
 
-    def __init__(self, llm_provider: Any = None):
+    def __init__(self, llm_provider: LLMProvider | None = None):
         self._provider = llm_provider
         self._categories = FAULT_CATEGORIES
 

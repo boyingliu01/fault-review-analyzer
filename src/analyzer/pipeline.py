@@ -97,8 +97,7 @@ class AnalysisPipeline:
                 return result
 
             result.task_data = task_data.model_dump()
-
-            task_dict = task_data.model_dump()
+            task_dict = result.task_data
             preprocessed = self._preprocessor.process(task_data)
             result.preprocessed = {
                 "task_id": preprocessed.task_id,

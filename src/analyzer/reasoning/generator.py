@@ -1,8 +1,10 @@
 import json
 from typing import Any
 
+from src.analyzer.labeling.models import LLMProvider
+from src.rules.categories import CAUSE_TYPES
+
 from .models import (
-    CAUSE_TYPES,
     RootCause,
     RootCauseAnalysisResult,
 )
@@ -65,7 +67,7 @@ def build_segment_details(segments: list[dict]) -> str:
 class RootCauseAnalyzer:
     """Analyze root causes for fault tasks using LLM."""
 
-    def __init__(self, llm_provider: Any = None):
+    def __init__(self, llm_provider: LLMProvider | None = None):
         self._provider = llm_provider
         self._cause_types = CAUSE_TYPES
 

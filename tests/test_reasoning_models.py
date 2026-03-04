@@ -1,8 +1,8 @@
 from src.analyzer.reasoning.models import (
-    CAUSE_TYPES,
     RootCause,
     RootCauseAnalysisResult,
 )
+from src.rules.categories import CAUSE_TYPES
 
 
 class TestReasoningModels:
