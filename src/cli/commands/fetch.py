@@ -65,7 +65,7 @@ def fetch_single(
         task = asyncio.run(_fetch())
 
         if task:
-            cache_manager.save_task(task_id, task.model_dump())
+            cache_manager.save_task(task_id, task.model_dump(mode="json"))
             console.print(f"[green]成功获取并缓存任务 {task_id}[/green]")
         else:
             console.print(f"[red]获取任务 {task_id} 失败[/red]")
@@ -145,7 +145,7 @@ def fetch_batch(
                 try:
                     task = await client.get_full_task(task_id)
                     if task:
-                        cache_manager.save_task(task_id, task.model_dump())
+                        cache_manager.save_task(task_id, task.model_dump(mode="json"))
                         console.print(f"  任务 {task_id}: [green]成功[/green]")
                         success_count += 1
                     else:

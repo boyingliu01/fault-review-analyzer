@@ -173,6 +173,7 @@ class AnalysisPipeline:
                 {
                     "task_id": t.task_id,
                     "cluster_id": int(labels_list[i]),
+                    "title": processed_tasks[i].metadata.get("title", "") if i < len(processed_tasks) else "",
                     "text": t.combined_text[:200],
                 }
                 for i, t in enumerate(processed_tasks)
@@ -196,7 +197,7 @@ class AnalysisPipeline:
 
         if self._pipeline_config.use_cache:
             cache = self._get_cache_manager()
-            cache.save_task(task_id, task.model_dump())
+            cache.save_task(task_id, task.model_dump(mode="json"))
 
         return task
 

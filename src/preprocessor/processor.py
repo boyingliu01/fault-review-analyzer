@@ -16,6 +16,7 @@ class DataPreprocessor:
             segments=segments,
             combined_text=self._truncate_text(combined_text),
             metadata={
+                "title": task.title,
                 "status": task.status,
                 "priority": task.priority,
                 "create_time": task.create_time.isoformat() if task.create_time else None,

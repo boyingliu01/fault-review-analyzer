@@ -28,6 +28,14 @@ ENV/
 .idea/
 .vscode/
 *.swp
+
+output/
+*.xlsx
+!data/*.xlsx
+docs/*.pdf
+swagger.txt
+test_*.py
+*.log
 *.swo
 *~
 .DS_Store

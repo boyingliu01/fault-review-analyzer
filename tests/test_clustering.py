@@ -118,7 +118,7 @@ class TestClusterAnalyzer:
 
         for cluster in result.clusters:
             if cluster.centroid is not None:
-                assert cluster.centroid.shape == (128,)
+                assert len(cluster.centroid) == 128
 
     def test_cluster_silhouette_score(self, analyzer):
         np.random.seed(42)

@@ -1,4 +1,3 @@
-
 from typing import Any
 
 import numpy as np
@@ -28,7 +27,10 @@ class ClusterAnalyzer:
             embeddings = embeddings.reshape(1, -1)
 
         if self.algorithm == "hdbscan":
-            labels = self._fit_hdbscan(embeddings)
+            try:
+                labels = self._fit_hdbscan(embeddings)
+            except ImportError:
+                labels = self._fit_sklearn(embeddings)
         else:
             raise ValueError(f"Unknown algorithm: {self.algorithm}")
 
@@ -64,6 +66,29 @@ class ClusterAnalyzer:
         result = self._model.fit_predict(embeddings_to_use)
         return np.asarray(result)
 
+    def _fit_sklearn(self, embeddings: np.ndarray) -> np.ndarray:
+        from sklearn.cluster import AgglomerativeClustering
+
+        if len(embeddings) < self.min_cluster_size:
+            return np.array([-1] * len(embeddings))
+
+        embeddings_to_use = embeddings
+        if self.metric == "cosine":
+            norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+            norms = np.where(norms == 0, 1, norms)
+            embeddings_to_use = embeddings / norms
+
+        n_clusters = max(1, len(embeddings) // self.min_cluster_size)
+
+        self._model = AgglomerativeClustering(
+            n_clusters=n_clusters,
+            metric="euclidean",
+            linkage="ward",
+        )
+
+        labels = self._model.fit_predict(embeddings_to_use)
+        return np.asarray(labels)
+
     def _build_clusters(
         self,
         labels: np.ndarray,
@@ -78,45 +103,13 @@ class ClusterAnalyzer:
 
             centroid = np.mean(cluster_embeddings, axis=0)
 
-            cluster = ClusterInfo(
-                cluster_id=int(label),
-                member_indices=indices.tolist(),
-                size=len(indices),
-                centroid=centroid.tolist(),
+            clusters.append(
+                ClusterInfo(
+                    cluster_id=int(label),
+                    size=len(indices),
+                    centroid=centroid.tolist(),
+                    member_indices=indices.tolist(),
+                )
             )
-            clusters.append(cluster)
 
-        return sorted(clusters, key=lambda c: c.size, reverse=True)
-
-    def get_cluster_members(
-        self,
-        cluster_id: int,
-        labels: np.ndarray,
-    ) -> list[int]:
-        result = np.where(labels == cluster_id)[0].tolist()
-        return [int(x) for x in result]
-
-    def compute_cluster_quality(
-        self,
-        embeddings: np.ndarray,
-        labels: np.ndarray,
-    ) -> dict:
-        from sklearn.metrics import calinski_harabasz_score, silhouette_score
-
-        valid_mask = labels != -1
-        valid_embeddings = embeddings[valid_mask]
-        valid_labels = labels[valid_mask]
-
-        if len(set(valid_labels)) < 2:
-            return {
-                "silhouette_score": None,
-                "calinski_harabasz_score": None,
-            }
-
-        silhouette = silhouette_score(valid_embeddings, valid_labels)
-        calinski = calinski_harabasz_score(valid_embeddings, valid_labels)
-
-        return {
-            "silhouette_score": float(silhouette),
-            "calinski_harabasz_score": float(calinski),
-        }
+        return clusters

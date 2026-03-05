@@ -226,11 +226,29 @@ def analyze_clusters(
         else:
             output.mkdir(parents=True, exist_ok=True)
             output_path = output / "cluster_analysis_report.md"
-        output_path.write_text(
-            f"# 聚类分析报告\n\n"
-            f"任务总数: {len(task_ids)}\n"
-            f"聚类数量: {result.get('cluster_count', 0)}\n"
-            f"噪声点: {result.get('noise_count', 0)}\n",
-            encoding="utf-8",
-        )
+
+        report_lines = [
+            "# 聚类分析报告\n\n",
+            f"任务总数: {len(task_ids)}\n",
+            f"聚类数量: {result.get('cluster_count', 0)}\n",
+            f"噪声点: {result.get('noise_count', 0)}\n\n",
+            "## 聚类详情\n\n",
+        ]
+
+        for cluster_id in sorted(tasks_by_cluster.keys()):
+            task_ids_in_cluster = tasks_by_cluster[cluster_id]
+            cluster_label = f"聚类 {cluster_id}" if cluster_id != -1 else "噪声点"
+            report_lines.append(f"### {cluster_label} ({len(task_ids_in_cluster)} 个任务)\n\n")
+
+            for tid in task_ids_in_cluster:
+                task_info = next(
+                    (t for t in result.get("tasks", []) if t.get("task_id") == tid),
+                    None,
+                )
+                title = task_info.get("title", "") if task_info else ""
+                report_lines.append(f"- **{tid}**: {title}\n")
+
+            report_lines.append("\n")
+
+        output_path.write_text("".join(report_lines), encoding="utf-8")
         console.print(f"[green]报告已保存到: {output_path}[/green]")

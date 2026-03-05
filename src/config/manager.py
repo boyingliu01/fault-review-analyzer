@@ -9,6 +9,8 @@ from src.config.models import AppConfig
 
 class ConfigManager:
     def __init__(self, config_path: Path | None = None):
+        if config_path is None:
+            config_path = Path("config.yaml")
         self.config_path = config_path
         self._config: AppConfig | None = None
         self._env_prefix_map = {

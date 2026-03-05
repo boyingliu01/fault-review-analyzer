@@ -12,7 +12,6 @@ class MockReasoningProvider:
 
 
 class TestRootCauseAnalyzer:
-    @pytest.mark.asyncio
     async def test_analyze_root_cause(self):
         mock_response = '''
         {
@@ -48,7 +47,6 @@ class TestRootCauseAnalyzer:
         assert result.root_causes[0].cause_type == "编码错误"
         assert result.analysis_summary == "分析总结"
 
-    @pytest.mark.asyncio
     async def test_analyze_batch(self):
         mock_response = '''
         {
@@ -78,7 +76,6 @@ class TestRootCauseAnalyzer:
         with pytest.raises(RuntimeError, match="LLM provider not configured"):
             analyzer._get_provider()
 
-    @pytest.mark.asyncio
     async def test_parse_response_invalid_json(self):
         analyzer = RootCauseAnalyzer(llm_provider=None)
         result = analyzer._parse_response(1, "invalid json")

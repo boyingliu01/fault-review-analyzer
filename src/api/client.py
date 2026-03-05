@@ -131,7 +131,23 @@ class APIClient:
 
     async def get_task(self, task_id: int) -> TaskInfo:
         response = await self._request("POST", f"{self.api_path_prefix}/{task_id}/detail", json=self._get_default_detail_body())
-        return self._parse_task(response)
+        task = self._parse_task(response)
+        if task.task_id != task_id:
+            task = TaskInfo(
+                task_id=task_id,
+                title=task.title,
+                description=task.description,
+                status=task.status,
+                priority=task.priority,
+                create_time=task.create_time,
+                resolve_time=task.resolve_time,
+                requirement=task.requirement,
+                design=task.design,
+                development=task.development,
+                testing=task.testing,
+                production=task.production,
+            )
+        return task
 
     def _get_default_detail_body(self) -> dict[str, Any]:
         return {

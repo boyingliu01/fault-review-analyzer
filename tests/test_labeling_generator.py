@@ -13,7 +13,6 @@ class MockProvider:
 
 
 class TestLabelGenerator:
-    @pytest.mark.asyncio
     async def test_generate_labels(self):
         mock_response = '''
         {
@@ -42,7 +41,6 @@ class TestLabelGenerator:
         assert result.labels[0].name == "编码错误"
         assert result.labels[0].confidence == 0.9
 
-    @pytest.mark.asyncio
     async def test_generate_for_cluster(self):
         mock_response = '''
         {
@@ -72,7 +70,6 @@ class TestLabelGenerator:
         with pytest.raises(RuntimeError, match="LLM provider not configured"):
             generator._get_provider()
 
-    @pytest.mark.asyncio
     async def test_parse_response_invalid_json(self):
         generator = LabelGenerator(llm_provider=None)
         result = generator._parse_response(1, "invalid json")
@@ -80,7 +77,6 @@ class TestLabelGenerator:
         assert result.cluster_id == 1
         assert len(result.labels) == 0
 
-    @pytest.mark.asyncio
     async def test_generate_without_segments(self):
         mock_response = '''
         {

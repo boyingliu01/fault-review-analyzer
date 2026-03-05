@@ -24,19 +24,38 @@ class EmbeddingGenerator:
             "text-embedding-3-small": 1536,
             "text-embedding-3-large": 3072,
             "text-embedding-ada-002": 1536,
+            "embedding-3": 1024,
+            "doubao-embedding-large": 4096,
+            "doubao-embedding-text-240715": 1024,
         }
 
     def _get_client(self) -> AsyncOpenAI | None:
-        if self._client is None and self.provider == "openai":
-            self._client = AsyncOpenAI(
-                api_key=self.api_key,
-                base_url=self.base_url,
-            )
+        if self._client is None:
+            if self.provider == "openai":
+                self._client = AsyncOpenAI(
+                    api_key=self.api_key,
+                    base_url=self.base_url,
+                )
+            elif self.provider == "zhipu":
+                self._client = AsyncOpenAI(
+                    api_key=self.api_key,
+                    base_url="https://open.bigmodel.cn/api/paas/v4/",
+                )
+            elif self.provider == "volcengine":
+                self._client = AsyncOpenAI(
+                    api_key=self.api_key,
+                    base_url=self.base_url,
+                )
+            elif self.provider == "local":
+                pass
         return self._client
 
     async def embed_text(self, text: str) -> list[float]:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty for embedding")
+
+        if self.provider == "local":
+            return self._local_embed_single(text)
 
         client = self._get_client()
         if client is None:
@@ -53,6 +72,9 @@ class EmbeddingGenerator:
         if not texts:
             return []
 
+        if self.provider == "local":
+            return self._local_embed_batch(texts)
+
         for text in texts:
             if not text or not text.strip():
                 raise ValueError("Text cannot be empty for embedding")
@@ -65,6 +87,42 @@ class EmbeddingGenerator:
             results.extend(batch_results)
 
         return results
+
+    def _local_embed_single(self, text: str) -> list[float]:
+        import hashlib
+
+        hash_obj = hashlib.sha256(text.encode())
+        hash_bytes = hash_obj.digest()
+        vector = []
+        dim = 1024
+        for i in range(dim):
+            byte_idx = i % len(hash_bytes)
+            next_byte_idx = (byte_idx + 1) % len(hash_bytes)
+            val = (hash_bytes[byte_idx] + hash_bytes[next_byte_idx] * 0.01) / 255.0
+            vector.append(val)
+        norm = sum(v * v for v in vector) ** 0.5
+        if norm > 0:
+            vector = [v / norm for v in vector]
+        return vector
+
+    def _local_embed_batch(self, texts: list[str]) -> list[list[float]]:
+        import hashlib
+
+        def text_to_vector(text: str, dim: int = 384) -> list[float]:
+            hash_obj = hashlib.sha256(text.encode())
+            hash_bytes = hash_obj.digest()
+            vector = []
+            for i in range(dim):
+                byte_idx = i % len(hash_bytes)
+                next_byte_idx = (byte_idx + 1) % len(hash_bytes)
+                val = (hash_bytes[byte_idx] + hash_bytes[next_byte_idx] * 0.01) / 255.0
+                vector.append(val)
+            norm = sum(v * v for v in vector) ** 0.5
+            if norm > 0:
+                vector = [v / norm for v in vector]
+            return vector
+
+        return [text_to_vector(text) for text in texts]
 
     async def _embed_batch_internal(self, texts: list[str]) -> list[list[float]]:
         client = self._get_client()

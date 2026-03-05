@@ -47,7 +47,7 @@ Data flows through a four-stage pipeline:
 - **`src/cli/`** — Typer-based CLI. `fetch single` is the only command with real implementation. `analyze`, `report` are stubs.
 - **`src/analyzer/`** — Contains only empty `__init__.py` files. This is the planned home for the `labeling` and `reasoning` stages. Do not confuse with the already-implemented `src/clustering/`, `src/embedding/`, `src/preprocessor/` directories which are separate from `src/analyzer/`.
 - **`src/report/`** and **`src/rules/`** — Scaffolded but empty.
-- All data models use **Pydantic v2** except `ClusterInfo` and `DimensionReductionResult` in `src/clustering/models.py` which still use the v1 `class Config` inner-class style — this is a known inconsistency.
+- All data models use **Pydantic v2** (`model_config = ConfigDict(...)` style).
 - The CLI uses `asyncio.run()` inside synchronous Typer commands (see `fetch.py`). Do not call these commands from an already-running event loop.
 
 ### Configuration
@@ -60,7 +60,7 @@ API_BASE_URL=https://...
 EMBEDDING_API_KEY=sk-...
 ```
 
-Full mapping is in `src/config/manager.py:_env_prefix_map`. The `APIConfig` section has no `api_key` field — the token for the external REST API must be supplied separately (currently the code incorrectly reads `config.llm.api_key` for this; see known issues).
+Full mapping is in `src/config/manager.py:_env_prefix_map`. The `APIConfig.api_key` field holds the external REST API token; set it via `API_API_KEY` or `API_TOKEN` environment variables.
 
 Key config sections:
 
@@ -73,20 +73,32 @@ Key config sections:
 | `clustering.metric` | Distance metric, default `cosine` in config but `euclidean` in `ClusterAnalyzer` constructor — pass explicitly |
 | `cache.ttl` | SQLite cache TTL in seconds (default 86400) |
 
+## Development Workflow (SDD)
+
+New features must follow the Specification-Driven Development (SDD) process:
+
+1. **Specify** — Edit `.speckit/specify.md`: describe WHAT the feature does (not HOW)
+2. **Plan** — Edit `.speckit/plan.md`: design the technical approach
+3. **Tasks** — Edit `.speckit/tasks.md`: break down into actionable implementation steps
+4. **Implement** — Follow TDD: write failing test → implement → refactor
+5. **Analyze** — Edit `.speckit/analyze.md`: verify consistency across docs
+6. **Review** — Use `code-review-checklist.md` before committing
+
+Quality gate before every commit:
+```bash
+ruff check src/ tests/     # Linting
+ruff format src/ tests/    # Formatting
+mypy src/                  # Type checking
+pytest tests/ -v --cov=src # Tests (coverage ≥ 80%)
+```
+
 ## Code Review
 
-A full code review report is at `review/code_review.md`. It covers:
-- Completion status of all modules (implemented vs. stub)
-- 10 bugs with exact file locations, problem descriptions, and fix instructions (P0–P3)
-- Architecture items yet to be built (pipeline orchestration, labeling, reasoning, report generation, rules engine)
-- Unused dependencies and test coverage gaps
+A full code review report is at `review/code_review.md` (updated through 4 rounds of review). A general-purpose code review checklist is at `code-review-checklist.md`.
 
 ## Known Issues to Be Aware Of
 
-- **`src/api/client.py:170`** — `_parse_datetime(None)` raises `ValueError`, but `resolve_time` is `Optional[datetime]`. Any task without a `resolveTime` field in the API response (i.e., all open/unresolved bugs) will crash during `get_task()`. Fix: return `None` for empty/None input instead of raising.
-- **`src/embedding/generator.py:67`** — `_embed_batch_internal` still silently replaces empty text with `" "` while `embed_text` now raises. Inconsistent; safe in practice because `process_batch` filters empty texts upstream.
-- **`tests/conftest.py:63`** — `sample_task_data` commit dict is missing the `time` field; `CommitInfo.time` is required. Safe for current tests but will break if `_parse_commit` is called with this fixture data.
-- **`tests/test_preprocessor.py:20`** — `preprocessor` and `sample_task` fixtures are defined both inside `TestDataPreprocessor` and in `conftest.py` (identical content). The class-level versions are redundant and should be removed.
+- **`src/embedding/generator.py:71`** — `_embed_batch_internal` still has dead-code silent replacement (`else " "`). Functionally safe because `embed_batch` validates empty texts upstream before calling this method. Minor code-cleanliness issue only.
 
 ## Testing
 
