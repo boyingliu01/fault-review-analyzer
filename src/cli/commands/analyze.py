@@ -31,7 +31,7 @@ def analyze_single(
         config_manager.load()
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
-        console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
+        console.print("[yellow]请设置 .env 文件或 config/config.yaml 中的必要配置项[/yellow]")
         raise typer.Exit(1) from None
 
     pipeline_config = PipelineConfig(
@@ -102,7 +102,7 @@ def analyze_batch(
         config = config_manager.load()
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
-        console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
+        console.print("[yellow]请设置 .env 文件或 config/config.yaml 中的必要配置项[/yellow]")
         raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
@@ -173,7 +173,7 @@ def analyze_clusters(
         config = config_manager.load()
     except ValueError as e:
         console.print(f"[red]配置错误: {e}[/red]")
-        console.print("[yellow]请设置 .env 文件或 config.yaml 中的必要配置项[/yellow]")
+        console.print("[yellow]请设置 .env 文件或 config/config.yaml 中的必要配置项[/yellow]")
         raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)

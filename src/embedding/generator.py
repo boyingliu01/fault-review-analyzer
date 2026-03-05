@@ -27,6 +27,8 @@ class EmbeddingGenerator:
             "embedding-3": 1024,
             "doubao-embedding-large": 4096,
             "doubao-embedding-text-240715": 1024,
+            "Doubao-embedding-240715": 1024,
+            "doubao-embedding-vision-251215": 2048,
         }
 
     def _get_client(self) -> AsyncOpenAI | None:
@@ -57,6 +59,9 @@ class EmbeddingGenerator:
         if self.provider == "local":
             return self._local_embed_single(text)
 
+        if self.provider == "volcengine" and "vision" in self.model.lower():
+            return await self._embed_volcengine_vision(text)
+
         client = self._get_client()
         if client is None:
             raise ValueError("Embedding client not initialized")
@@ -68,12 +73,52 @@ class EmbeddingGenerator:
 
         return list(response.data[0].embedding)
 
+    async def _embed_volcengine_vision(self, text: str) -> list[float]:
+        import httpx
+        
+        base_url = self.base_url.rstrip("/")
+        if not base_url.endswith("/embeddings/multimodal"):
+            if base_url.endswith("/embeddings"):
+                base_url = base_url + "/multimodal"
+            else:
+                base_url = base_url + "/embeddings/multimodal"
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
+        
+        payload = {
+            "model": self.model,
+            "input": [{"type": "text", "text": text}],
+        }
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(base_url, json=payload, headers=headers, timeout=30)
+                if response.status_code != 200:
+                    raise Exception(f"HTTP {response.status_code}: {response.text}")
+                data = response.json()
+                return list(data["data"]["embedding"])
+            except httpx.HTTPError as e:
+                raise Exception(f"HTTP Error: {e}")
+
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
 
         if self.provider == "local":
             return self._local_embed_batch(texts)
+
+        if self.provider == "volcengine" and "vision" in self.model.lower():
+            results = []
+            for text in texts:
+                if not text or not text.strip():
+                    results.append([0.0] * 1024)
+                else:
+                    emb = await self._embed_volcengine_vision(text)
+                    results.append(emb)
+            return results
 
         for text in texts:
             if not text or not text.strip():

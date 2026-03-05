@@ -8,9 +8,11 @@ from src.config.models import AppConfig
 
 
 class ConfigManager:
+    DEFAULT_CONFIG_PATH = Path("config/config.yaml")
+
     def __init__(self, config_path: Path | None = None):
         if config_path is None:
-            config_path = Path("config.yaml")
+            config_path = self.DEFAULT_CONFIG_PATH
         self.config_path = config_path
         self._config: AppConfig | None = None
         self._env_prefix_map = {
@@ -59,13 +61,13 @@ class ConfigManager:
             raise ValueError("Configuration not loaded")
         if not self._config.api.base_url:
             raise ValueError(
-                "API base_url is required. Please set it in config.yaml or via "
+                "API base_url is required. Please set it in config/config.yaml or via "
                 "API_BASE_URL environment variable. See .env.example for reference."
             )
         if not self._config.api.api_key:
             import logging
             logging.warning(
-                "API API key not configured. Set via API_API_KEY env var or config.yaml. "
+                "API API key not configured. Set via API_API_KEY env var or config/config.yaml. "
                 "API calls will fail without authentication."
             )
 

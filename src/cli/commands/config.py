@@ -65,4 +65,4 @@ def show_config_path(
     if config_path:
         console.print(f"配置文件: [bold]{config_path}[/bold]")
     else:
-        console.print("配置文件: [bold]./config.yaml[/bold] (默认)")
+        console.print("配置文件: [bold]./config/config.yaml[/bold] (默认)")

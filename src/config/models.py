@@ -38,7 +38,7 @@ class LLMConfig(BaseModel):
     @field_validator("provider")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        allowed = ["openai", "qwen", "wenxin", "zhipu", "custom"]
+        allowed = ["openai", "qwen", "wenxin", "zhipu", "custom", "volcengine"]
         if v not in allowed:
             raise ValueError(f"provider must be one of {allowed}")
         return v
