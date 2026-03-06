@@ -24,12 +24,15 @@ class OpenAILLMProvider:
         if self._client is None:
             try:
                 from openai import AsyncOpenAI
+
                 self._client = AsyncOpenAI(
                     api_key=self.api_key,
                     base_url=self.base_url,
                 )
             except ImportError:
-                raise ImportError("openai package is required for LLM features. Install with: pip install openai") from None
+                raise ImportError(
+                    "openai package is required for LLM features. Install with: pip install openai"
+                ) from None
         return self._client
 
     async def generate(self, system: str, user: str) -> str:

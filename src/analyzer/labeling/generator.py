@@ -115,7 +115,7 @@ class LabelGenerator:
         for i, task in enumerate(cluster_tasks):
             title = task.get("title", "")
             desc = task.get("description", "")[:_MAX_DESCRIPTION_CHARS]
-            task_summaries.append(f"任务{i+1}: {title} - {desc}")
+            task_summaries.append(f"任务{i + 1}: {title} - {desc}")
 
         combined_text = "\n".join(task_summaries)
 

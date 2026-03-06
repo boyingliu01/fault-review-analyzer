@@ -103,9 +103,7 @@ class CacheManager:
     def get_index(self) -> list[dict[str, Any]]:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                "SELECT task_id, created_at, expires_at FROM cache"
-            )
+            cursor = conn.execute("SELECT task_id, created_at, expires_at FROM cache")
             rows = cursor.fetchall()
 
             return [

@@ -130,7 +130,9 @@ class APIClient:
         raise last_error or APIConnectionError("Unknown error")
 
     async def get_task(self, task_id: int) -> TaskInfo:
-        response = await self._request("POST", f"{self.api_path_prefix}/{task_id}/detail", json=self._get_default_detail_body())
+        response = await self._request(
+            "POST", f"{self.api_path_prefix}/{task_id}/detail", json=self._get_default_detail_body()
+        )
         task = self._parse_task(response)
         if task.task_id != task_id:
             task = TaskInfo(
@@ -166,7 +168,7 @@ class APIClient:
             "withEdo": "false",
             "withTaskImpact": "false",
             "withConfig": "false",
-            "withAllTaskType": "false"
+            "withAllTaskType": "false",
         }
 
     async def get_commits(self, task_id: int) -> list[CommitInfo]:
@@ -205,6 +207,7 @@ class APIClient:
             task_data.get("finishDate", task_data.get("resolveTime"))
         )
         from datetime import datetime as dt
+
         now = dt.now()
         return TaskInfo(
             task_id=task_data.get("taskId", task_data.get("task_id", 0)),
@@ -225,9 +228,7 @@ class APIClient:
     def _parse_commit(self, data: dict[str, Any]) -> CommitInfo:
         from datetime import datetime as dt
 
-        commit_time = self._parse_datetime(
-            data.get("time", data.get("commitTime", ""))
-        )
+        commit_time = self._parse_datetime(data.get("time", data.get("commitTime", "")))
         return CommitInfo(
             commit_id=data.get("commitId", data.get("commit_id", "")),
             message=data.get("message", ""),

@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -8,8 +7,7 @@ class APIConfig(BaseModel):
     retry: int = Field(default=3, ge=0, le=10, description="重试次数")
     api_key: str = Field(default="", description="API认证token")
     api_path_prefix: str = Field(
-        default="/portal/ai-gateway/devspace/rpc/v3/work-item",
-        description="API路径前缀"
+        default="/portal/ai-gateway/devspace/rpc/v3/work-item", description="API路径前缀"
     )
 
     @field_validator("base_url")

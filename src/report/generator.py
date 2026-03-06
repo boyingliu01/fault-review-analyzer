@@ -177,9 +177,7 @@ class ReportGenerator:
                 logger.warning(f"Custom template failed, using default: {e}")
                 pass
 
-        return self._render_single_markdown(
-            task_data, segments, labels, root_causes, suggestions
-        )
+        return self._render_single_markdown(task_data, segments, labels, root_causes, suggestions)
 
     def generate_cluster(
         self,

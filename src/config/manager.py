@@ -66,6 +66,7 @@ class ConfigManager:
             )
         if not self._config.api.api_key:
             import logging
+
             logging.warning(
                 "API API key not configured. Set via API_API_KEY env var or config/config.yaml. "
                 "API calls will fail without authentication."

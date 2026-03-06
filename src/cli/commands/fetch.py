@@ -62,6 +62,7 @@ def fetch_single(
                 return await client.get_full_task(task_id)
 
         import asyncio
+
         task = asyncio.run(_fetch())
 
         if task:

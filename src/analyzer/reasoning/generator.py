@@ -103,13 +103,16 @@ class RootCauseAnalyzer:
             if label_names:
                 label_context = f"\n已有标签: {', '.join(label_names)}"
 
-        user_prompt = USER_PROMPT_TEMPLATE.format(
-            title=title,
-            description=description,
-            status=status,
-            priority=priority,
-            segment_details=segment_details,
-        ) + label_context
+        user_prompt = (
+            USER_PROMPT_TEMPLATE.format(
+                title=title,
+                description=description,
+                status=status,
+                priority=priority,
+                segment_details=segment_details,
+            )
+            + label_context
+        )
 
         system_prompt = SYSTEM_PROMPT.format(
             cause_types="\n".join(f"- {c}" for c in self._cause_types)

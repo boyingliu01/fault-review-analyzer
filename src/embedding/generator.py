@@ -1,4 +1,3 @@
-
 import numpy as np
 from openai import AsyncOpenAI
 
@@ -75,24 +74,24 @@ class EmbeddingGenerator:
 
     async def _embed_volcengine_vision(self, text: str) -> list[float]:
         import httpx
-        
-        base_url = self.base_url.rstrip("/")
+
+        base_url = (self.base_url or "").rstrip("/")
         if not base_url.endswith("/embeddings/multimodal"):
             if base_url.endswith("/embeddings"):
                 base_url = base_url + "/multimodal"
             else:
                 base_url = base_url + "/embeddings/multimodal"
-        
+
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
         }
-        
+
         payload = {
             "model": self.model,
             "input": [{"type": "text", "text": text}],
         }
-        
+
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.post(base_url, json=payload, headers=headers, timeout=30)
@@ -101,7 +100,7 @@ class EmbeddingGenerator:
                 data = response.json()
                 return list(data["data"]["embedding"])
             except httpx.HTTPError as e:
-                raise Exception(f"HTTP Error: {e}")
+                raise Exception(f"HTTP Error: {e}") from e
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         if not texts:
@@ -127,7 +126,7 @@ class EmbeddingGenerator:
         results = []
 
         for i in range(0, len(texts), self.batch_size):
-            batch = texts[i:i + self.batch_size]
+            batch = texts[i : i + self.batch_size]
             batch_results = await self._embed_batch_internal(batch)
             results.extend(batch_results)
 
@@ -192,12 +191,14 @@ class EmbeddingGenerator:
 
         results = []
         for i, (task, embedding) in enumerate(zip(task_data, embeddings, strict=False)):
-            results.append(EmbeddingResult(
-                task_id=task.get("task_id", i),
-                embedding=embedding,
-                model=self.model,
-                metadata={"text_length": len(task.get(text_field, ""))},
-            ))
+            results.append(
+                EmbeddingResult(
+                    task_id=task.get("task_id", i),
+                    embedding=embedding,
+                    model=self.model,
+                    metadata={"text_length": len(task.get(text_field, ""))},
+                )
+            )
 
         return BatchEmbeddingResult(
             results=results,

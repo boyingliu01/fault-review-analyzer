@@ -49,6 +49,7 @@ def analyze_single(
     ) as progress:
         progress.add_task("正在分析...", total=None)
         import asyncio
+
         result = asyncio.run(pipeline.run_single(task_id))
 
     if result.error:
@@ -136,6 +137,7 @@ def analyze_batch(
 
         if cluster:
             import asyncio
+
             result = asyncio.run(pipeline.run_clustering(task_ids))
 
             if "error" in result:
@@ -146,6 +148,7 @@ def analyze_batch(
                 console.print(f"  噪声点: {result.get('noise_count', 0)}")
         else:
             import asyncio
+
             results = asyncio.run(pipeline.run_batch(task_ids))
 
             console.print(f"[green]批量分析完成! 共处理 {len(results)} 个任务[/green]")

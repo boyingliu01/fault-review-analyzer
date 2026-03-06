@@ -113,9 +113,7 @@ class AnalysisPipeline:
                     result.labels = await self._generate_labels(task_dict, preprocessed)
 
                 if self._pipeline_config.analyze_root_cause:
-                    result.root_causes = await self._analyze_root_cause(
-                        task_dict, preprocessed
-                    )
+                    result.root_causes = await self._analyze_root_cause(task_dict, preprocessed)
 
             if self._pipeline_config.check_rules:
                 result.violations = self._check_rules(task_dict)
@@ -136,6 +134,7 @@ class AnalysisPipeline:
     ) -> list[PipelineResult]:
         """Run analysis pipeline for multiple tasks concurrently."""
         import asyncio
+
         results = await asyncio.gather(
             *[self.run_single(task_id) for task_id in task_ids],
             return_exceptions=False,
@@ -173,7 +172,9 @@ class AnalysisPipeline:
                 {
                     "task_id": t.task_id,
                     "cluster_id": int(labels_list[i]),
-                    "title": processed_tasks[i].metadata.get("title", "") if i < len(processed_tasks) else "",
+                    "title": processed_tasks[i].metadata.get("title", "")
+                    if i < len(processed_tasks)
+                    else "",
                     "text": t.combined_text[:200],
                 }
                 for i, t in enumerate(processed_tasks)
