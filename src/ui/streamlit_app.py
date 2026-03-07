@@ -92,7 +92,7 @@ class FaultAnalysisUI:
             # 加载所有数据
             embeddings, metadatas = self._load_all_embeddings()
 
-            if not embeddings:
+            if embeddings is None or len(embeddings) == 0:
                 st.warning("⚠️ 暂无数据，请先运行阶段一数据准备")
                 return
 
@@ -103,7 +103,7 @@ class FaultAnalysisUI:
                 st.metric("故障单总数", len(embeddings))
 
             with col2:
-                violation_count = sum(1 for m in metadatas if m.get("has_violation", False))
+                violation_count = sum(1 for m in metadatas if m.get("is_violation", False))
                 st.metric("违规故障数", violation_count)
 
             with col3:
@@ -124,7 +124,7 @@ class FaultAnalysisUI:
                         "序号": i + 1,
                         "任务单号": meta.get("task_id", "未知"),
                         "引入阶段": meta.get("introduce_phase", "未知"),
-                        "是否违规": "是" if meta.get("has_violation", False) else "否",
+                        "是否违规": "是" if meta.get("is_violation", False) else "否",
                         "违规类型": meta.get("violation_type", "无"),
                         "根因": meta.get("root_cause", "")[:50] + "..."
                         if len(meta.get("root_cause", "")) > 50
@@ -208,7 +208,7 @@ class FaultAnalysisUI:
                             with col1:
                                 st.markdown(f"**引入阶段**: {meta.get('introduce_phase', '未知')}")
                                 st.markdown(
-                                    f"**是否违规**: {'是' if meta.get('has_violation') else '否'}"
+                                    f"**是否违规**: {'是' if meta.get('is_violation') else '否'}"
                                 )
                             with col2:
                                 st.markdown(f"**违规类型**: {meta.get('violation_type', '无')}")
@@ -280,7 +280,7 @@ class FaultAnalysisUI:
                     # 加载数据
                     embeddings, metadatas = self._load_all_embeddings()
 
-                    if not embeddings:
+                    if embeddings is None or len(embeddings) == 0:
                         st.warning("⚠️ 暂无数据，请先运行阶段一数据准备")
                         return
 
@@ -418,7 +418,7 @@ class FaultAnalysisUI:
             # 违规类型分布
             violations: dict[str, int] = {}
             for meta in metadatas:
-                if meta.get("has_violation"):
+                if meta.get("is_violation"):
                     vtype = meta.get("violation_type", "未分类")
                     violations[vtype] = violations.get(vtype, 0) + 1
 
@@ -449,7 +449,7 @@ class FaultAnalysisUI:
                 cause = meta.get("root_cause", "")
                 if cause:
                     root_causes.append(cause)
-                    if meta.get("has_violation"):
+                    if meta.get("is_violation"):
                         violation_causes.append(cause)
 
             # 生成改进措施
@@ -519,8 +519,14 @@ class FaultAnalysisUI:
             collection = self.chroma_manager.get_or_create_collection()
             results = collection.get(include=["embeddings", "metadatas"])
 
-            embeddings = results.get("embeddings", [])
-            metadatas = results.get("metadatas", [])
+            ids = results.get("ids", [])
+            embeddings = list(results.get("embeddings") or [])
+            metadatas = results.get("metadatas") or []
+
+            # 把 Chroma document id 注入 metadata，方便后续显示任务单号
+            for i, meta in enumerate(metadatas):
+                if i < len(ids):
+                    meta["task_id"] = ids[i]
 
             return embeddings, metadatas
 
