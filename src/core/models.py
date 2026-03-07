@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # 规范知识库相关
@@ -27,6 +27,14 @@ class StandardRule(BaseModel):
     level: str = Field(..., description="强制 / 推荐")
     code: str = Field(default="", description="规则编号，如 J000001")
     examples: list[str] = Field(default_factory=list, description="示例列表")
+
+    @field_validator("examples", mode="before")
+    @classmethod
+    def coerce_examples(cls, v: Any) -> list[str]:
+        """JSON 里 examples 可能是 dict，统一转为 list[str]"""
+        if isinstance(v, dict):
+            return [f"{k}: {val}" for k, val in v.items()]
+        return v if v is not None else []
 
 
 class StandardCategory(BaseModel):

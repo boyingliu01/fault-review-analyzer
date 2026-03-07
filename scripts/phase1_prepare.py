@@ -39,7 +39,6 @@ class Phase1Prepare:
         )
         self.chroma_manager = ChromaManager(
             persist_directory="./data/chroma",
-            collection_name="fault_embeddings",
         )
         self.api_client: APIClient | None = None
 
@@ -64,13 +63,13 @@ class Phase1Prepare:
                 task_info = await client.get_task(int(task_id))
                 return task_info.model_dump() if task_info else None
         except Exception as e:
-            logger.error(f"获取任务单 {task_id} 失败: {e}")
+            logger.error(f"获取任务单 {task_id} 失败: {type(e).__name__}: {e!r}")
             return None
 
     def prepare_fault_info(self, task_data: dict[str, Any]) -> dict[str, Any]:
         """准备故障信息用于分析"""
-        development = task_data.get("development", {})
-        commits = development.get("commits", [])
+        development = task_data.get("development") or {}
+        commits = development.get("commits") or []
 
         code_snippet = ""
         if commits:
@@ -83,10 +82,10 @@ class Phase1Prepare:
             "description": task_data.get("description", ""),
             "code_snippet": code_snippet[:2000],
             "development": development,
-            "production": task_data.get("production", {}),
-            "requirement": task_data.get("requirement", {}),
-            "design": task_data.get("design", {}),
-            "testing": task_data.get("testing", {}),
+            "production": task_data.get("production") or {},
+            "requirement": task_data.get("requirement") or {},
+            "design": task_data.get("design") or {},
+            "testing": task_data.get("testing") or {},
         }
 
     async def process_single_task(
@@ -203,7 +202,7 @@ async def main():
     if config.api.base_url:
         phase1.init_api_client(
             base_url=config.api.base_url,
-            token=config.api.token or "",
+            token=config.api.api_key or "",
             timeout=config.api.timeout,
             api_path_prefix="/portal/ai-gateway/devspace/rpc/v3/work-item",
         )
