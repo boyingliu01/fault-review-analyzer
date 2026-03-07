@@ -274,3 +274,30 @@ class ChromaManager:
         except Exception as e:
             logger.error(f"重置数据库失败: {e}")
             return False
+
+    def get_stats(self) -> dict[str, Any]:
+        """获取向量数据库统计信息"""
+        try:
+            collections = self.list_collections()
+            total_embeddings = 0
+
+            for col_name in collections:
+                try:
+                    collection = self.get_or_create_collection(col_name)
+                    total_embeddings += collection.count()
+                except Exception:
+                    pass
+
+            return {
+                "total_embeddings": total_embeddings,
+                "collections": collections,
+                "persist_directory": str(self._persist_directory),
+            }
+        except Exception as e:
+            logger.error(f"获取统计信息失败: {e}")
+            return {
+                "total_embeddings": 0,
+                "collections": [],
+                "persist_directory": str(self._persist_directory),
+            }
+

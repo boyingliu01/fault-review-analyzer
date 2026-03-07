@@ -54,7 +54,14 @@ Data flows through a five-stage pipeline orchestrated by `src/analyzer/pipeline.
 - **`src/analysis/`** — V4 violation detection (`ViolationDetector`) and root cause validation (`RootCauseValidator`).
 - **`src/knowledge/`** — `StandardsManager`: loads development standards from JSON files (globbing `*_standards.json`), supports search by keyword/level/subcategory. Default data dir: `data/standards/mock/` (4 mock files: Java, DB, C++, ops) — temporary until T1a (PDF spec parsing) is implemented. Tests in `tests/knowledge/`.
 - **`src/report/`** and **`src/rules/`** — Scaffolded with skeleton implementations; not production-ready.
-- **`src/storage/`** and **`src/visualization/`** — Empty; planned.
+- **`src/storage/`** — `ChromaManager`: wraps ChromaDB (`PersistentClient`) for vector storage at `./data/chroma`. Accepts `EmbeddingResult` objects (from `src/core/models.py`); supports `add_embedding`, `add_batch_embeddings`, `query_similar`, and `get_by_task_id`. Default collection: `fault_embeddings`.
+- **`src/visualization/`** — `ClusterScatterVisualizer` (`cluster_scatter.py`) renders 2-D cluster scatter plots; `DashboardGenerator` (`charts.py`) builds root-cause distribution bar charts, violation-type charts, and improvement-tracking charts using Plotly.
+- **`src/analysis/clustering.py`** — Stand-alone `ClusteringAnalyzer` that wraps HDBSCAN, KMeans, and AgglomerativeClustering. Returns a local `ClusteringResult` dataclass (distinct from `src/core/models.py:ClusteringResult`).
+- **`src/analysis/improvement_recommender.py`** — `ImprovementRecommender`: maps high-frequency root causes to templated `ImprovementMeasure` objects with priority, category, and acceptance criteria.
+- **`src/ui/streamlit_app.py`** — `FaultAnalysisUI`: Streamlit dashboard integrating `ChromaManager`, `ClusteringAnalyzer`, `ImprovementRecommender`, and `DashboardGenerator`. Run with:
+  ```bash
+  streamlit run src/ui/streamlit_app.py
+  ```
 - All data models use **Pydantic v2** (`model_config = ConfigDict(...)` style).
 - The CLI uses `asyncio.run()` inside synchronous Typer commands (see `fetch.py`). Do not call these commands from an already-running event loop.
 
@@ -108,7 +115,22 @@ A full code review report is at `review/code_review.md` (updated through 4 round
 
 - **`src/embedding/generator.py:71`** — `_embed_batch_internal` has dead-code silent replacement (`else " "`). Functionally safe because `embed_batch` validates empty texts upstream before calling this method.
 - **`src/core/models.py` `EmbeddingResult`** — Declared as 2048-dim (multimodal design target) but `EmbeddingGenerator` currently produces 1536-dim (OpenAI) or 1024-dim (local). These are different objects: `EmbeddingResult` is the V4 planned model; `EmbeddingGenerator` returns raw `list[list[float]]` directly.
+- **Duplicate `ClusteringResult`** — `src/core/models.py` and `src/analysis/clustering.py` both define a `ClusteringResult` type. They are not interchangeable: the `core` version is the V4 Pydantic model; the `analysis` version is a plain dataclass used by `ClusteringAnalyzer`.
 
 ## Testing
 
 Tests live in `tests/`. Coverage threshold is 80% (`fail_under` in `pyproject.toml`). `tests/conftest.py` provides shared fixtures. All async tests run under `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed on individual tests. CLI commands are excluded from coverage (`src/cli/*` omitted in config).
+
+Sub-directories with their own `conftest.py` and targeted fixtures:
+
+| Directory | What it tests |
+|---|---|
+| `tests/analysis/` | `ViolationDetector`, `RootCauseValidator`, `CodeChangeAnalyzer`, `EnhancedLLMAnalyzer`, `ImprovementRecommender`, `ClusteringAnalyzer` |
+| `tests/storage/` | `ChromaManager` |
+| `tests/knowledge/` | `StandardsManager` |
+| `tests/visualization/` | `ClusterScatterVisualizer`, `DashboardGenerator` (`charts.py`) |
+| `tests/ui/` | `FaultAnalysisUI` (Streamlit app) |
+| `tests/integration/` | Two-phase pipeline integration (`test_phase1_phase2.py`) |
+| `tests/clustering/` | Extended `ClusterAnalyzer` tests |
+| `tests/embedding/` | Extended `EmbeddingGenerator` tests |
+| `tests/api/` | Extended `APIClient` tests |

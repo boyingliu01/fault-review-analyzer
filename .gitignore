@@ -34,7 +34,7 @@ output/
 !data/*.xlsx
 docs/*.pdf
 swagger.txt
-test_*.py
+/test_*.py
 *.log
 *.swo
 *~

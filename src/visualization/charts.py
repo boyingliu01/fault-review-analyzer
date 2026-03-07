@@ -54,7 +54,7 @@ class RootCauseChart:
                 go.Bar(
                     x=causes,
                     y=counts,
-                    text=[f"{c}<br>({p:.1f}%)" for c, p in zip(counts, percentages, strict=True)],
+                    text=[f"{c}<br>({p:.1f}%)" for c, p in zip(counts, percentages)],
                     textposition="auto",
                     marker_color="#3498db",
                 )

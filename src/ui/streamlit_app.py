@@ -67,6 +67,7 @@ class FaultAnalysisUI:
                 st.success(f"✅ 向量数据库: {count} 条记录")
             except Exception as e:
                 st.error(f"❌ 向量数据库连接失败: {e}")
+                logger.error(f"向量数据库连接失败: {e}")
 
     def _render_main_content(self) -> None:
         """渲染主内容区"""
@@ -188,17 +189,18 @@ class FaultAnalysisUI:
                     st.markdown("---")
                     st.subheader(f"与 {task_id} 相似的故障")
 
-                    for _i, result in enumerate(results):
-                        # 跳过自身
-                        if result.get("task_id") == task_id:
+                    for result in results:
+                        # 跳过自身（Chroma 返回字段为 "id"）
+                        if result.get("id") == task_id:
                             continue
 
-                        similarity = result.get("similarity", 0)
+                        # Chroma 返回 "distance"（越小越相似），转换为相似度
+                        similarity = 1.0 - result.get("distance", 1.0)
                         if similarity < threshold:
                             continue
 
                         with st.expander(
-                            f"📋 {result.get('task_id', '未知')} (相似度: {similarity:.2%})"
+                            f"📋 {result.get('id', '未知')} (相似度: {similarity:.2%})"
                         ):
                             meta = result.get("metadata", {})
 
@@ -375,10 +377,14 @@ class FaultAnalysisUI:
                 metadata=metadatas,
             )
 
-            fig = visualizer.create_interactive_plot(
+            fig = visualizer.create_figure(
                 prepared_data,
                 title="故障聚类散点图 (UMAP 降维)",
             )
+
+            if fig is None:
+                st.error("散点图生成失败，请查看日志")
+                return
 
             st.plotly_chart(fig, use_container_width=True)
 

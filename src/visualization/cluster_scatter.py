@@ -65,23 +65,21 @@ class ClusterScatterVisualizer:
             "metadata": metadata or [],
         }
 
-    def create_scatter_plot(
+    def create_figure(
         self,
         data: dict[str, Any],
         title: str = "故障聚类散点图",
-        output_path: str | Path | None = None,
         show_hover: bool = True,
-    ) -> bool:
-        """创建聚类散点图
+    ) -> go.Figure | None:
+        """构建聚类散点图 Figure 对象（供直接渲染，如 Streamlit）
 
         Args:
-            data: prepare_data返回的数据字典
+            data: prepare_data 返回的数据字典
             title: 图表标题
-            output_path: 输出文件路径
             show_hover: 是否显示悬停信息
 
         Returns:
-            是否成功创建图表
+            Plotly Figure 对象，失败时返回 None
         """
         try:
             embeddings_2d = data["embeddings_2d"]
@@ -95,7 +93,7 @@ class ClusterScatterVisualizer:
             fig = go.Figure()
 
             for idx, label in enumerate(unique_labels):
-                mask = [l == label for l in labels]
+                mask = [lb == label for lb in labels]
                 x = embeddings_2d[mask, 0]
                 y = embeddings_2d[mask, 1]
                 ids = [task_ids[i] for i, m in enumerate(mask) if m]
@@ -144,17 +142,45 @@ class ClusterScatterVisualizer:
                 height=800,
             )
 
-            if output_path:
+            return fig
+
+        except Exception as e:
+            logger.error(f"构建散点图失败: {e}")
+            return None
+
+    def create_scatter_plot(
+        self,
+        data: dict[str, Any],
+        title: str = "故障聚类散点图",
+        output_path: str | Path | None = None,
+        show_hover: bool = True,
+    ) -> bool:
+        """创建聚类散点图并保存到文件
+
+        Args:
+            data: prepare_data 返回的数据字典
+            title: 图表标题
+            output_path: 输出文件路径（None 时不保存）
+            show_hover: 是否显示悬停信息
+
+        Returns:
+            是否成功创建图表
+        """
+        fig = self.create_figure(data, title=title, show_hover=show_hover)
+        if fig is None:
+            return False
+
+        if output_path:
+            try:
                 output_path = Path(output_path)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 fig.write_html(str(output_path))
                 logger.info(f"散点图已保存: {output_path}")
+            except Exception as e:
+                logger.error(f"保存散点图失败: {e}")
+                return False
 
-            return True
-
-        except Exception as e:
-            logger.error(f"创建散点图失败: {e}")
-            return False
+        return True
 
     def _generate_colors(self, n: int) -> list[str]:
         """生成聚类颜色"""

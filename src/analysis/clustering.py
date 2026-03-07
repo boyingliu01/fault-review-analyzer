@@ -258,11 +258,14 @@ class ClusteringAnalyzer:
                 root_causes[cause] = root_causes.get(cause, 0) + 1
 
             # 找出最常见的根因
-            most_common = max(root_causes.items(), key=lambda x: x[1])
+            if not root_causes:
+                most_common_cause = "未知"
+            else:
+                most_common_cause = max(root_causes.items(), key=lambda x: x[1])[0]
 
             analysis["clusters"][cluster_id] = {
                 "size": len(items),
-                "most_common_root_cause": most_common[0],
+                "most_common_root_cause": most_common_cause,
                 "root_cause_distribution": root_causes,
                 "task_ids": [item.get("task_id", "未知") for item in items],
             }

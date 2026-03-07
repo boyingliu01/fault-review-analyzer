@@ -108,13 +108,14 @@ class ViolationDetector:
         text_lower = text.lower()
         related = []
 
-        for rule in self._standards_manager._rules_index.values():
-            if (
-                rule.title.lower() in text_lower
-                or rule.subcategory.lower() in text_lower
-                or any(keyword in text_lower for keyword in rule.content.lower().split()[:5])
-            ):
-                related.append(rule.id)
+        for category in self._standards_manager.get_all_categories():
+            for rule in category.rules:
+                if (
+                    rule.title.lower() in text_lower
+                    or rule.subcategory.lower() in text_lower
+                    or any(keyword in text_lower for keyword in rule.content.lower().split()[:5])
+                ):
+                    related.append(rule.id)
 
         return related[:5]
 

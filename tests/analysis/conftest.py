@@ -1,5 +1,7 @@
 """Analysis模块测试 fixtures"""
 
+from datetime import datetime
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -60,7 +62,7 @@ def sample_fault_info_with_code():
                     "commit_id": "abc123",
                     "message": "添加数据库操作",
                     "author": "dev1",
-                    "timestamp": "2024-01-15T10:00:00",
+                    "timestamp": datetime(2024, 1, 15, 10, 0, 0),
                     "diff": "+Connection conn = ds.getConnection();",
                     "files_changed": ["src/DbUtil.java"],
                 }

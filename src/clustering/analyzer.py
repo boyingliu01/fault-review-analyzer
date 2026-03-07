@@ -53,14 +53,18 @@ class ClusterAnalyzer:
 
         embeddings_to_use = embeddings
         if self.metric == "cosine":
+            # 归一化后用欧氏距离等价于余弦距离，且 HDBSCAN 对欧氏距离更高效
             norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
             norms = np.where(norms == 0, 1, norms)
             embeddings_to_use = embeddings / norms
+            metric_to_use = "euclidean"
+        else:
+            metric_to_use = self.metric
 
         self._model = hdbscan.HDBSCAN(
             min_cluster_size=self.min_cluster_size,
             min_samples=self.min_samples,
-            metric="euclidean",
+            metric=metric_to_use,
         )
 
         result = self._model.fit_predict(embeddings_to_use)
@@ -74,6 +78,7 @@ class ClusterAnalyzer:
 
         embeddings_to_use = embeddings
         if self.metric == "cosine":
+            # ward 连接要求欧氏距离；归一化后欧氏等价余弦，结果一致
             norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
             norms = np.where(norms == 0, 1, norms)
             embeddings_to_use = embeddings / norms
@@ -82,7 +87,7 @@ class ClusterAnalyzer:
 
         self._model = AgglomerativeClustering(
             n_clusters=n_clusters,
-            metric="euclidean",
+            metric="euclidean",  # ward 连接只支持欧氏距离
             linkage="ward",
         )
 

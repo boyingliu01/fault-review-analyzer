@@ -152,7 +152,7 @@ class EmbeddingGenerator:
     def _local_embed_batch(self, texts: list[str]) -> list[list[float]]:
         import hashlib
 
-        def text_to_vector(text: str, dim: int = 384) -> list[float]:
+        def text_to_vector(text: str, dim: int = 1024) -> list[float]:
             hash_obj = hashlib.sha256(text.encode())
             hash_bytes = hash_obj.digest()
             vector = []

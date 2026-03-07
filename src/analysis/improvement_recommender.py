@@ -7,6 +7,8 @@ from typing import Any
 
 from loguru import logger
 
+DEFAULT_CATEGORY = "代码类"
+
 
 @dataclass
 class ImprovementMeasure:
@@ -238,11 +240,11 @@ class ImprovementRecommender:
         elif any(k in cause_lower for k in ops_keywords):
             return "运维类"
         else:
-            return "代码类"  # 默认类别
+            return DEFAULT_CATEGORY  # 默认类别
 
     def _get_template(self, category: str, priority: str) -> dict[str, str]:
         """获取改进措施模板"""
-        category_templates = self._templates.get(category, self._templates["代码类"])
+        category_templates = self._templates.get(category, self._templates[DEFAULT_CATEGORY])
         return category_templates.get(priority, category_templates["medium"])
 
     def _sort_by_priority(self, measures: list[ImprovementMeasure]) -> list[ImprovementMeasure]:
