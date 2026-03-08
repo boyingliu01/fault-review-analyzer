@@ -67,7 +67,7 @@ class ChromaManager:
             if embedding.metadata:
                 metadata.update(embedding.metadata)
 
-            collection.add(  # type: ignore[arg-type]
+            collection.upsert(  # type: ignore[arg-type]
                 embeddings=[embedding.embedding],
                 documents=[embedding.text],
                 metadatas=[metadata],  # type: ignore[arg-type]

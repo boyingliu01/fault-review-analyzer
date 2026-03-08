@@ -92,7 +92,12 @@ class EnhancedLLMAnalyzer:
         root_cause: str = str(fault_info.get("root_cause", ""))
 
         if not root_cause:
-            root_cause = str(fault_info.get("description", ""))
+            description = str(fault_info.get("description", ""))
+            # 过滤 Markdown 图片链接（![...](...) 或 ![...][...]）
+            if description and not description.strip().startswith("!["):
+                root_cause = description
+            else:
+                root_cause = ""
 
         if not root_cause:
             title = str(fault_info.get("title", ""))
