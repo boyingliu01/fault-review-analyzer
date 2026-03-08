@@ -392,7 +392,7 @@ config/
 
 ```yaml
 api:
-  base_url: "https://zcmtest.iwhalecloud.com:25000"
+  base_url: "https://dev.iwhalecloud.com"
   timeout: 30
   retry: 3
 

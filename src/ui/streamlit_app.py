@@ -519,9 +519,11 @@ class FaultAnalysisUI:
             collection = self.chroma_manager.get_or_create_collection()
             results = collection.get(include=["embeddings", "metadatas"])
 
-            ids = results.get("ids", [])
-            embeddings = list(results.get("embeddings") or [])
-            metadatas = results.get("metadatas") or []
+            ids = results.get("ids") or []
+            embeddings_raw = results.get("embeddings")
+            embeddings = [] if embeddings_raw is None else list(embeddings_raw)
+            metadatas_raw = results.get("metadatas")
+            metadatas = [] if metadatas_raw is None else list(metadatas_raw)
 
             # 把 Chroma document id 注入 metadata，方便后续显示任务单号
             for i, meta in enumerate(metadatas):
