@@ -1,0 +1,57 @@
+# 故障复盘分析报告
+
+## 基本信息
+
+- **任务ID**: {{ task_id }}
+- **标题**: {{ title }}
+- **概要**: {{ summary }}
+
+{% if segments %}
+## 故障详情
+
+{% for segment in segments %}
+### {{ segment.type }}
+
+{{ segment.content[:500] }}
+
+{% endfor %}
+{% endif %}
+
+{% if labels %}
+## 分类标签
+
+{% for label in labels %}
+- **{{ label.name }}** ({{ label.category }}) - 置信度: {{ "%.0f%%"|format(label.confidence * 100) }}
+  {% if label.description %}{{ label.description }}{% endif %}
+
+{% endfor %}
+{% endif %}
+
+{% if root_causes %}
+## 根因分析
+
+{% for cause in root_causes %}
+### {{ cause.cause_type }}
+
+{{ cause.description }}
+
+**证据**:
+{% for evidence in cause.evidence %}
+- {{ evidence }}
+{% endfor %}
+
+置信度: {{ "%.0f%%"|format(cause.confidence * 100) }}
+
+{% endfor %}
+{% endif %}
+
+{% if suggestions %}
+## 改进建议
+
+{% for suggestion in suggestions %}
+{{ loop.index }}. {{ suggestion }}
+{% endfor %}
+{% endif %}
+
+---
+*报告生成时间: {{ metadata.generated_at }}*

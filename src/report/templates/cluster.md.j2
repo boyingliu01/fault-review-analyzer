@@ -1,0 +1,35 @@
+# 故障聚类分析报告
+
+## 聚类概览
+
+- **聚类ID**: {{ cluster_id }}
+- **任务数量**: {{ task_count }}
+
+## 聚类标签
+
+{% for label in labels %}
+- {{ label.name }} ({{ label.category }})
+{% endfor %}
+
+## 共同特征
+
+{{ summary }}
+
+{% if common_root_causes %}
+## 共同根因
+
+{% for cause in common_root_causes %}
+- {{ cause.cause_type }}: {{ cause.description }}
+{% endfor %}
+{% endif %}
+
+{% if suggestions %}
+## 改进建议
+
+{% for suggestion in suggestions %}
+{{ loop.index }}. {{ suggestion }}
+{% endfor %}
+{% endif %}
+
+---
+*聚类分析报告*

@@ -1,0 +1,30 @@
+# 批量故障分析报告
+
+## 总体概览
+
+- **总任务数**: {{ total_tasks }}
+- **聚类数量**: {{ cluster_count }}
+
+## 聚类汇总
+
+{% for cluster in cluster_reports %}
+### 聚类 {{ cluster.cluster_id }} ({{ cluster.task_count }} 个任务)
+
+{{ cluster.summary[:300] }}
+
+{% if cluster.labels %}
+标签: {{ cluster.labels|map(attribute='name')|join(', ') }}
+{% endif %}
+
+{% endfor %}
+
+{% if recommendations %}
+## 整体建议
+
+{% for rec in recommendations %}
+{{ loop.index }}. {{ rec }}
+{% endfor %}
+{% endif %}
+
+---
+*批量分析报告 - 生成时间: {{ generated_at }}*
