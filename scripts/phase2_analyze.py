@@ -159,7 +159,7 @@ class Phase2Analyze:
             lines.append(f"- **违规数**: {stats['violations']}")
             lines.append(f"- **可落地数**: {stats['actionable']}")
             lines.append(f"- **任务单ID**: {', '.join(stats['task_ids'][:10])}")
-            if stats["task_ids"] > 10:
+            if len(stats["task_ids"]) > 10:
                 lines.append(f"  (共 {len(stats['task_ids'])} 个)")
             lines.append("")
 
