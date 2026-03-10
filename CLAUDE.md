@@ -15,6 +15,9 @@ pip install -e ".[dev]"
 # Install pre-commit hooks (required once after clone)
 pre-commit install
 
+# Copy environment template and fill in keys before running against remote services
+cp .env.example .env
+
 # Run all tests with coverage
 pytest tests/ -v --cov=src
 
@@ -27,11 +30,26 @@ ruff format src/ tests/
 
 # Type checking
 mypy src/
+
+# Run full pre-commit hook suite (before commits)
+pre-commit run --all-files
 ```
 
 The CLI entry point after install:
 ```bash
 fault-analyzer --help
+# Common subcommands: fetch --task-id <id>, analyze --task-id <id>, report --task-id <id> --output ./output
+```
+
+Run the Streamlit dashboard:
+```bash
+streamlit run src/ui/streamlit_app.py
+```
+
+Run the two-phase batch scripts directly (no install required):
+```bash
+python scripts/phase1_prepare.py   # Fetch + preprocess + embed → stores to ChromaDB
+python scripts/phase2_analyze.py   # Cluster + label + root-cause analysis
 ```
 
 ## Architecture
@@ -58,6 +76,7 @@ Data flows through a five-stage pipeline orchestrated by `src/analyzer/pipeline.
 - **`src/visualization/`** — `ClusterScatterVisualizer` (`cluster_scatter.py`) renders 2-D cluster scatter plots; `DashboardGenerator` (`charts.py`) builds root-cause distribution bar charts, violation-type charts, and improvement-tracking charts using Plotly.
 - **`src/analysis/clustering.py`** — Stand-alone `ClusteringAnalyzer` that wraps HDBSCAN, KMeans, and AgglomerativeClustering. Returns a local `ClusteringResult` dataclass (distinct from `src/core/models.py:ClusteringResult`).
 - **`src/analysis/improvement_recommender.py`** — `ImprovementRecommender`: maps high-frequency root causes to templated `ImprovementMeasure` objects with priority, category, and acceptance criteria.
+- **`src/analysis/enhanced_llm_analyzer.py`** — `EnhancedLLMAnalyzer`: composes `ViolationDetector`, `CodeChangeAnalyzer`, and `RootCauseValidator` into a single unified analysis step.
 - **`src/ui/streamlit_app.py`** — `FaultAnalysisUI`: Streamlit dashboard integrating `ChromaManager`, `ClusteringAnalyzer`, `ImprovementRecommender`, and `DashboardGenerator`. Run with:
   ```bash
   streamlit run src/ui/streamlit_app.py
@@ -65,27 +84,39 @@ Data flows through a five-stage pipeline orchestrated by `src/analyzer/pipeline.
 - All data models use **Pydantic v2** (`model_config = ConfigDict(...)` style).
 - The CLI uses `asyncio.run()` inside synchronous Typer commands (see `fetch.py`). Do not call these commands from an already-running event loop.
 
+### Coding Conventions
+
+- Max line length: **100** (enforced by Ruff formatter).
+- Logging: use **`loguru`** (`from loguru import logger`), not stdlib `logging`.
+- File paths: prefer **`pathlib.Path`** over `os.path`.
+- Keep CLI commands (Typer) thin; business logic lives in `analyzer/` or `api/` service classes to stay testable.
+- Commit messages follow **Conventional Commits**: `feat(scope): …`, `fix`, `chore`, `test`, `docs`, etc.
+
 ### Configuration
 
-`config.yaml` at repo root is loaded by `ConfigManager`. Environment variable overrides use plain uppercase keys (no project prefix), e.g.:
+`config/config.yaml` is loaded by `ConfigManager`. Copy `.env.example` to `.env` and set credentials there — the env vars override the YAML. Plain uppercase keys (no project prefix), e.g.:
 
 ```
-LLM_MODEL=gpt-3.5-turbo
+LLM_PROVIDER=volcengine
+LLM_MODEL=doubao-seed-1-8-251228
+LLM_API_KEY=...
+LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+EMBEDDING_PROVIDER=volcengine
+EMBEDDING_MODEL=doubao-embedding-vision-251215
 API_BASE_URL=https://...
-EMBEDDING_API_KEY=sk-...
 ```
 
-Full mapping is in `src/config/manager.py:_env_prefix_map`. The `APIConfig.api_key` field holds the external REST API token; set it via `API_API_KEY` or `API_TOKEN` environment variables.
+The active default provider in `config/config.yaml` is **Volcengine** (Doubao LLM + embedding), not OpenAI. Full env var mapping is in `src/config/manager.py:_env_prefix_map`. The `APIConfig.api_key` field holds the external REST API token; set it via `API_API_KEY` or `API_TOKEN`.
 
 Key config sections:
 
 | Section | Purpose |
 |---|---|
 | `api.base_url` | External research-management system API endpoint |
-| `llm.model` | GPT model for the reasoning stage |
-| `embedding.model` | OpenAI embedding model (`text-embedding-3-small` default) |
-| `clustering.min_cluster_size` | HDBSCAN minimum cluster size (default 5) |
-| `clustering.metric` | Distance metric — default `cosine` in config but `euclidean` in `ClusterAnalyzer` constructor; pass explicitly |
+| `llm.provider` / `llm.model` | LLM provider and model for the reasoning stage |
+| `embedding.provider` / `embedding.model` | Embedding provider and model |
+| `clustering.min_cluster_size` | HDBSCAN minimum cluster size (default 2 in config) |
+| `clustering.metric` | Distance metric — `cosine` in config; verify it propagates to `ClusterAnalyzer` constructor |
 | `cache.ttl` | SQLite cache TTL in seconds (default 86400) |
 
 ## Development Workflow (SDD)
@@ -119,7 +150,7 @@ A full code review report is at `review/code_review.md` (updated through 4 round
 
 ## Testing
 
-Tests live in `tests/`. Coverage threshold is 80% (`fail_under` in `pyproject.toml`). `tests/conftest.py` provides shared fixtures. All async tests run under `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed on individual tests. CLI commands are excluded from coverage (`src/cli/*` omitted in config).
+Tests live in `tests/`. Coverage threshold is ~80% (`fail_under = 79.9` in `pyproject.toml`). `tests/conftest.py` provides shared fixtures. All async tests run under `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed on individual tests. CLI commands are excluded from coverage (`src/cli/*` omitted in config). Mock external calls (HTTPX, LLM APIs) — do not make real network requests in tests.
 
 Sub-directories with their own `conftest.py` and targeted fixtures:
 
@@ -128,7 +159,7 @@ Sub-directories with their own `conftest.py` and targeted fixtures:
 | `tests/analysis/` | `ViolationDetector`, `RootCauseValidator`, `CodeChangeAnalyzer`, `EnhancedLLMAnalyzer`, `ImprovementRecommender`, `ClusteringAnalyzer` |
 | `tests/storage/` | `ChromaManager` |
 | `tests/knowledge/` | `StandardsManager` |
-| `tests/visualization/` | `ClusterScatterVisualizer`, `DashboardGenerator` (`charts.py`) |
+| `tests/visualization/` | `ClusterScatterVisualizer`, `DashboardGenerator` |
 | `tests/ui/` | `FaultAnalysisUI` (Streamlit app) |
 | `tests/integration/` | Two-phase pipeline integration (`test_phase1_phase2.py`) |
 | `tests/clustering/` | Extended `ClusterAnalyzer` tests |
