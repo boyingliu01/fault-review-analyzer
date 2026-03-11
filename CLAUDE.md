@@ -94,19 +94,26 @@ Data flows through a five-stage pipeline orchestrated by `src/analyzer/pipeline.
 
 ### Configuration
 
-`config/config.yaml` is loaded by `ConfigManager`. Copy `.env.example` to `.env` and set credentials there — the env vars override the YAML. Plain uppercase keys (no project prefix), e.g.:
+`config/config.yaml` is loaded by `ConfigManager`. **Never commit API keys to version control** — use `.env` file to override sensitive values:
+
+```bash
+cp .env.example .env
+# Edit .env with your credentials
+```
+
+Env vars override YAML config (plain uppercase keys, no prefix):
 
 ```
+API_API_KEY=<external-rest-api-token>
 LLM_PROVIDER=volcengine
 LLM_MODEL=doubao-seed-1-8-251228
 LLM_API_KEY=...
 LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 EMBEDDING_PROVIDER=volcengine
 EMBEDDING_MODEL=doubao-embedding-vision-251215
-API_BASE_URL=https://...
 ```
 
-The active default provider in `config/config.yaml` is **Volcengine** (Doubao LLM + embedding), not OpenAI. Full env var mapping is in `src/config/manager.py:_env_prefix_map`. The `APIConfig.api_key` field holds the external REST API token; set it via `API_API_KEY` or `API_TOKEN`.
+The active default provider in `config/config.yaml` is **Volcengine** (Doubao LLM + embedding). Full env var mapping is in `src/config/manager.py:_env_prefix_map`. The `APIConfig.api_key` field holds the external REST API token; set it via `API_API_KEY` or `API_TOKEN`.
 
 Key config sections:
 
