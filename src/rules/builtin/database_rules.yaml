@@ -1,0 +1,38 @@
+# 数据库操作内置规则
+# 覆盖常见数据库缺陷模式，与 data/standards/mock/database_standards.json 对应
+rules:
+  - id: db-001
+    name: SQL 注入风险（字符串拼接）
+    description: SQL 语句通过字符串拼接构造，存在 SQL 注入漏洞
+    category: security
+    severity: critical
+    pattern: '(executeQuery|executeUpdate|execute)\s*\(\s*".*\+'
+    message: SQL 语句不应拼接外部输入，请使用 PreparedStatement 参数化查询
+    enabled: true
+
+  - id: db-002
+    name: SELECT * 查询
+    description: 使用 SELECT * 会查询不必要的字段，影响性能
+    category: performance
+    severity: low
+    pattern: 'SELECT\s+\*\s+FROM'
+    message: 避免 SELECT *，明确列出所需字段以提升查询性能
+    enabled: true
+
+  - id: db-003
+    name: 循环内数据库查询（N+1）
+    description: 在循环体内执行数据库查询，导致 N+1 问题
+    category: performance
+    severity: high
+    pattern: 'for\s+.*:\s*\n.*\.(query|find|select|fetch)\('
+    message: 循环内查询会引发 N+1 问题，应改用批量查询或 JOIN
+    enabled: true
+
+  - id: db-004
+    name: 索引列上使用函数
+    description: WHERE 子句对索引列使用函数导致全表扫描
+    category: performance
+    severity: medium
+    pattern: 'WHERE\s+(DATE|YEAR|MONTH|UPPER|LOWER|SUBSTRING)\s*\('
+    message: 在索引列上使用函数会使索引失效，导致全表扫描
+    enabled: true

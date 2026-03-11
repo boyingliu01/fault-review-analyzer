@@ -1,0 +1,47 @@
+# Java 内置规则
+# 覆盖 Java 代码常见缺陷模式，与 data/standards/mock/java_coding_standards.json 对应
+rules:
+  - id: java-001
+    name: 空指针未防御
+    description: 方法返回值未判空直接调用，潜在 NullPointerException
+    category: code
+    severity: high
+    pattern: '\w+\.\w+\(\)\.\w+'
+    message: 链式调用未判空，可能引发 NullPointerException
+    enabled: true
+
+  - id: java-002
+    name: 吞异常
+    description: catch 块中仅 e.printStackTrace() 或为空，异常被静默吞掉
+    category: code
+    severity: high
+    pattern: 'catch\s*\(.*\)\s*\{\s*(e\.printStackTrace\(\);?\s*)?\}'
+    message: 异常被吞掉，应至少记录日志或重新抛出
+    enabled: true
+
+  - id: java-003
+    name: 资源未关闭
+    description: InputStream/Connection 等资源未在 finally 或 try-with-resources 中关闭
+    category: code
+    severity: medium
+    pattern: 'new\s+(FileInputStream|FileOutputStream|Connection|Statement|ResultSet)\s*\('
+    message: 资源应通过 try-with-resources 管理以确保关闭
+    enabled: true
+
+  - id: java-004
+    name: 使用非线程安全集合
+    description: 多线程环境下使用 HashMap/ArrayList 等非线程安全集合
+    category: concurrency
+    severity: high
+    pattern: 'new\s+(HashMap|ArrayList|LinkedList)\s*<'
+    message: 多线程场景下应使用 ConcurrentHashMap / CopyOnWriteArrayList
+    enabled: true
+
+  - id: java-005
+    name: System.out.println 调试代码残留
+    description: 生产代码中残留 System.out.println 调试输出
+    category: code
+    severity: low
+    pattern: 'System\.out\.println\s*\('
+    message: 请移除 System.out.println，改用 SLF4J 日志框架
+    enabled: true

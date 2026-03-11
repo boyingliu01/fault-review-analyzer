@@ -1,0 +1,40 @@
+# 自定义规则示例
+# 复制此文件到 data/rules/custom/ 目录并按需修改，RulesEngine 会自动加载
+# 字段说明：
+#   id          : 唯一标识，建议使用 <前缀>-<编号> 格式，不可与内置规则重复
+#   name        : 规则名称（中文友好）
+#   description : 详细描述，说明检测目标和危害
+#   category    : 分类，可选 security / code / performance / concurrency / custom
+#   severity    : 严重程度，可选 critical / high / medium / low
+#   pattern     : Python 正则表达式，匹配到则触发违规（与 condition 二选一）
+#   condition   : 条件表达式，如 "lines > 50"（暂由人工标注，引擎不执行）
+#   message     : 违规时展示给用户的提示信息
+#   enabled     : true / false，false 时规则被跳过（默认 true）
+
+rules:
+  - id: custom-001
+    name: 硬编码 IP 地址
+    description: 代码中直接写入 IP 地址，部署环境变更时容易出错
+    category: custom
+    severity: medium
+    pattern: '\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'
+    message: 检测到硬编码 IP 地址，建议改为配置项
+    enabled: true
+
+  - id: custom-002
+    name: TODO 未解决
+    description: 代码中残留 TODO 注释，说明存在未完成的工作
+    category: code
+    severity: low
+    pattern: '#\s*TODO'
+    message: 存在未解决的 TODO，请确认是否影响本次发布
+    enabled: true
+
+  - id: custom-003
+    name: 函数行数过长
+    description: 单函数行数超过 80 行，可维护性差
+    category: code
+    severity: low
+    condition: lines > 80
+    message: 函数行数超过 80 行，建议拆分为更小的函数
+    enabled: false
