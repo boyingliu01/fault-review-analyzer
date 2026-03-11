@@ -12,7 +12,7 @@ from sklearn.cluster import AgglomerativeClustering, KMeans
 
 
 @dataclass
-class ClusteringResult:
+class ClusteringAnalysisResult:
     """聚类结果数据类"""
 
     labels: list[int]
@@ -38,7 +38,7 @@ class ClusteringAnalyzer:
         min_cluster_size: int = 3,
         min_samples: int = 2,
         metric: str = "euclidean",
-    ) -> ClusteringResult:
+    ) -> ClusteringAnalysisResult:
         """使用 HDBSCAN 进行聚类
 
         Args:
@@ -54,7 +54,7 @@ class ClusteringAnalyzer:
             X = _prepare_embeddings(embeddings)
 
             if len(X) == 0:
-                return ClusteringResult(
+                return ClusteringAnalysisResult(
                     labels=[],
                     n_clusters=0,
                     n_noise=0,
@@ -80,7 +80,7 @@ class ClusteringAnalyzer:
 
             logger.info(f"HDBSCAN 聚类完成: {n_clusters} 个簇, {n_noise} 个噪声点")
 
-            return ClusteringResult(
+            return ClusteringAnalysisResult(
                 labels=labels_list,
                 n_clusters=n_clusters,
                 n_noise=n_noise,
@@ -101,7 +101,7 @@ class ClusteringAnalyzer:
         embeddings: list[list[float]],
         n_clusters: int = 5,
         random_state: int = 42,
-    ) -> ClusteringResult:
+    ) -> ClusteringAnalysisResult:
         """使用 K-Means 进行聚类
 
         Args:
@@ -116,7 +116,7 @@ class ClusteringAnalyzer:
             X = _prepare_embeddings(embeddings)
 
             if len(X) == 0:
-                return ClusteringResult(
+                return ClusteringAnalysisResult(
                     labels=[],
                     n_clusters=0,
                     n_noise=0,
@@ -138,7 +138,7 @@ class ClusteringAnalyzer:
 
             logger.info(f"K-Means 聚类完成: {n_clusters} 个簇")
 
-            return ClusteringResult(
+            return ClusteringAnalysisResult(
                 labels=labels_list,
                 n_clusters=n_clusters,
                 n_noise=0,
@@ -159,7 +159,7 @@ class ClusteringAnalyzer:
         n_clusters: int = 5,
         metric: str = "euclidean",
         linkage: str = "ward",
-    ) -> ClusteringResult:
+    ) -> ClusteringAnalysisResult:
         """使用层次聚类
 
         Args:
@@ -175,7 +175,7 @@ class ClusteringAnalyzer:
             X = _prepare_embeddings(embeddings)
 
             if len(X) == 0:
-                return ClusteringResult(
+                return ClusteringAnalysisResult(
                     labels=[],
                     n_clusters=0,
                     n_noise=0,
@@ -201,7 +201,7 @@ class ClusteringAnalyzer:
 
             logger.info(f"层次聚类完成: {n_clusters} 个簇")
 
-            return ClusteringResult(
+            return ClusteringAnalysisResult(
                 labels=labels_list,
                 n_clusters=n_clusters,
                 n_noise=0,
