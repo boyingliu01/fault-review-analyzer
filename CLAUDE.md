@@ -190,21 +190,34 @@ Key config sections:
 
 接口文档：`swagger.txt`（位于项目根目录，OpenAPI 3.1.0格式）
 
+**API调用前缀**：
+```
+Base URL: https://dev.iwhalecloud.com
+Prefix: /portal/ai-gateway/devspace
+完整路径示例: POST https://dev.iwhalecloud.com/portal/ai-gateway/devspace/rpc/v3/bug/{taskNo}/detail
+```
+
 **核心查询接口（按taskNo/taskId）：**
 
-1. **任务单详情**：`POST /rpc/v3/work-item/{taskNo}/detail`
-2. **需求单详情**：`POST /rpc/v3/user-story/{taskNo}/detail`
-3. **缺陷单详情**：`POST /rpc/v3/bug/{taskNo}/detail`
-4. **事务单详情**：`POST /rpc/v3/task/task-no/{taskNo}`
-5. **操作历史**：`POST /task/{taskId}/action`
-6. **评论列表**：`POST /task/{taskId}/comment`
-7. **验收点**：`GET /task/{taskId}/review`
-8. **影响评估**：`GET /task/{taskId}/impact`
-9. **代码分支**：`POST /rpc/v3/task-branch/{taskNo}/commit-range`
-10. **代码变动**：`POST /rpc/v3/task-branch/{taskNo}/changes/content`
-11. **工时汇总**：`GET /task/{taskId}/work-hour/summary`
-12. **评审纪要**：`GET /task/audit-summary/{taskAuditSummaryId}`
-13. **故障复盘结论**：`POST /rpc/v3/{taskNo}/inter-analysis`
+| # | 接口名称 | 方法 | 路径 | 备注 |
+|---|---------|------|------|------|
+| 1 | 任务单详情 | POST | `/rpc/v3/work-item/{taskNo}/detail` | |
+| 2 | 需求单详情 | POST | `/rpc/v3/user-story/{taskNo}/detail` | |
+| 3 | 缺陷单详情 | POST | `/rpc/v3/bug/{taskNo}/detail` | ✅ 已验证 |
+| 4 | 事务单详情 | POST | `/rpc/v3/task/task-no/{taskNo}` | |
+| 5 | 操作历史 | POST | `/task/{taskId}/action` | ⚠️ 可能返回404 |
+| 6 | 评论列表 | POST | `/task/{taskId}/comment` | ⚠️ 可能返回404 |
+| 7 | 验收点 | GET | `/task/{taskId}/review` | ⚠️ 可能返回404 |
+| 8 | 影响评估 | GET | `/task/{taskId}/impact` | ⚠️ 可能返回404 |
+| 9 | 代码分支 | POST | `/rpc/v3/task-branch/{taskNo}/commit-range` | ⚠️ 可能返回空 |
+| 10 | 代码变动 | POST | `/rpc/v3/task-branch/{taskNo}/changes/content` | ⚠️ 可能返回空 |
+| 11 | 工时汇总 | GET | `/task/{taskId}/work-hour/summary` | ⚠️ 可能返回404 |
+| 12 | 评审纪要 | GET | `/task/audit-summary/{taskAuditSummaryId}` | |
+| 13 | 故障复盘结论 | POST | `/rpc/v3/{taskNo}/inter-analysis` | ✅ 已验证 |
+
+**备注**：
+- ✅ 已验证 - 接口已测试可用
+- ⚠️ 可能返回404 - 测试环境Swagger文档与实际接口可能不一致，需联系研发确认
 
 ### 故障复盘数据接口返回字段
 
