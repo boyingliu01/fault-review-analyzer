@@ -83,6 +83,32 @@ Data flows through a five-stage pipeline orchestrated by `src/analyzer/pipeline.
 | `src/knowledge/manager.py` | Development standards management |
 | `src/core/models.py` | Shared data models across analysis layer |
 | `src/analysis/` | Independent analysis modules (violation, root cause, improvement) |
+| `src/analysis/root_cause/` | 深度根因分析模块（5层追问机制） |
+
+### Root Cause Analysis Module (`src/analysis/root_cause/`)
+
+**功能**：基于故障单信息 + 现有复盘结论，进行5层深度根因挖掘
+
+**核心组件**：
+- `models.py` - 数据模型（FaultAnalysisInput, RootCause, ActionableImprovement）
+- `prompts.py` - Prompt模板（5层分析、追问机制）
+- `analyzer.py` - 分析服务（DeepRootCauseAnalyzer）
+
+**使用方式**：
+```python
+from src.analysis.root_cause import DeepRootCauseAnalyzer, FaultAnalysisInput, ExistingFaultAnalysis
+
+analyzer = DeepRootCauseAnalyzer(llm_provider)
+result = await analyzer.analyze(fault_input, existing_analysis)
+```
+
+**Pipeline集成**：
+```python
+# 在 pipeline.py 中使用
+config = PipelineConfig(analyze_root_cause_deep=True)
+result = await pipeline.run(task_no, config)
+# result.deep_root_causes 包含深度根因分析结果
+```
 
 ### Coding Conventions
 
