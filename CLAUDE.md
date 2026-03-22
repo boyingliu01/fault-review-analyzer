@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Fault Review Analyzer (故障复盘分析工具)** — An AI-driven pipeline that clusters similar bugs/incidents and discovers root causes without pre-defined labels. It fetches task data from an external REST API, preprocesses text, generates vector embeddings via OpenAI, and applies HDBSCAN density-based clustering, followed by LLM-based labeling and root cause analysis.
+**Fault Review Analyzer (故障复盘分析工具)** — An AI-driven pipeline that clusters similar bugs/incidents and discovers root causes without pre-defined labels. It fetches task data from a REST API, preprocesses text, generates vector embeddings via multiple providers (OpenAI, Zhipu, Volcengine, local sentence-transformers), applies HDBSCAN density-based clustering, followed by LLM-based labeling and root cause analysis.
 
 ## Development Commands
 
@@ -12,10 +12,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install in editable mode with dev dependencies
 pip install -e ".[dev]"
 
-# Install pre-commit hooks (required once after clone)
+# Install pre-commit hooks
 pre-commit install
 
-# Copy environment template and fill in keys before running against remote services
+# Copy environment template and fill in keys
 cp .env.example .env
 
 # Run all tests with coverage
@@ -31,7 +31,7 @@ ruff format src/ tests/
 # Type checking
 mypy src/
 
-# Run full pre-commit hook suite (before commits)
+# Run full pre-commit hook suite
 pre-commit run --all-files
 ```
 
@@ -56,119 +56,211 @@ python scripts/phase2_analyze.py   # Cluster + label + root-cause analysis
 
 Data flows through a five-stage pipeline orchestrated by `src/analyzer/pipeline.py` (`AnalysisPipeline`):
 
-1. **Fetch** (`src/api/`, `src/cache/`) — `APIClient` (async context manager, httpx) fetches task/bug records from a REST API and persists them in SQLite cache with TTL via `CacheManager`.
-2. **Preprocess** (`src/preprocessor/`) — `DataPreprocessor` extracts text segments from all task fields (title, description, commits, logs, stack traces) and combines them into a single string per task (max 8000 chars).
-3. **Embed** (`src/embedding/`) — `EmbeddingGenerator` supports multiple providers (OpenAI, Zhipu, Volcengine, local sentence-transformers) in async batches. Default: `text-embedding-3-small` → 1536-dim; local → 1024-dim.
-4. **Cluster** (`src/clustering/`) — `ClusterAnalyzer` runs HDBSCAN on the embedding matrix and emits `ClusterResult` with labels, noise indices, and centroids. Falls back to sklearn if HDBSCAN is unavailable. Quality metrics (silhouette, Calinski-Harabasz) are computed separately via `compute_cluster_quality()`.
-5. **Analyze** (`src/analyzer/labeling/`, `src/analyzer/reasoning/`, `src/analysis/`) — `LabelGenerator` assigns categories via LLM; `RootCauseAnalyzer` produces structured root cause analysis; `ViolationDetector` applies rule-based checks against the standards knowledge base; `RootCauseValidator` scores actionability.
+1. **Fetch** (`src/api/`) — `APIClient` (async context manager, httpx) fetches task/bug records and persists them in SQLite cache with TTL via `CacheManager`.
+2. **Preprocess** (`src/preprocessor/`) — `DataPreprocessor` extracts text segments and combines them into a single string per task.
+3. **Embed** (`src/embedding/`) — `EmbeddingGenerator` supports multiple providers (OpenAI, Zhipu, Volcengine, local) in async batches.
+4. **Cluster** (`src/clustering/`) — `ClusterAnalyzer` runs HDBSCAN and emits clustering results.
+5. **Analyze** (`src/analyzer/labeling/`, `src/analyzer/reasoning/`) — `LabelGenerator` assigns categories via LLM; `RootCauseAnalyzer` produces structured analysis.
 
-`AnalysisPipeline` uses lazy initialization — components are created on first use via `_get_*()` methods.
+### Module Layout
 
-### Module Layout Notes
-
-- **`src/cli/`** — Typer-based CLI. `fetch` commands are fully implemented. `analyze` and `report` commands call `AnalysisPipeline` / `ReportGenerator` but have sparse test coverage.
-- **`src/core/models.py`** — **V4 shared models** used across the analysis layer: `StandardRule`, `CodeChange`, `ViolationDetection`, `RootCauseValidation`, `LLMAnalysisResult`, `ClusteringResult`. Distinct from V1 models in `src/api/models.py`.
-- **`src/analyzer/`** — Fully implemented: `pipeline.py` (orchestration), `labeling/generator.py`, `reasoning/generator.py`.
-- **`src/analysis/`** — V4 violation detection (`ViolationDetector`) and root cause validation (`RootCauseValidator`).
-- **`src/knowledge/`** — `StandardsManager`: loads development standards from JSON files (globbing `*_standards.json`), supports search by keyword/level/subcategory. Default data dir: `data/standards/mock/` (4 mock files: Java, DB, C++, ops) — temporary until T1a (PDF spec parsing) is implemented. Tests in `tests/knowledge/`.
-- **`src/report/`** and **`src/rules/`** — Scaffolded with skeleton implementations; not production-ready.
-- **`src/storage/`** — `ChromaManager`: wraps ChromaDB (`PersistentClient`) for vector storage at `./data/chroma`. Accepts `EmbeddingResult` objects (from `src/core/models.py`); supports `add_embedding`, `add_batch_embeddings`, `query_similar`, and `get_by_task_id`. Default collection: `fault_embeddings`.
-- **`src/visualization/`** — `ClusterScatterVisualizer` (`cluster_scatter.py`) renders 2-D cluster scatter plots; `DashboardGenerator` (`charts.py`) builds root-cause distribution bar charts, violation-type charts, and improvement-tracking charts using Plotly.
-- **`src/analysis/clustering.py`** — Stand-alone `ClusteringAnalyzer` that wraps HDBSCAN, KMeans, and AgglomerativeClustering. Returns a local `ClusteringResult` dataclass (distinct from `src/core/models.py:ClusteringResult`).
-- **`src/analysis/improvement_recommender.py`** — `ImprovementRecommender`: maps high-frequency root causes to templated `ImprovementMeasure` objects with priority, category, and acceptance criteria.
-- **`src/analysis/enhanced_llm_analyzer.py`** — `EnhancedLLMAnalyzer`: composes `ViolationDetector`, `CodeChangeAnalyzer`, and `RootCauseValidator` into a single unified analysis step.
-- **`src/ui/streamlit_app.py`** — `FaultAnalysisUI`: Streamlit dashboard integrating `ChromaManager`, `ClusteringAnalyzer`, `ImprovementRecommender`, and `DashboardGenerator`. Run with:
-  ```bash
-  streamlit run src/ui/streamlit_app.py
-  ```
-- All data models use **Pydantic v2** (`model_config = ConfigDict(...)` style).
-- The CLI uses `asyncio.run()` inside synchronous Typer commands (see `fetch.py`). Do not call these commands from an already-running event loop.
+| Module | Description |
+|---------|-------------|
+| `src/analyzer/pipeline.py` | Main orchestration, coordinates all components |
+| `src/analyzer/labeling/` | LLM-based intelligent label generation |
+| `src/analyzer/reasoning/` | LLM-based root cause analysis |
+| `src/api/` | REST API client for fetching task data |
+| `src/clustering/` | HDBSCAN clustering algorithm implementation |
+| `src/embedding/` | Multi-provider embedding generation |
+| `src/preprocessor/` | Data cleaning and formatting |
+| `src/rules/` | Rule-based violation detection engine |
+| `src/report/` | Report generator with Jinja2 templates |
+| `src/storage/chroma_manager.py` | ChromaDB vector database management |
+| `src/visualization/` | Chart generation (Plotly) and scatter plots |
+| `src/ui/streamlit_app.py` | Streamlit Web application |
+| `src/config/manager.py` | Configuration manager (YAML + env vars) |
+| `src/cache/manager.py` | SQLite cache management |
+| `src/knowledge/manager.py` | Development standards management |
+| `src/core/models.py` | Shared data models across analysis layer |
+| `src/analysis/` | Independent analysis modules (violation, root cause, improvement) |
 
 ### Coding Conventions
 
-- Max line length: **100** (enforced by Ruff formatter).
-- Logging: use **`loguru`** (`from loguru import logger`), not stdlib `logging`.
-- File paths: prefer **`pathlib.Path`** over `os.path`.
-- Keep CLI commands (Typer) thin; business logic lives in `analyzer/` or `api/` service classes to stay testable.
-- Commit messages follow **Conventional Commits**: `feat(scope): …`, `fix`, `chore`, `test`, `docs`, etc.
+- Max line length: **100** (enforced by Ruff formatter)
+- Logging: use **`loguru`** (`from loguru import logger`)
+- File paths: prefer **`pathlib.Path`**
+- Commit messages: Conventional Commits (`feat`, `fix`, `chore`, `test`, `docs`)
 
-### Configuration
+## Configuration
 
-`config/config.yaml` is loaded by `ConfigManager`. **Never commit API keys to version control** — use `.env` file to override sensitive values:
+Configuration is loaded from `config/config.yaml` with environment variable overrides:
 
 ```bash
-cp .env.example .env
-# Edit .env with your credentials
-```
-
-Env vars override YAML config (plain uppercase keys, no prefix):
-
-```
+# API configuration
 API_API_KEY=<external-rest-api-token>
+
+# LLM configuration
 LLM_PROVIDER=volcengine
 LLM_MODEL=doubao-seed-1-8-251228
 LLM_API_KEY=...
 LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+
+# Embedding configuration
 EMBEDDING_PROVIDER=volcengine
 EMBEDDING_MODEL=doubao-embedding-vision-251215
+EMBEDDING_API_KEY=...
+EMBEDDING_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 ```
 
-The active default provider in `config/config.yaml` is **Volcengine** (Doubao LLM + embedding). Full env var mapping is in `src/config/manager.py:_env_prefix_map`. The `APIConfig.api_key` field holds the external REST API token; set it via `API_API_KEY` or `API_TOKEN`.
-
 Key config sections:
+- `api.base_url` — External API endpoint
+- `llm.provider` / `llm.model` — LLM provider and model
+- `embedding.provider` / `embedding.model` — Embedding provider and model
+- `clustering.min_cluster_size` — HDBSCAN minimum cluster size (default: 3)
+- `clustering.metric` — Distance metric (cosine)
+- `cache.ttl` — SQLite cache TTL in seconds (default: 86400)
 
-| Section | Purpose |
-|---|---|
-| `api.base_url` | External research-management system API endpoint |
-| `llm.provider` / `llm.model` | LLM provider and model for the reasoning stage |
-| `embedding.provider` / `embedding.model` | Embedding provider and model |
-| `clustering.min_cluster_size` | HDBSCAN minimum cluster size (default 2 in config) |
-| `clustering.metric` | Distance metric — `cosine` in config; verify it propagates to `ClusterAnalyzer` constructor |
-| `cache.ttl` | SQLite cache TTL in seconds (default 86400) |
+## Data Storage
 
-## Development Workflow (SDD)
+- **ChromaDB**: `./data/chroma/` — Vector embeddings, metadata, documents
+- **SQLite Cache**: `./data/cache.db` — API response cache (TTL: 24 hours)
+- **Rules**: `src/rules/builtin/` and `data/rules/custom/` — Built-in and custom rules
+- **Standards**: `data/standards/` — JSON-formatted development standards
+- **Reports**: `./output/` — Analysis reports (configurable)
 
-New features must follow the Specification-Driven Development (SDD) process:
+## Test Data
 
-1. **Specify** — Edit `.speckit/specify.md`: describe WHAT the feature does (not HOW)
-2. **Plan** — Edit `.speckit/plan.md`: design the technical approach
-3. **Tasks** — Edit `.speckit/tasks.md`: break down into actionable implementation steps
-4. **Implement** — Follow TDD: write failing test → implement → refactor
-5. **Analyze** — Edit `.speckit/analyze.md`: verify consistency across docs
+### Fault/Bug Lists (故障单列表)
+
+| File | Description | Count |
+|------|-------------|-------|
+| `故障单列表.xlsx` | 完整故障单号列表（仅缺陷单号列） | 1924条 |
+| `data/测试用故障单号列表.xlsx` | 测试用故障单号列表 | 336条 |
+
+**故障单号样本（前10条）：**
+```
+11751534, 11751363, 11750733, 11749289, 11748873, 11748726, 11748712, 11747703, 11746253, 11745664
+```
+
+**示例：有代码变更的故障单（isCommitCode=Y）**：
+- `11745664` - reconnection复装业务更换卡类型问题
+- `11748712` - 创建唯一索引和主键约束
+
+### 开发规范文档
+
+**浩鲸Java编码规范**：`docs/浩鲸在线规范库.pdf`（212页）
+
+**关键规范章节**：
+- 2.1 集合处理（J000000-J000013）：hashCode/equals、subList、Map遍历、ConcurrentModificationException等
+- 2.2 并发处理（J000014）：单例线程安全
+- 3.1 内存管理（J000107-J000113）：对象引用、内存回收、SQL拼装
+- 3.2 并发集合（J000114-J000119）：线程安全集合、ArrayList初始化容量
+- 3.3 字符串处理（J000120-J000123）：字符串连接、字符遍历
+- 3.4 并发编程（J000124-J000127）：正则预编译、synchronized优化
+- 3.5 IO处理（J000127）：try-with-resources资源关闭
+- 安全篇：输入校验、异常行为、SQL注入防护
+
+### Swagger API Data Source
+
+接口文档：`swagger.txt`（位于项目根目录，OpenAPI 3.1.0格式）
+
+**核心查询接口（按taskNo/taskId）：**
+
+1. **任务单详情**：`POST /rpc/v3/work-item/{taskNo}/detail`
+2. **需求单详情**：`POST /rpc/v3/user-story/{taskNo}/detail`
+3. **缺陷单详情**：`POST /rpc/v3/bug/{taskNo}/detail`
+4. **事务单详情**：`POST /rpc/v3/task/task-no/{taskNo}`
+5. **操作历史**：`POST /task/{taskId}/action`
+6. **评论列表**：`POST /task/{taskId}/comment`
+7. **验收点**：`GET /task/{taskId}/review`
+8. **影响评估**：`GET /task/{taskId}/impact`
+9. **代码分支**：`POST /rpc/v3/task-branch/{taskNo}/commit-range`
+10. **代码变动**：`POST /rpc/v3/task-branch/{taskNo}/changes/content`
+11. **工时汇总**：`GET /task/{taskId}/work-hour/summary`
+12. **评审纪要**：`GET /task/audit-summary/{taskAuditSummaryId}`
+13. **故障复盘结论**：`POST /rpc/v3/{taskNo}/inter-analysis`
+
+### 故障复盘数据接口返回字段
+
+**接口**：`POST /rpc/v3/{taskNo}/inter-analysis`
+
+返回结构：
+```json
+{
+  "data": {
+    "taskNo": "11745664",
+    "apiDevTaskAnalysis": {
+      "ownerTeamName": "智启",
+      "analysisCatalog": {"name": "研发环节", "nameEn": "Development Phase"},
+      "analysisCatalogDetail": {"name": "正常场景遗漏", "nameEn": "Missing normal scenarios"},
+      "reason": "详细原因描述...",
+      "conclusion": "考虑其他涉及虚拟卡换卡的场景",
+      "improveStage": "代码重构+自动化单元测试",
+      "improveUserDto": {...},
+      "createUserDto": {...},
+      "createdTime": "2025-12-25 15:19:54"
+    },
+    "apiTestTaskAnalysis": {
+      "ownerTeamName": "天璇",
+      "analysisCatalog": {"name": "测试设计类", "nameEn": "Test Design Category"},
+      "analysisCatalogDetail": {"name": "关联场景考虑不全", "nameEn": "Incomplete Consideration of Related Scenarios"},
+      "reason": "详细原因描述...",
+      "conclusion": "梳理esim相关业务整理专题",
+      "improveStage": "模块测试",
+      "improveUserDto": {...},
+      "createUserDto": {...},
+      "createDate": "2025-12-30 10:42:55"
+    },
+    "apiMgrTaskAnalysis": {
+      "testImproveStage": "模块测试",
+      "devImproveStage": "代码重构+自动化单元测试",
+      "createUserDto": {...},
+      "createDate": "2026-01-14 22:30:31"
+    }
+  }
+}
+```
+
+## Testing
+
+Test coverage threshold: **≥79.9%** (excludes `src/cli/*` and `src/ui/*`)
+
+Test structure:
+- `tests/unit/` — Unit tests for individual modules
+- `tests/integration/` — Two-phase pipeline integration tests
+- `tests/analysis/` — Analysis module tests
+- `tests/api/` — API client tests
+- `tests/storage/` — ChromaDB tests
+- `tests/knowledge/` — Standards manager tests
+- `tests/visualization/` — Visualization tests
+- `tests/ui/` — Streamlit app tests
+
+## Development Workflow
+
+1. **Specification** — Edit `.speckit/specify.md`
+2. **Planning** — Edit `.speckit/plan.md`
+3. **Tasks** — Edit `.speckit/tasks.md`
+4. **Implementation** — Follow TDD: write failing test → implement → refactor
+5. **Analysis** — Edit `.speckit/analyze.md`
 6. **Review** — Use `code-review-checklist.md` before committing
 
-Quality gate before every commit:
+Quality gate before commits:
 ```bash
 ruff check src/ tests/     # Linting
 ruff format src/ tests/    # Formatting
 mypy src/                  # Type checking
-pytest tests/ -v --cov=src # Tests (coverage ≥ 80%)
+pytest tests/ -v --cov=src # Tests (coverage ≥ 79.9%)
 ```
 
-## Code Review
+## Known Issues
 
-A full code review report is at `review/code_review.md` (updated through 4 rounds of review). A general-purpose code review checklist is at `code-review-checklist.md`.
+1. **Duplicate ClusteringResult** — `src/core/models.py` and `src/analysis/clustering.py` both define this type; they are not interchangeable.
+2. **Streamlit UI** — Low test coverage (35%) due to E2E testing requirements; excluded from coverage calculation.
+3. **Pre-commit** — Requires API keys in environment variables for full validation.
 
-## Known Issues to Be Aware Of
+## Important Notes
 
-- **`src/embedding/generator.py:71`** — `_embed_batch_internal` has dead-code silent replacement (`else " "`). Functionally safe because `embed_batch` validates empty texts upstream before calling this method.
-- **`src/core/models.py` `EmbeddingResult`** — Declared as 2048-dim (multimodal design target) but `EmbeddingGenerator` currently produces 1536-dim (OpenAI) or 1024-dim (local). These are different objects: `EmbeddingResult` is the V4 planned model; `EmbeddingGenerator` returns raw `list[list[float]]` directly.
-- **Duplicate `ClusteringResult`** — `src/core/models.py` and `src/analysis/clustering.py` both define a `ClusteringResult` type. They are not interchangeable: the `core` version is the V4 Pydantic model; the `analysis` version is a plain dataclass used by `ClusteringAnalyzer`.
-
-## Testing
-
-Tests live in `tests/`. Coverage threshold is ~80% (`fail_under = 79.9` in `pyproject.toml`). `tests/conftest.py` provides shared fixtures. All async tests run under `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed on individual tests. CLI commands are excluded from coverage (`src/cli/*` omitted in config). Mock external calls (HTTPX, LLM APIs) — do not make real network requests in tests.
-
-Sub-directories with their own `conftest.py` and targeted fixtures:
-
-| Directory | What it tests |
-|---|---|
-| `tests/analysis/` | `ViolationDetector`, `RootCauseValidator`, `CodeChangeAnalyzer`, `EnhancedLLMAnalyzer`, `ImprovementRecommender`, `ClusteringAnalyzer` |
-| `tests/storage/` | `ChromaManager` |
-| `tests/knowledge/` | `StandardsManager` |
-| `tests/visualization/` | `ClusterScatterVisualizer`, `DashboardGenerator` |
-| `tests/ui/` | `FaultAnalysisUI` (Streamlit app) |
-| `tests/integration/` | Two-phase pipeline integration (`test_phase1_phase2.py`) |
-| `tests/clustering/` | Extended `ClusterAnalyzer` tests |
-| `tests/embedding/` | Extended `EmbeddingGenerator` tests |
-| `tests/api/` | Extended `APIClient` tests |
+- Never commit API keys or tokens to version control
+- Use `.env` file for sensitive configuration
+- The `APIConfig.api_key` field is set via `API_API_KEY` or `API_TOKEN` environment variable
+- Async tests run under `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed
