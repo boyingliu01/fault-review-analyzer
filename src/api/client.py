@@ -198,6 +198,19 @@ class APIClient:
 
         return task
 
+    async def get_fault_analysis(self, task_no: str) -> dict[str, Any]:
+        """
+        获取故障复盘结论
+        接口: POST /portal/ai-gateway/devspace/rpc/v3/{taskNo}/inter-analysis
+        返回: {
+            "apiDevTaskAnalysis": {...},  # 研发环节分析
+            "apiTestTaskAnalysis": {...},  # 测试环节分析
+            "apiMgrTaskAnalysis": {...}     # 管理环节分析
+        }
+        """
+        url = f"{self.api_path_prefix}/{task_no}/inter-analysis"
+        return await self._request("POST", url, json={})
+
     def _parse_task(self, data: dict[str, Any]) -> TaskInfo:
         task_data = data.get("data", {}).get("apiTask", data)
         create_time = self._parse_datetime(

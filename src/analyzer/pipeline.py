@@ -4,6 +4,8 @@ from typing import Any
 
 import numpy as np
 
+from src.analysis.root_cause import ExistingFaultAnalysis, FaultAnalysisInput
+from src.analysis.root_cause import RootCauseAnalyzer as DeepRootCauseAnalyzer
 from src.analyzer.labeling import LabelGenerator
 from src.analyzer.llm_provider import create_llm_provider
 from src.analyzer.reasoning import RootCauseAnalyzer
@@ -19,6 +21,17 @@ from src.report.generator import ReportGenerator
 from src.rules.engine import RulesEngine
 
 
+class _LLMClientAdapter:
+    """Adapter that converts generate(system, user) to generate(prompt)."""
+
+    def __init__(self, provider) -> None:
+        self._provider = provider
+
+    async def generate(self, prompt: str) -> str:
+        """Generate using the provider with combined system and user prompt."""
+        return await self._provider.generate(system="You are a helpful assistant.", user=prompt)
+
+
 @dataclass
 class PipelineConfig:
     """Configuration for analysis pipeline."""
@@ -27,6 +40,7 @@ class PipelineConfig:
     use_llm: bool = False
     generate_labels: bool = True
     analyze_root_cause: bool = True
+    analyze_root_cause_deep: bool = False  # Enhanced 5-layer root cause analysis
     check_rules: bool = True
     generate_report: bool = True
     output_path: Path = field(default_factory=lambda: Path("./output"))
@@ -42,6 +56,7 @@ class PipelineResult:
     embedding: list[float] | None = None
     labels: list[dict] | None = None
     root_causes: list[dict] | None = None
+    deep_root_causes: dict[str, Any] | None = None  # Enhanced root cause analysis result
     violations: list[dict] | None = None
     cluster_id: int | None = None
     report: str = ""
@@ -66,6 +81,7 @@ class AnalysisPipeline:
         self._preprocessor = DataPreprocessor()
         self._label_generator: LabelGenerator | None = None
         self._root_cause_analyzer: RootCauseAnalyzer | None = None
+        self._deep_root_cause_analyzer: DeepRootCauseAnalyzer | None = None
         self._rules_engine = RulesEngine()
         self._report_generator: ReportGenerator | None = None
 
@@ -114,6 +130,9 @@ class AnalysisPipeline:
 
                 if self._pipeline_config.analyze_root_cause:
                     result.root_causes = await self._analyze_root_cause(task_dict, preprocessed)
+
+                if self._pipeline_config.analyze_root_cause_deep:
+                    result.deep_root_causes = await self._analyze_root_cause_deep(task_dict)
 
             if self._pipeline_config.check_rules:
                 result.violations = self._check_rules(task_dict)
@@ -307,6 +326,83 @@ class AnalysisPipeline:
             }
             for rc in result.root_causes
         ]
+
+    def _convert_api_to_existing_analysis(self, api_data: dict[str, Any]) -> ExistingFaultAnalysis:
+        """Convert API response to ExistingFaultAnalysis model."""
+        dev_data = api_data.get("apiDevTaskAnalysis", {})
+        test_data = api_data.get("apiTestTaskAnalysis", {})
+
+        return ExistingFaultAnalysis(
+            dev_catalog=dev_data.get("catalog", ""),
+            dev_catalog_detail=dev_data.get("catalogDetail", ""),
+            dev_reason=dev_data.get("reason", ""),
+            dev_conclusion=dev_data.get("conclusion", ""),
+            dev_improve_stage=dev_data.get("improveStage", ""),
+            test_catalog=test_data.get("catalog", ""),
+            test_catalog_detail=test_data.get("catalogDetail", ""),
+            test_reason=test_data.get("reason", ""),
+            test_conclusion=test_data.get("conclusion", ""),
+            test_improve_stage=test_data.get("improveStage", ""),
+        )
+
+    async def _analyze_root_cause_deep(
+        self,
+        task_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Perform enhanced 5-layer root cause analysis.
+
+        Uses the new root cause analysis module with fault analysis input
+        and existing analysis from the API.
+        """
+        if self._deep_root_cause_analyzer is None:
+            llm_config = self._config.get_config().llm
+            provider = create_llm_provider(llm_config) if llm_config.api_key else None
+            if provider is not None:
+                adapter = _LLMClientAdapter(provider)
+                self._deep_root_cause_analyzer = DeepRootCauseAnalyzer(adapter)
+            else:
+                return {}
+
+        if (
+            self._deep_root_cause_analyzer is None
+            or self._deep_root_cause_analyzer.llm_client is None
+        ):
+            return {}
+
+        task_no = str(task_data.get("task_no", task_data.get("taskId", "")))
+        if not task_no:
+            return {}
+
+        # Get existing fault analysis from API
+        api = self._get_api_client()
+        try:
+            existing_api_data = await api.get_fault_analysis(task_no)
+        except Exception:
+            existing_api_data = {}
+
+        existing_analysis = self._convert_api_to_existing_analysis(existing_api_data)
+
+        # Build fault analysis input
+        fault_input = FaultAnalysisInput(
+            task_no=task_no,
+            title=task_data.get("title", ""),
+            description=task_data.get("description", ""),
+            task_src=task_data.get("task_src", ""),
+            created_date=task_data.get("created_date", task_data.get("createdDate", "")),
+            finish_date=task_data.get("finish_date", task_data.get("finishDate", "")),
+            product_module_id=task_data.get("product_module_id")
+            or task_data.get("productModuleId"),
+            product_version_id=task_data.get("product_version_id")
+            or task_data.get("productVersionId"),
+        )
+
+        # Perform deep root cause analysis
+        result = await self._deep_root_cause_analyzer.analyze(fault_input, existing_analysis)
+
+        from dataclasses import asdict
+
+        return asdict(result)
 
     def _check_rules(self, task_data: dict[str, Any]) -> list[dict]:
         """Check rules for task."""
