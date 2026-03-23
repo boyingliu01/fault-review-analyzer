@@ -46,11 +46,18 @@ dev = [
     "pytest-cov>=4.0.0",
     "pytest-asyncio>=0.21.0",
     "pytest-mock>=3.10.0",
+    "pytest-playwright>=0.4.0",
+    "playwright>=1.40.0",
     "faker>=18.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
     "types-PyYAML>=6.0.0",
+]
+e2e = [
+    "pytest>=7.0.0",
+    "pytest-playwright>=0.4.0",
+    "playwright>=1.40.0",
 ]
 
 [project.scripts]
@@ -70,6 +77,11 @@ addopts = "-v --tb=short"
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+markers = [
+    "e2e: end-to-end tests",
+    "ui: UI tests requiring browser",
+    "slow: slow running tests",
+]
 
 [tool.coverage.run]
 source = ["src"]
@@ -79,6 +91,7 @@ omit = [
     "*/__pycache__/*",
     "*/__init__.py",
     "src/cli/*",
+    "src/ui/*",  # UI模块需要端到端测试，不适合单元测试
 ]
 
 [tool.coverage.report]
@@ -140,5 +153,8 @@ module = [
     "langchain.*",
     "langchain_openai.*",
     "sklearn.*",
+    "plotly.*",
+    "pandas",
+    "streamlit.*",
 ]
 ignore_missing_imports = true

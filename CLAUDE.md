@@ -264,15 +264,53 @@ Prefix: /portal/ai-gateway/devspace
 
 Test coverage threshold: **≥79.9%** (excludes `src/cli/*` and `src/ui/*`)
 
-Test structure:
-- `tests/unit/` — Unit tests for individual modules
-- `tests/integration/` — Two-phase pipeline integration tests
-- `tests/analysis/` — Analysis module tests
-- `tests/api/` — API client tests
-- `tests/storage/` — ChromaDB tests
-- `tests/knowledge/` — Standards manager tests
-- `tests/visualization/` — Visualization tests
-- `tests/ui/` — Streamlit app tests
+### Test Structure
+
+```
+tests/
+├── test_*.py           # Unit tests for individual modules
+├── analysis/           # Analysis module tests
+├── api/               # API client tests
+├── storage/           # ChromaDB tests
+├── knowledge/         # Standards manager tests
+├── visualization/      # Visualization tests
+├── ui/                # Streamlit component tests (mock-based)
+├── e2e/               # End-to-end tests (Playwright + real/simulated flows)
+│   ├── cli/           # CLI command tests (fetch, analyze, report)
+│   ├── pipeline/       # Phase1/Phase2 integration tests
+│   ├── ui/            # Streamlit UI tests (requires playwright)
+│   └── fixtures/      # Shared test fixtures
+└── integration/       # Two-phase pipeline integration tests
+```
+
+### Running Tests
+
+```bash
+# All tests with coverage
+pytest tests/ -v --cov=src
+
+# Single test file
+pytest tests/test_clustering.py -v
+
+# E2E tests (excludes UI - requires playwright browser)
+pytest tests/e2e/cli/ tests/e2e/pipeline/ -v
+
+# E2E tests including UI (requires: pip install -e ".[e2e]" && playwright install chromium)
+pytest tests/e2e/ -v
+
+# Specific E2E category
+python tests/e2e/run_e2e_tests.py --cli      # CLI tests only
+python tests/e2e/run_e2e_tests.py --pipeline # Pipeline tests only
+python tests/e2e/run_e2e_tests.py --ui       # UI tests only (headed mode)
+```
+
+### E2E Test Categories
+
+| Category | Path | Description |
+|----------|------|-------------|
+| CLI | `tests/e2e/cli/` | Tests for `fetch`, `analyze`, `report` commands |
+| Pipeline | `tests/e2e/pipeline/` | Phase1 (prepare) and Phase2 (analyze) integration |
+| UI | `tests/e2e/ui/` | Streamlit app with real browser (Playwright) |
 
 ## Development Workflow
 
@@ -294,8 +332,9 @@ pytest tests/ -v --cov=src # Tests (coverage ≥ 79.9%)
 ## Known Issues
 
 1. **Duplicate ClusteringResult** — `src/core/models.py` and `src/analysis/clustering.py` both define this type; they are not interchangeable.
-2. **Streamlit UI** — Low test coverage (35%) due to E2E testing requirements; excluded from coverage calculation.
+2. **E2E Test Dependencies** — UI E2E tests require `pip install -e ".[e2e]"` and `playwright install chromium`.
 3. **Pre-commit** — Requires API keys in environment variables for full validation.
+4. **test_excel.py** — Requires `SQL缺陷分析结果.xlsx` in working directory; excluded from default test runs.
 
 ## Important Notes
 
