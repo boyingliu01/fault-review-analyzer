@@ -122,8 +122,8 @@ result = await pipeline.run(task_no, config)
 Configuration is loaded from `config/config.yaml` with environment variable overrides:
 
 ```bash
-# API configuration
-API_API_KEY=<external-rest-api-token>
+# 研发云平台认证
+DEVCLOUD_TOKEN=<devcloud-access-token>
 
 # LLM configuration
 LLM_PROVIDER=volcengine
@@ -139,7 +139,7 @@ EMBEDDING_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 ```
 
 Key config sections:
-- `api.base_url` — External API endpoint
+- `api.api_key` — 研发云访问令牌 (DEVCLOUD_TOKEN)
 - `llm.provider` / `llm.model` — LLM provider and model
 - `embedding.provider` / `embedding.model` — Embedding provider and model
 - `clustering.min_cluster_size` — HDBSCAN minimum cluster size (default: 3)
@@ -340,5 +340,5 @@ pytest tests/ -v --cov=src # Tests (coverage ≥ 79.9%)
 
 - Never commit API keys or tokens to version control
 - Use `.env` file for sensitive configuration
-- The `APIConfig.api_key` field is set via `API_API_KEY` or `API_TOKEN` environment variable
+- The `APIConfig.api_key` field is set via `DEVCLOUD_TOKEN` environment variable
 - Async tests run under `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed

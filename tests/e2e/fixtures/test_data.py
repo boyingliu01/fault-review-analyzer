@@ -10,7 +10,7 @@ import pytest
 def env_vars():
     """环境变量 fixture"""
     return {
-        "API_API_KEY": os.getenv("API_API_KEY", ""),
+        "DEVCLOUD_TOKEN": os.getenv("DEVCLOUD_TOKEN", ""),
         "API_BASE_URL": os.getenv("API_BASE_URL", "https://dev.iwhalecloud.com"),
         "API_PATH_PREFIX": os.getenv(
             "API_PATH_PREFIX", "/portal/ai-gateway/devspace/rpc/v3/work-item"

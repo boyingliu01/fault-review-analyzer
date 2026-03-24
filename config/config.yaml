@@ -1,0 +1,43 @@
+api:
+  base_url: "https://dev.iwhalecloud.com"
+  api_key: ""  # Set via DEVCLOUD_TOKEN env var
+  timeout: 30
+  retry: 3
+  api_path_prefix: "/portal/ai-gateway/devspace/rpc/v3/work-item"
+
+llm:
+  provider: "volcengine"
+  model: "doubao-seed-1-8-251228"
+  api_key: ""  # Set via LLM_API_KEY env var
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  temperature: 0.7
+  max_tokens: 4096
+
+embedding:
+  provider: "volcengine"
+  model: "doubao-embedding-vision-251215"
+  api_key: ""  # Set via EMBEDDING_API_KEY env var
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+
+clustering:
+  algorithm: "hdbscan"
+  min_cluster_size: 2
+  min_samples: 1
+  metric: "cosine"
+
+cache:
+  enabled: true
+  ttl: 86400
+  storage: "sqlite"
+
+rules:
+  builtin_enabled: true
+  custom_paths:
+    - "./data/rules/custom/"
+
+output:
+  format: "markdown"
+  directory: "./output/"
+
+logging:
+  level: "INFO"

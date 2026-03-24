@@ -14,9 +14,9 @@ load_dotenv()
 @pytest.fixture(scope="session")
 def api_key() -> str:
     """获取 API 密钥"""
-    key = os.getenv("API_API_KEY", "")
+    key = os.getenv("DEVCLOUD_TOKEN", "")
     if not key:
-        pytest.skip("未配置 API_API_KEY 环境变量")
+        pytest.skip("未配置 DEVCLOUD_TOKEN 环境变量")
     return key
 
 

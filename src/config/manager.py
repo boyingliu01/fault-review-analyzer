@@ -19,8 +19,7 @@ class ConfigManager:
             "API_BASE_URL": ("api", "base_url"),
             "API_TIMEOUT": ("api", "timeout"),
             "API_RETRY": ("api", "retry"),
-            "API_API_KEY": ("api", "api_key"),
-            "API_TOKEN": ("api", "api_key"),
+            "DEVCLOUD_TOKEN": ("api", "api_key"),  # 研发云访问令牌
             "LLM_PROVIDER": ("llm", "provider"),
             "LLM_MODEL": ("llm", "model"),
             "LLM_API_KEY": ("llm", "api_key"),
@@ -68,7 +67,7 @@ class ConfigManager:
             import logging
 
             logging.warning(
-                "API API key not configured. Set via API_API_KEY env var or config/config.yaml. "
+                "DEVCLOUD_TOKEN not configured. Set via DEVCLOUD_TOKEN env var or config/config.yaml. "
                 "API calls will fail without authentication."
             )
 

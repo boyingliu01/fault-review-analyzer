@@ -1,50 +1,62 @@
-import asyncio
-import sys
-sys.path.insert(0, "e:/Study/LLM/Bug聚类分析")
+"""端到端测试 - 从API获取真实数据并测试完整流程"""
+
+import os
+from pathlib import Path
 
 import pandas as pd
+import pytest
+
 from src.api.client import APIClient
 from src.preprocessor.processor import DataPreprocessor
 
-async def test_real_data():
-    client = APIClient(
-        base_url='https://dev.iwhalecloud.com',
-        api_key='Bearer REDACTED_API_KEY',
-        api_path_prefix='/portal/ai-gateway/devspace/rpc/v3/work-item',
-    )
-    client.ensure_client()
+# 测试数据文件路径
+TEST_DATA_FILE = Path(__file__).parent.parent / "data" / "测试用故障单号列表.xlsx"
 
-    df = pd.read_excel('e:/Study/LLM/Bug聚类分析/SQL缺陷分析结果.xlsx')
-    task_ids = df['泄露缺陷单号'].head(5).tolist()
+# 从环境变量获取API配置
+API_BASE_URL = os.getenv("API_BASE_URL", "https://dev.iwhalecloud.com")
+DEVCLOUD_TOKEN = os.getenv("DEVCLOUD_TOKEN", "")
+API_PATH_PREFIX = os.getenv("API_PATH_PREFIX", "/portal/ai-gateway/devspace/rpc/v3/work-item")
 
-    print("="*60)
-    print("端到端测试 - 从API获取真实数据")
-    print("="*60)
 
-    tasks = []
-    for task_id in task_ids:
-        print(f"\n获取任务 {task_id}...")
-        try:
-            task = await client.get_task(int(task_id))
-            tasks.append(task)
-            print(f"  ✓ 成功: {task.title[:40]}...")
-            print(f"    Status: {task.status}, Priority: {task.priority}")
-        except Exception as e:
-            print(f"  ✗ 失败: {type(e).__name__}: {e}")
+@pytest.fixture
+def test_task_ids() -> list[int]:
+    """从测试数据文件加载故障单号列表"""
+    if not TEST_DATA_FILE.exists():
+        pytest.skip(f"测试数据文件不存在: {TEST_DATA_FILE}")
 
-    if client._client:
-        await client._client.aclose()
+    df = pd.read_excel(TEST_DATA_FILE)
+    # 取前5个任务ID用于测试
+    return df["故障单号"].head(5).tolist()
 
-    if tasks:
-        print("\n" + "="*60)
-        print("测试预处理器")
-        print("="*60)
+
+@pytest.mark.asyncio
+async def test_e2e_fetch_and_preprocess(test_task_ids: list[int]) -> None:
+    """端到端测试：从API获取数据并预处理"""
+    if not DEVCLOUD_TOKEN:
+        pytest.skip("未配置 DEVCLOUD_TOKEN 环境变量")
+
+    async with APIClient(
+        base_url=API_BASE_URL,
+        token=f"Bearer {DEVCLOUD_TOKEN}",
+        api_path_prefix=API_PATH_PREFIX,
+    ) as client:
+        tasks = []
+        for task_id in test_task_ids:
+            try:
+                task = await client.get_task(int(task_id))
+                tasks.append(task)
+            except Exception as e:
+                # 记录失败但不中断测试
+                print(f"获取任务 {task_id} 失败: {e}")
+
+        # 至少成功获取一个任务
+        assert len(tasks) > 0, "未能成功获取任何任务"
+
+        # 测试预处理器
         preprocessor = DataPreprocessor()
         processed = preprocessor.process_batch(tasks)
 
-        for i, p in enumerate(processed):
-            print(f"\n任务 {tasks[i].task_id}:")
-            print(f"  combined_text长度: {len(p.combined_text)}")
-            print(f"  combined_text预览: {p.combined_text[:100]}...")
-
-asyncio.run(test_real_data())
+        assert len(processed) == len(tasks)
+        for p in processed:
+            assert p.combined_text, "combined_text不应为空"
+            assert len(p.combined_text) <= 8000, "combined_text不应超过8000字符"
