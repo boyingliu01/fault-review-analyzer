@@ -4,11 +4,23 @@
 支持Markdown格式输出，可自定义Jinja2模板。
 """
 
-from .generator import ReportGenerator
+from .generator import (
+    ReportGenerator,
+    ReportFormat,
+    ReportType,
+    ReportData,
+    ChartData,
+    TableData,
+)
 from .models import AnalysisReport, BatchReport, ClusterReport, ReportSection
 
 __all__ = [
     "ReportGenerator",
+    "ReportFormat",
+    "ReportType",
+    "ReportData",
+    "ChartData",
+    "TableData",
     "AnalysisReport",
     "BatchReport",
     "ClusterReport",

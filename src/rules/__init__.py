@@ -1,10 +1,32 @@
+"""规则引擎模块"""
+
+from .models import Rule, RuleViolation, RuleCheckResult, RulesConfig
+from .advanced_models import (
+    AdvancedRule,
+    EnhancedRuleViolation,
+    RulesEvaluation,
+    OperatorType,
+    Condition,
+    RuleCondition,
+)
 from .engine import RulesEngine
-from .models import Rule, RuleCheckResult, RulesConfig, RuleViolation
+from .engine_enhanced import EnhancedRulesEngine, RulesEngineFactory
+from .condition_evaluator import ConditionEvaluator, create_condition
 
 __all__ = [
-    "RulesEngine",
     "Rule",
-    "RuleCheckResult",
     "RuleViolation",
+    "RuleCheckResult",
     "RulesConfig",
+    "AdvancedRule",
+    "EnhancedRuleViolation",
+    "RulesEvaluation",
+    "OperatorType",
+    "Condition",
+    "RuleCondition",
+    "RulesEngine",
+    "EnhancedRulesEngine",
+    "RulesEngineFactory",
+    "ConditionEvaluator",
+    "create_condition",
 ]

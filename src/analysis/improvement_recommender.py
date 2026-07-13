@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from loguru import logger
 
@@ -242,10 +242,12 @@ class ImprovementRecommender:
         else:
             return DEFAULT_CATEGORY  # 默认类别
 
-    def _get_template(self, category: str, priority: str) -> dict[str, str]:
+    def _get_template(self, category: str, priority: str) -> dict[str, Any]:
         """获取改进措施模板"""
         category_templates = self._templates.get(category, self._templates[DEFAULT_CATEGORY])
-        return category_templates.get(priority, category_templates["medium"])
+        return cast(
+            "dict[str, Any]", category_templates.get(priority, category_templates["medium"])
+        )
 
     def _sort_by_priority(self, measures: list[ImprovementMeasure]) -> list[ImprovementMeasure]:
         """按优先级排序"""

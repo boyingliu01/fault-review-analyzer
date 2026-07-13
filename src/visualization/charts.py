@@ -54,14 +54,14 @@ class RootCauseChart:
                 go.Bar(
                     x=causes,
                     y=counts,
-                    text=[f"{c}<br>({p:.1f}%)" for c, p in zip(counts, percentages)],
+                    text=[f"{c}<br>({p:.1f}%)" for c, p in zip(counts, percentages, strict=True)],
                     textposition="auto",
                     marker_color="#3498db",
                 )
             )
 
             fig.update_layout(
-                title=dict(text=title, x=0.5, font=dict(size=18)),
+                title={"text": title, "x": 0.5, "font": {"size": 18}},
                 xaxis_title="根因类型",
                 yaxis_title="故障数量",
                 xaxis_tickangle=-45,
@@ -129,20 +129,20 @@ class ViolationChart:
             )
 
             fig.update_layout(
-                title=dict(
-                    text=f"{title}<br><sub>总计: {total}个违规</sub>",
-                    x=0.5,
-                    font=dict(size=18),
-                ),
+                title={
+                    "text": f"{title}<br><sub>总计: {total}个违规</sub>",
+                    "x": 0.5,
+                    "font": {"size": 18},
+                },
                 template="plotly_white",
                 showlegend=True,
-                legend=dict(
-                    orientation="h",
-                    yanchor="bottom",
-                    y=-0.3,
-                    xanchor="center",
-                    x=0.5,
-                ),
+                legend={
+                    "orientation": "h",
+                    "yanchor": "bottom",
+                    "y": -0.3,
+                    "xanchor": "center",
+                    "x": 0.5,
+                },
                 width=800,
                 height=600,
             )
@@ -226,7 +226,7 @@ class ImprovementTrackingChart:
                     )
 
             fig.update_layout(
-                title=dict(text=title, x=0.5, font=dict(size=18)),
+                title={"text": title, "x": 0.5, "font": {"size": 18}},
                 xaxis_title="优先级",
                 yaxis_title="措施数量",
                 template="plotly_white",
@@ -309,14 +309,14 @@ class ImprovementTrackingChart:
             )
 
             fig.update_layout(
-                title=dict(text=title, x=0.5, font=dict(size=18)),
+                title={"text": title, "x": 0.5, "font": {"size": 18}},
                 xaxis_title="预期影响程度",
                 yaxis_title="根因",
                 template="plotly_white",
                 showlegend=False,
                 width=1000,
                 height=max(400, len(display_measures) * 40),
-                yaxis=dict(autorange="reversed"),
+                yaxis={"autorange": "reversed"},
             )
 
             if output_path:

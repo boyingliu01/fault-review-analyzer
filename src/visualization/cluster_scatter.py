@@ -109,12 +109,12 @@ class ClusterScatterVisualizer:
                         y=y,
                         mode="markers",
                         name=name,
-                        marker=dict(
-                            size=10,
-                            color=color,
-                            opacity=0.7,
-                            line=dict(width=1, color="white"),
-                        ),
+                        marker={
+                            "size": 10,
+                            "color": color,
+                            "opacity": 0.7,
+                            "line": {"width": 1, "color": "white"},
+                        },
                         text=hover_text if show_hover else None,
                         hovertemplate="<b>%{text}</b><br>X: %{x:.3f}<br>Y: %{y:.3f}"
                         if show_hover
@@ -123,20 +123,20 @@ class ClusterScatterVisualizer:
                 )
 
             fig.update_layout(
-                title=dict(
-                    text=title,
-                    x=0.5,
-                    font=dict(size=20),
-                ),
+                title={
+                    "text": title,
+                    "x": 0.5,
+                    "font": {"size": 20},
+                },
                 xaxis_title="UMAP Dimension 1",
                 yaxis_title="UMAP Dimension 2",
                 showlegend=True,
-                legend=dict(
-                    yanchor="top",
-                    y=0.99,
-                    xanchor="left",
-                    x=0.01,
-                ),
+                legend={
+                    "yanchor": "top",
+                    "y": 0.99,
+                    "xanchor": "left",
+                    "x": 0.01,
+                },
                 template="plotly_white",
                 width=1000,
                 height=800,
@@ -202,7 +202,7 @@ class ClusterScatterVisualizer:
 
         import plotly.express as px
 
-        return px.colors.qualitative.Bold[:n]
+        return list(px.colors.qualitative.Bold[:n])
 
     def _build_hover_text(
         self,

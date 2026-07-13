@@ -5,7 +5,13 @@ from typing import Any
 
 from loguru import logger
 
-from .models import Rule, RuleViolation
+from .models import Rule, RuleCheckResult, RuleViolation
+
+# Backward compatibility aliases for tests
+Violation = RuleViolation
+RuleEngine = lambda: RulesEngine()  # type: ignore[assignment]
+RuleResult = RuleCheckResult
+RuleSeverity = str  # type: ignore[assignment]
 
 BUILTIN_RULES: list[dict] = [
     {

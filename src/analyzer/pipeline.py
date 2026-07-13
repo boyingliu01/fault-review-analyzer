@@ -107,45 +107,66 @@ class AnalysisPipeline:
         result = PipelineResult(task_id=task_id)
 
         try:
-            task_data = await self._fetch_task(task_id)
+            task_data = await self._fetch_task_data(task_id)
             if not task_data:
                 result.error = f"Task {task_id} not found"
                 return result
 
-            result.task_data = task_data.model_dump()
-            task_dict = result.task_data
-            preprocessed = self._preprocessor.process(task_data)
-            result.preprocessed = {
-                "task_id": preprocessed.task_id,
-                "combined_text": preprocessed.combined_text,
-                "segments": [
-                    {"type": s.type, "content": s.content, "metadata": s.metadata}
-                    for s in preprocessed.segments
-                ],
-            }
-
-            if self._pipeline_config.use_llm:
-                if self._pipeline_config.generate_labels:
-                    result.labels = await self._generate_labels(task_dict, preprocessed)
-
-                if self._pipeline_config.analyze_root_cause:
-                    result.root_causes = await self._analyze_root_cause(task_dict, preprocessed)
-
-                if self._pipeline_config.analyze_root_cause_deep:
-                    result.deep_root_causes = await self._analyze_root_cause_deep(task_dict)
-
-            if self._pipeline_config.check_rules:
-                result.violations = self._check_rules(task_dict)
-
-            if self._pipeline_config.generate_report:
-                result.report = self._generate_report(
-                    task_dict, result.preprocessed, result.labels, result.root_causes
-                )
+            preprocessed = await self._prepare_task_data(task_data, result)
+            await self._analyze_with_llm(task_data, preprocessed, result)
+            self._check_and_generate_report(task_data, preprocessed, result)
 
         except Exception as e:
             result.error = str(e)
 
         return result
+
+    async def _fetch_task_data(self, task_id: int) -> TaskInfo | None:
+        """Fetch task data from API or cache."""
+        return await self._fetch_task(task_id)
+
+    async def _prepare_task_data(
+        self, task_data: TaskInfo, result: PipelineResult
+    ) -> ProcessedTask:
+        """Prepare task data by converting to dict and preprocessing."""
+        result.task_data = task_data.model_dump()
+        preprocessed = self._preprocessor.process(task_data)
+        result.preprocessed = {
+            "task_id": preprocessed.task_id,
+            "combined_text": preprocessed.combined_text,
+            "segments": [
+                {"type": s.type, "content": s.content, "metadata": s.metadata}
+                for s in preprocessed.segments
+            ],
+        }
+        return preprocessed
+
+    async def _analyze_with_llm(
+        self, task_data: TaskInfo, preprocessed: ProcessedTask, result: PipelineResult
+    ):
+        """Perform LLM-based analysis if configured."""
+        if self._pipeline_config.use_llm:
+            task_dict = task_data.model_dump()
+            if self._pipeline_config.generate_labels:
+                result.labels = await self._generate_labels(task_dict, preprocessed)
+
+            if self._pipeline_config.analyze_root_cause:
+                result.root_causes = await self._analyze_root_cause(task_dict, preprocessed)
+
+            if self._pipeline_config.analyze_root_cause_deep:
+                result.deep_root_causes = await self._analyze_root_cause_deep(task_dict)
+
+    def _check_and_generate_report(
+        self, task_data: TaskInfo, _preprocessed: Any, result: PipelineResult
+    ):
+        """Check rules and generate report if configured."""
+        if self._pipeline_config.check_rules:
+            result.violations = self._check_rules(task_data.model_dump())
+
+        if self._pipeline_config.generate_report:
+            result.report = self._generate_report(
+                task_data.model_dump(), result.preprocessed, result.labels, result.root_causes
+            )
 
     async def run_batch(
         self,
