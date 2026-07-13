@@ -12,8 +12,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from loguru import logger
 
 from src.clustering.analyzer import ClusterAnalyzer
+from src.clustering.models import ClusterResult
 from src.config.manager import ConfigManager
-from src.core.models import ClusteringResult
 from src.storage.chroma_manager import ChromaManager
 
 
@@ -24,7 +24,6 @@ class Phase2Analyze:
         self.config = config
         self.chroma_manager = ChromaManager(
             persist_directory="./data/chroma",
-            collection_name="fault_embeddings",
         )
         self.cluster_analyzer = ClusterAnalyzer(
             algorithm=config.clustering.algorithm,
@@ -43,7 +42,7 @@ class Phase2Analyze:
         metadatas = result.get("metadatas", [])
         documents = result.get("documents", [])
 
-        if not embeddings:
+        if embeddings is None or len(embeddings) == 0:
             logger.warning("Chroma中没有向量数据")
             return [], []
 
@@ -61,7 +60,7 @@ class Phase2Analyze:
         embeddings: list[list[float]],
         algorithm: str | None = None,
         **kwargs,
-    ) -> ClusteringResult:
+    ) -> ClusterResult:
         """执行聚类分析"""
         if algorithm:
             self.cluster_analyzer = ClusterAnalyzer(
@@ -71,11 +70,10 @@ class Phase2Analyze:
                 metric=kwargs.get("metric", "cosine"),
             )
 
-        result = self.cluster_analyzer.fit(embeddings)
+        result = self.cluster_analyzer.fit_predict(embeddings)
         logger.info(
             f"聚类完成: {result.n_clusters} 个聚类, "
-            f"{result.n_noise} 个噪声点, "
-            f"轮廓系数: {result.silhouette_score:.3f}"
+            f"{result.n_noise} 个噪声点"
         )
         return result
 
@@ -125,7 +123,7 @@ class Phase2Analyze:
 
     def generate_report(
         self,
-        clustering_result: ClusteringResult,
+        clustering_result: ClusterResult,
         analysis_result: dict[str, Any],
         output_path: str = "./output/cluster_report.md",
     ) -> str:
@@ -140,8 +138,6 @@ class Phase2Analyze:
             f"- **总故障数**: {analysis_result['total_tasks']}",
             f"- **聚类数量**: {analysis_result['total_clusters']}",
             f"- **噪声点数**: {analysis_result['noise_count']}",
-            f"- **轮廓系数**: {clustering_result.silhouette_score:.3f}",
-            f"- **使用算法**: {clustering_result.algorithm}",
             "",
             "## 二、违规与可落地性统计",
             "",
@@ -179,7 +175,7 @@ class Phase2Analyze:
         """运行阶段二分析"""
         embeddings, metadatas = self.load_embeddings()
 
-        if not embeddings:
+        if embeddings is None or len(embeddings) == 0:
             logger.error("没有向量数据，请先运行阶段一")
             return {}
 
