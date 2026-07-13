@@ -287,10 +287,15 @@ class TestEmbeddingGeneratorBoundary:
             mock_client.embeddings.create.return_value = mock_response
             mock_get_client.return_value = mock_client
 
-            # 包含空白文本的列表
+            # 包含空白文本的列表 — 实现现在将空白文本返回为零向量而非抛异常
+            mock_response2 = Mock()
+            mock_response2.data = [Mock(embedding=[0.1] * 1536), Mock(embedding=[0.3] * 1536)]
+            mock_client.embeddings.create.return_value = mock_response2
             texts = ["正常文本", "   ", "另一个文本"]
-            with pytest.raises(ValueError, match="Text cannot be empty"):
-                await generator.embed_batch(texts)
+            result = await generator.embed_batch(texts)
+            assert len(result) == 3
+            # 空白文本应返回零向量
+            assert all(v == 0.0 for v in result[1])
 
     @pytest.mark.asyncio
     async def test_embed_tasks_success(self):

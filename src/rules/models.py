@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -8,12 +9,14 @@ class Rule:
     id: str
     name: str
     description: str
-    category: str
-    severity: str
+    category: str = ""
+    severity: str = "medium"
     pattern: str = ""
     condition: str = ""
     message: str = ""
     enabled: bool = True
+    check_function: Any = None  # Backward compat: old-style check function
+    options: dict[str, Any] = field(default_factory=dict)  # Backward compat
 
 
 @dataclass
