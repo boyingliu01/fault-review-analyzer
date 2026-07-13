@@ -1,0 +1,105 @@
+# Architecture validation rules for Fault Review Analyzer
+# Used by xp-gate Gate 6 (Architecture Validation)
+
+layers:
+  - name: cli
+    path: "src/cli"
+    allow: ["src/api", "src/analyzer", "src/config", "src/report", "src/storage", "src/utils"]
+    description: "CLI entry point - depends on API, analyzer, config, report, storage, utils"
+
+  - name: api
+    path: "src/api"
+    allow: ["src/config", "src/utils", "src/cache"]
+    description: "REST API client - depends on config, utils, cache"
+
+  - name: analyzer
+    path: "src/analyzer"
+    allow: ["src/analysis", "src/embedding", "src/clustering", "src/rules", "src/config", "src/utils", "src/core"]
+    description: "Analysis orchestration - depends on analysis modules"
+
+  - name: analysis
+    path: "src/analysis"
+    allow: ["src/rules", "src/embedding", "src/clustering", "src/utils", "src/core", "src/visualization", "src/i18n"]
+    description: "Analysis modules: clustering, explainability, violation detection"
+
+  - name: clustering
+    path: "src/clustering"
+    allow: ["src/core", "src/utils"]
+    description: "Clustering algorithms - depends on core models"
+
+  - name: embedding
+    path: "src/embedding"
+    allow: ["src/core", "src/cache", "src/utils", "src/config"]
+    description: "Embedding generation - depends on core, cache, utils, config"
+
+  - name: preprocessor
+    path: "src/preprocessor"
+    allow: ["src/core", "src/utils"]
+    description: "Data preprocessing - depends on core models"
+
+  - name: rules
+    path: "src/rules"
+    allow: ["src/core", "src/utils"]
+    description: "Rules engine - depends on core models"
+
+  - name: report
+    path: "src/report"
+    allow: ["src/core", "src/config", "src/utils", "src/visualization", "src/i18n"]
+    description: "Report generation - depends on core, config, visualization, i18n"
+
+  - name: storage
+    path: "src/storage"
+    allow: ["src/core", "src/config", "src/utils", "src/embedding"]
+    description: "Vector storage (ChromaDB) - depends on core, config, embedding"
+
+  - name: cache
+    path: "src/cache"
+    allow: ["src/utils"]
+    description: "SQLite cache - depends on utils"
+
+  - name: config
+    path: "src/config"
+    allow: []
+    description: "Configuration management - no internal dependencies"
+
+  - name: core
+    path: "src/core"
+    allow: []
+    description: "Core data models - no internal dependencies"
+
+  - name: utils
+    path: "src/utils"
+    allow: []
+    description: "Utility functions - no internal dependencies"
+
+  - name: security
+    path: "src/security"
+    allow: ["src/config", "src/utils"]
+    description: "Security module - depends on config, utils"
+
+  - name: i18n
+    path: "src/i18n"
+    allow: ["src/utils"]
+    description: "Internationalization - depends on utils"
+
+  - name: feedback
+    path: "src/feedback"
+    allow: ["src/core", "src/storage", "src/utils"]
+    description: "Feedback loop - depends on core, storage, utils"
+
+  - name: visualization
+    path: "src/visualization"
+    allow: ["src/core", "src/utils"]
+    description: "Visualization - depends on core models"
+
+  - name: knowledge
+    path: "src/knowledge"
+    allow: ["src/core", "src/storage"]
+    description: "Knowledge base - depends on core, storage"
+
+  - name: ui
+    path: "src/ui"
+    allow: ["src/analyzer", "src/config", "src/report", "src/storage", "src/utils"]
+    description: "Streamlit UI - depends on analyzer, config, report, storage, utils"
+
+deny_all: false
