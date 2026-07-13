@@ -1,0 +1,40 @@
+# archy.yaml — Architecture layer rules for archy Gate 6 validation
+# See: https://github.com/hslee16/archy#layer-rules-archy-check
+
+layers:
+  core:
+    modules:
+      - "src.core.**"
+      - "src.config.**"
+      - "src.utils.**"
+  infrastructure:
+    modules:
+      - "src.cache.**"
+      - "src.embedding.**"
+      - "src.preprocessor.**"
+      - "src.storage.**"
+  domain:
+    modules:
+      - "src.clustering.**"
+      - "src.rules.**"
+      - "src.analysis.**"
+      - "src.security.**"
+      - "src.i18n.**"
+      - "src.visualization.**"
+      - "src.feedback.**"
+      - "src.knowledge.**"
+  orchestration:
+    modules:
+      - "src.analyzer.**"
+      - "src.report.**"
+  interface:
+    modules:
+      - "src.api.**"
+      - "src.cli.**"
+      - "src.ui.**"
+
+forbid:
+  - {from: core, to: interface}
+  - {from: core, to: orchestration}
+  - {from: domain, to: interface}
+  - {from: domain, to: orchestration}
