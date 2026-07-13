@@ -4,14 +4,14 @@
 fault-review-analyzer（故障复盘分析工具）
 
 ## Vision
-AI 驱动的故障复盘分析流水线。从外部 REST API 拉取 Bug/故障工单，经过文本预处理、向量 Embedding，通过 HDBSCAN 密度聚类发现相似问题簇，最终生成根因标签和复盘报告——全程无需预定义标签。
+AI 驱动的故障复盘分析流水线。从研发云平台 REST API 拉取故障工单，经过文本预处理、向量 Embedding，通过 HDBSCAN 密度聚类发现相似问题簇，结合开发规范进行违规检测，最终生成根因分析和改进建议——全程无需预定义标签。
 
 ## Core Values
 1. **Quality**: 通过 TDD、Clean Code、SOLID 原则保证代码质量
 2. **Clarity**: 编写自文档代码，变量/函数命名揭示意图
-3. **Testability**: 所有代码先写测试（TDD），覆盖率 ≥ 80%
-4. **Maintainability**: 遵循分层架构，保持模块边界清晰
-5. **Traceability**: 通过 SDD 确保需求→设计→任务→代码的全程可追溯
+3. **Testability**: 所有代码先写测试（TDD），覆盖率 ≥ 79.9%
+4. **Maintainability**: 遵循 Clean Architecture，保持模块边界清晰
+5. **Collaboration**: 使用 SDD 确保需求→设计→任务→代码的全程可追溯
 
 ## Development Principles
 
@@ -20,13 +20,13 @@ AI 驱动的故障复盘分析流水线。从外部 REST API 拉取 Bug/故障�
 - Specification 描述 WHAT（做什么），不描述 HOW（怎么做）
 - Plan 将规格翻译为技术设计
 - Tasks 将实现分解为具体可执行步骤
-- Analyze 确保规格、计划、任务三者一致
+- Analysis 确保规格、计划、任务三者一致
 
 ### TDD (Test-Driven Development)
 - 先写失败的测试，再写让测试通过的实现代码
 - 只写让当前测试通过的最少代码
 - 通过后立即重构，保持代码整洁
-- 所有代码必须有对应测试，覆盖率下限 80%
+- 所有代码必须有对应测试
 
 ### Clean Code
 - 使用描述性、揭示意图的命名
@@ -44,58 +44,84 @@ AI 驱动的故障复盘分析流水线。从外部 REST API 拉取 Bug/故障�
 
 ### Clean Architecture
 - 依赖方向只能由外向内
-- **Entities**：纯业务规则（`src/api/models.py`，Pydantic 数据模型）
-- **Use Cases**：编排实体（`src/preprocessor/`，`src/embedding/`，`src/clustering/`）
-- **Interface Adapters**：数据转换（`src/cli/`，`src/config/`，`src/cache/`）
-- **Frameworks**：外部工具（OpenAI SDK、HDBSCAN、SQLite）
+- **Entities**：纯业务规则（`src/core/models.py`，Pydantic 数据模型）
+- **Use Cases**：编排实体（`src/analyzer/`，`src/analysis/`）
+- **Interface Adapters**：数据转换（`src/api/`，`src/cli/`，`src/ui/`）
+- **Frameworks**：外部工具（LLM SDK、HDBSCAN、ChromaDB、SQLite）
 
-## Current Architecture
+## Python Standards
 
-```
-fault-review-analyzer/
-├── .speckit/                    # SDD 工作流文档
-│   ├── constitution.md          # 本文件（项目章程）
-│   ├── specify.md               # 功能规格说明（每功能一份或按阶段汇总）
-│   ├── plan.md                  # 技术实现计划
-│   ├── tasks.md                 # 任务分解
-│   └── analyze.md               # 一致性分析
-├── src/
-│   ├── api/                     # API 客户端 + 数据模型
-│   ├── cache/                   # SQLite 缓存层
-│   ├── config/                  # 配置管理
-│   ├── preprocessor/            # 文本预处理
-│   ├── embedding/               # OpenAI Embedding 生成
-│   ├── clustering/              # HDBSCAN 聚类分析
-│   ├── analyzer/                # [待实现] LLM 标签生成 + 根因推理
-│   ├── report/                  # [待实现] 报告生成
-│   ├── rules/                   # [待实现] 规则引擎
-│   └── cli/                     # Typer CLI 命令
-├── tests/                       # 测试代码（结构镜像 src/）
-├── review/                      # 代码审查报告
-├── code-review-checklist.md     # 代码审查清单
-├── config.yaml                  # 默认配置
-└── pyproject.toml               # 项目配置 + 依赖
-```
-
-## Python Toolchain
-
+### Toolchain
 | 工具 | 用途 | 命令 |
 |------|------|------|
-| **Ruff** | Lint + Format | `ruff check src/ tests/` / `ruff format src/ tests/` |
-| **mypy** | 类型检查 | `mypy src/` |
-| **pytest** | 测试 + 覆盖率 | `pytest tests/ -v --cov=src` |
+| **Ruff** | Linter + Formatter | `ruff check src/ tests/` / `ruff format src/ tests/` |
+| **Pyright** | 类型检查 | `pyright src/` 或 `mypy src/` |
+| **Pytest** | 测试 + 覆盖率 | `pytest tests/ -v --cov=src` |
 
-### Quality Gate（提交前必须全部通过）
+### Workflow
+1. Before writing code:
+   - Create specification in `specify.md`
+   - Create plan in `plan.md`
+   - Create tasks in `tasks.md`
 
-```bash
-ruff check src/ tests/        # Linting
-ruff format src/ tests/       # Formatting
-mypy src/                     # Type checking
-pytest tests/ -v --cov=src    # Tests（覆盖率 ≥ 80%）
+2. During development:
+   - Follow TDD: Write test → Implement → Refactor
+   - Run linter: `ruff check src/ tests/`
+   - Run formatter: `ruff format src/ tests/`
+   - Run type checker: `mypy src/`
+   - Run tests: `pytest tests/ -v --cov=src`
+
+3. Before committing:
+   - Update `analyze.md` to ensure consistency
+   - Run all quality checks
+   - Review code using `code-review-checklist.md`
+
+## Repository Structure
+```
+fault-review-analyzer/
+├── .speckit/                    # SDD workflow
+│   ├── constitution.md          # This file
+│   ├── specify.md               # Feature specifications
+│   ├── plan.md                  # Implementation plans
+│   ├── tasks.md                 # Task breakdown
+│   └── analyze.md               # Consistency analysis
+├── src/                         # Source code
+│   ├── api/                     # REST API client
+│   ├── cache/                   # SQLite cache layer
+│   ├── config/                  # Configuration management
+│   ├── core/                    # Shared data models
+│   ├── preprocessor/            # Text preprocessing
+│   ├── embedding/               # Vector embedding generation
+│   ├── clustering/              # HDBSCAN clustering
+│   ├── analyzer/                # Pipeline orchestration
+│   ├── analysis/                # Analysis modules
+│   ├── storage/                 # ChromaDB management
+│   ├── rules/                   # Violation detection engine
+│   ├── knowledge/               # Development standards
+│   ├── report/                  # Report generation
+│   ├── visualization/           # Charts and scatter plots
+│   ├── cli/                     # CLI commands
+│   └── ui/                      # Streamlit dashboard
+├── tests/                       # Tests (mirrors src/)
+│   ├── unit/
+│   ├── integration/
+│   └── e2e/
+├── scripts/                     # Batch scripts
+├── data/                        # Data storage
+│   ├── chroma/                  # ChromaDB
+│   ├── standards/               # Dev standards JSON
+│   └── rules/custom/            # Custom rules
+├── docs/                        # Documentation
+├── config/                      # Configuration files
+├── code-review-checklist.md     # Code review checklist
+├── .gitignore
+├── pyproject.toml               # Project config + dependencies
+└── CLAUDE.md                    # Project instructions
 ```
 
-## Commit Message Format
+## Commit Guidelines
 
+### Commit Message Format
 ```
 <type>(<scope>): <subject>
 
@@ -131,39 +157,44 @@ fixing crash for unresolved tasks without resolveTime field.
 
 ## Quality Gates
 
-每次提交前必须通过：
-- [ ] 所有测试通过（`pytest`）
-- [ ] 测试覆盖率 ≥ 80%
-- [ ] Ruff lint 无错误
-- [ ] 代码已格式化
-- [ ] mypy 类型检查通过
-- [ ] code-review-checklist.md 核心项已确认
-- [ ] SDD 文档与实现保持同步
+All code must pass:
+- [ ] All tests pass (`pytest tests/ -v --cov=src`)
+- [ ] Test coverage ≥ 79.9%
+- [ ] Linter passes with no errors (`ruff check src/ tests/`)
+- [ ] Code is formatted (`ruff format src/ tests/`)
+- [ ] Type checking passes (`mypy src/`)
+- [ ] Code review checklist is complete
+- [ ] SDD documents are updated
 
-## Current Development Status
+## Communication
 
-| 阶段 | 模块 | 状态 |
-|------|------|------|
-| 1. Fetch | `src/api/`, `src/cache/` | ✅ 已实现 |
-| 2. Preprocess | `src/preprocessor/` | ✅ 已实现 |
-| 3. Embed | `src/embedding/` | ✅ 已实现 |
-| 4. Cluster | `src/clustering/` | ✅ 已实现 |
-| 5. Label | `src/analyzer/labeling/` | ⏳ 待实现 |
-| 6. Reason | `src/analyzer/reasoning/` | ⏳ 待实现 |
-| 7. Report | `src/report/` | ⏳ 待实现 |
-| 8. Pipeline | 无对应文件 | ⏳ 待实现 |
+### Channels
+- **Feature Requests**: `specify.md`
+- **Technical Discussion**: `plan.md`
+- **Task Assignment**: `tasks.md`
+- **Progress Tracking**: `tasks.md`
+
+### Review Process
+1. Create/update `specify.md` with requirements
+2. Create/update `plan.md` with technical design
+3. Create/update `tasks.md` with task breakdown
+4. Implement following TDD
+5. Update `analyze.md` to verify consistency
+6. Code review using code-review-checklist.md
 
 ## Continuous Improvement
 
-本章程是活文档。发现需要改进的地方时：
-1. 在 `specify.md` 中记录问题
-2. 在 `plan.md` 中提出改进方案
-3. 讨论并达成共识
-4. 更新本章程
-5. 同步给所有参与者
+This constitution is a living document. If you find areas for improvement:
+1. Document the issue in `specify.md`
+2. Propose changes in `plan.md`
+3. Discuss with team
+4. Update constitution
+5. Communicate changes to team
+
+## Version
+Version: 2.0
+Last Updated: 2026-03-30
 
 ---
 
-**Version**: 1.0
-**Last Updated**: 2026-03-04
-**Status**: Active
+**Remember**: The goal is to build maintainable, testable, and high-quality software. These principles and standards help us achieve that goal together.

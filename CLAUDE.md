@@ -197,6 +197,12 @@ Prefix: /portal/ai-gateway/devspace
 完整路径示例: POST https://dev.iwhalecloud.com/portal/ai-gateway/devspace/rpc/v3/bug/{taskNo}/detail
 ```
 
+**研发云文档中心 (docs.iwhalecloud.com)**：
+- 独立于研发管理 API 的文档系统
+- 需要 Bearer Token 认证（已配置在 `.env` 的 `DEVCLOUD_TOKEN`）
+- 返回 HTML 需要 JS 渲染后才能获取实际内容
+- 无法通过 API 直接获取文档内容（需模拟浏览器渲染）
+
 **核心查询接口（按taskNo/taskId）：**
 
 | # | 接口名称 | 方法 | 路径 | 备注 |
