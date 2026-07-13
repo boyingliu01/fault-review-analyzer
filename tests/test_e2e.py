@@ -5,14 +5,18 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from dotenv import load_dotenv
 
 from src.api.client import APIClient
 from src.preprocessor.processor import DataPreprocessor
 
+# 加载 .env 文件中的环境变量
+load_dotenv()
+
 # 测试数据文件路径
 TEST_DATA_FILE = Path(__file__).parent.parent / "data" / "测试用故障单号列表.xlsx"
 
-# 从环境变量获取API配置
+# 从环境变量获取API配置（已由 load_dotenv() 从 .env 加载）
 API_BASE_URL = os.getenv("API_BASE_URL", "https://dev.iwhalecloud.com")
 DEVCLOUD_TOKEN = os.getenv("DEVCLOUD_TOKEN", "")
 API_PATH_PREFIX = os.getenv("API_PATH_PREFIX", "/portal/ai-gateway/devspace/rpc/v3/work-item")
@@ -37,7 +41,7 @@ async def test_e2e_fetch_and_preprocess(test_task_ids: list[int]) -> None:
 
     async with APIClient(
         base_url=API_BASE_URL,
-        token=f"Bearer {DEVCLOUD_TOKEN}",
+        token=DEVCLOUD_TOKEN,
         api_path_prefix=API_PATH_PREFIX,
     ) as client:
         tasks = []
