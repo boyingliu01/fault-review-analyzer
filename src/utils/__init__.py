@@ -11,11 +11,20 @@ from src.utils.helpers import (
     sanitize_text,
     truncate_text,
 )
-from src.utils.logger import get_logger, setup_logger
+from src.utils.logger import StructuredLogger, get_correlation_id, get_logger, setup_logger
+from src.utils.metrics import (
+    Counter,
+    Gauge,
+    Histogram,
+    MetricsCollector,
+    get_metrics_collector,
+)
 
 __all__ = [
     "setup_logger",
     "get_logger",
+    "StructuredLogger",
+    "get_correlation_id",
     "truncate_text",
     "sanitize_text",
     "format_datetime",
@@ -25,4 +34,9 @@ __all__ = [
     "normalize_whitespace",
     "count_tokens_estimate",
     "chunk_text",
+    "MetricsCollector",
+    "Counter",
+    "Gauge",
+    "Histogram",
+    "get_metrics_collector",
 ]

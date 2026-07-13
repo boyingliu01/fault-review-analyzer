@@ -7,9 +7,238 @@ V4 CodeChange 是 commit 级别（含 diff），与 V1 文件级 CodeChange 不�
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationInfo
+
+
+class TaskStatus(str, Enum):
+    """任务状态枚举"""
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+    CLOSED = "closed"
+
+
+class TaskPriority(str, Enum):
+    """任务优先级枚举"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+class TaskData(BaseModel):
+    """任务数据模型"""
+
+    task_id: int = Field(..., description="任务ID")
+    title: str = Field(..., description="任务标题")
+    description: str = Field(default="", description="任务描述")
+    status: TaskStatus = Field(..., description="任务状态")
+    priority: TaskPriority = Field(default=TaskPriority.MEDIUM, description="任务优先级")
+    create_time: datetime = Field(..., description="创建时间")
+    resolve_time: datetime | None = Field(default=None, description="解决时间")
+    assignee: str = Field(default="", description="经办人")
+    reporter: str = Field(default="", description="报告人")
+    project_name: str = Field(default="", description="项目名称")
+    module_name: str = Field(default="", description="模块名称")
+
+    @field_validator("task_id")
+    @classmethod
+    def validate_task_id(cls, v: int, info: ValidationInfo) -> int:
+        """验证任务ID必须是正整数"""
+        if v <= 0:
+            raise ValueError(f"task_id 必须是正整数，实际值: {v}")
+        return v
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: str, info: ValidationInfo) -> str:
+        """验证标题不能为空"""
+        if not v or v.strip() == "":
+            raise ValueError("任务标题不能为空")
+        return v.strip()
+
+    @field_validator("resolve_time")
+    @classmethod
+    def validate_resolve_time(cls, v: datetime | None, info: ValidationInfo) -> datetime | None:
+        """验证解决时间不能早于创建时间"""
+        if v is not None and info.data.get("create_time") and v < info.data["create_time"]:
+            raise ValueError("解决时间不能早于创建时间")
+        return v
+
+
+class AnalysisResult(BaseModel):
+    """分析结果模型"""
+
+    task_id: int = Field(..., description="任务ID")
+    analysis_time: datetime = Field(default_factory=datetime.now, description="分析时间")
+    is_complete: bool = Field(default=False, description="分析是否完成")
+    violation_count: int = Field(default=0, ge=0, description="违规数量")
+    root_cause_count: int = Field(default=0, ge=0, description="根因数量")
+    cluster_id: int = Field(default=-1, description="聚类ID（-1表示噪声点）")
+    confidence_score: float = Field(default=0.0, ge=0.0, le=1.0, description="置信度分数")
+
+    @field_validator("task_id")
+    @classmethod
+    def validate_task_id(cls, v: int, info: ValidationInfo) -> int:
+        """验证任务ID必须是正整数"""
+        if v <= 0:
+            raise ValueError(f"task_id 必须是正整数，实际值: {v}")
+        return v
+
+
+class ClusterInfo(BaseModel):
+    """聚类信息模型"""
+
+    cluster_id: int = Field(..., description="聚类ID")
+    size: int = Field(default=0, description="聚类大小")
+    centroid: list[float] | None = Field(default=None, description="聚类中心")
+    member_indices: list[int] = Field(default_factory=list, description="成员索引")
+    label: str = Field(default="", description="聚类标签")
+    keywords: list[str] = Field(default_factory=list, description="关键词")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="元数据")
+
+    @field_validator("cluster_id")
+    @classmethod
+    def validate_cluster_id(cls, v: int, info: ValidationInfo) -> int:
+        """验证聚类ID必须是非负整数"""
+        if v < 0:
+            raise ValueError(f"cluster_id 必须是非负整数，实际值: {v}")
+        return v
+
+    @field_validator("size")
+    @classmethod
+    def validate_size(cls, v: int, info: ValidationInfo) -> int:
+        """验证聚类大小必须是非负整数"""
+        if v < 0:
+            raise ValueError(f"聚类大小必须是非负整数，实际值: {v}")
+        return v
+
+
+class EmbeddingData(BaseModel):
+    """嵌入数据模型"""
+
+    task_id: int = Field(..., description="任务ID")
+    embedding: list[float] = Field(..., description="嵌入向量")
+    text: str = Field(default="", description="用于向量化的文本")
+    model: str = Field(default="", description="使用的模型")
+    media_type: str = Field(default="text", description="媒体类型：text / image / mixed")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="额外元数据")
+
+    @field_validator("task_id")
+    @classmethod
+    def validate_task_id(cls, v: int, info: ValidationInfo) -> int:
+        """验证任务ID必须是正整数"""
+        if v <= 0:
+            raise ValueError(f"task_id 必须是正整数，实际值: {v}")
+        return v
+
+    @field_validator("embedding")
+    @classmethod
+    def validate_embedding(cls, v: list[float], info: ValidationInfo) -> list[float]:
+        """验证嵌入向量不能为空"""
+        if not v:
+            raise ValueError("嵌入向量不能为空")
+        return v
+
+    @field_validator("media_type")
+    @classmethod
+    def validate_media_type(cls, v: str, info: ValidationInfo) -> str:
+        """验证媒体类型"""
+        valid_types = ["text", "image", "mixed"]
+        if v not in valid_types:
+            raise ValueError(f"媒体类型必须是 {valid_types} 中的一种，实际值: {v}")
+        return v
+
+
+class LabelInfo(BaseModel):
+    """标签信息模型"""
+
+    label_id: str = Field(..., description="标签ID")
+    name: str = Field(..., description="标签名称")
+    category: str = Field(default="", description="标签类别")
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0, description="置信度")
+    description: str = Field(default="", description="标签描述")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="元数据")
+
+    @field_validator("label_id")
+    @classmethod
+    def validate_label_id(cls, v: str, info: ValidationInfo) -> str:
+        """验证标签ID不能为空"""
+        if not v or v.strip() == "":
+            raise ValueError("标签ID不能为空")
+        return v.strip()
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str, info: ValidationInfo) -> str:
+        """验证标签名称不能为空"""
+        if not v or v.strip() == "":
+            raise ValueError("标签名称不能为空")
+        return v.strip()
+
+
+class RootCauseInfo(BaseModel):
+    """根因信息模型"""
+
+    root_cause_id: str = Field(..., description="根因ID")
+    description: str = Field(..., description="根因描述")
+    category: str = Field(default="", description="根因类别")
+    evidence: list[str] = Field(default_factory=list, description="证据列表")
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0, description="置信度")
+    improvement_measures: list[str] = Field(default_factory=list, description="改进措施")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="元数据")
+
+    @field_validator("root_cause_id")
+    @classmethod
+    def validate_root_cause_id(cls, v: str, info: ValidationInfo) -> str:
+        """验证根因ID不能为空"""
+        if not v or v.strip() == "":
+            raise ValueError("根因ID不能为空")
+        return v.strip()
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, v: str, info: ValidationInfo) -> str:
+        """验证根因描述不能为空"""
+        if not v or v.strip() == "":
+            raise ValueError("根因描述不能为空")
+        return v.strip()
+
+
+class ClusterResult(BaseModel):
+    """聚类结果模型"""
+
+    labels: list[int] = Field(default_factory=list, description="聚类标签")
+    n_clusters: int = Field(default=0, description="聚类数量")
+    n_noise: int = Field(default=0, description="噪声点数量")
+    clusters: list[ClusterInfo] = Field(default_factory=list, description="聚类信息")
+    probabilities: list[float] | None = Field(default=None, description="聚类概率")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="元数据")
+
+    def get_cluster(self, cluster_id: int) -> ClusterInfo | None:
+        """获取指定ID的聚类信息"""
+        for cluster in self.clusters:
+            if cluster.cluster_id == cluster_id:
+                return cluster
+        return None
+
+    def get_noise_indices(self) -> list[int]:
+        """获取噪声点索引列表"""
+        return [i for i, label in enumerate(self.labels) if label == -1]
+
+
+class DimensionReductionResult(BaseModel):
+    """降维结果模型"""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    embeddings_2d: Any = Field(..., description="2D降维结果")
+    embeddings_3d: Any | None = Field(default=None, description="3D降维结果")
+    n_components: int = Field(default=2, description="降维维度")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="元数据")
+
 
 # ---------------------------------------------------------------------------
 # 规范知识库相关
@@ -34,7 +263,10 @@ class StandardRule(BaseModel):
         """JSON 里 examples 可能是 dict，统一转为 list[str]"""
         if isinstance(v, dict):
             return [f"{k}: {val}" for k, val in v.items()]
-        return v if v is not None else []
+        if v is None:
+            return []
+        # v 已经是 list 类型，直接返回
+        return list(v) if isinstance(v, list) else [str(v)]
 
 
 class StandardCategory(BaseModel):
@@ -188,16 +420,6 @@ class ImprovementRecommendation(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# 聚类结果
+# 聚类结果 - 已迁移到 src/clustering/models.py
+# 使用 ClusterResult 和 ClusterInfo 代替
 # ---------------------------------------------------------------------------
-
-
-class ClusteringResult(BaseModel):
-    """聚类分析结果"""
-
-    labels: list[int] = Field(..., description="每个样本的聚类标签，-1 表示噪声")
-    n_clusters: int = Field(default=0, ge=0, description="有效聚类数量")
-    n_noise: int = Field(default=0, ge=0, description="噪声点数量")
-    silhouette_score: float = Field(default=0.0, description="轮廓系数（-1~1）")
-    algorithm: str = Field(default="hdbscan", description="使用的聚类算法")
-    parameters: dict[str, Any] = Field(default_factory=dict, description="算法参数")

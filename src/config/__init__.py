@@ -1,6 +1,11 @@
 """配置管理模块"""
 
-from src.config.manager import ConfigManager
+from src.config.manager import (
+    ConfigManager,
+    ConfigValidationError,
+    ConfigNotFoundError,
+    ConfigKeyError,
+)
 from src.config.models import (
     APIConfig,
     AppConfig,
@@ -15,6 +20,9 @@ from src.config.models import (
 
 __all__ = [
     "ConfigManager",
+    "ConfigValidationError",
+    "ConfigNotFoundError",
+    "ConfigKeyError",
     "AppConfig",
     "APIConfig",
     "LLMConfig",

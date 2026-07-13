@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 import httpx
+from loguru import logger
 
 from src.api.exceptions import (
     APIConnectionError,
@@ -18,17 +19,19 @@ from src.api.models import (
     ProductionInfo,
     TaskInfo,
 )
+from src.utils.circuit_breaker import CircuitBreaker, CircuitBreakerError
 
 
 class APIClient:
     def __init__(
         self,
         base_url: str,
-        token: str = "",
-        api_key: str = "",
+        token: str = "",  # nosec B107 - Default empty string for optional token
+        api_key: str = "",  # nosec B107 - Default empty string for optional key
         timeout: int = 30,
         retry: int = 3,
         api_path_prefix: str = "/portal/ai-gateway/devspace/rpc/v3/work-item",
+        circuit_breaker: CircuitBreaker | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.token = token or api_key
@@ -37,6 +40,16 @@ class APIClient:
         self.api_path_prefix = api_path_prefix
         self._client: httpx.AsyncClient | None = None
         self._owns_client: bool = False
+        self._circuit_breaker = circuit_breaker or CircuitBreaker(
+            name="api_client",
+            failure_threshold=5,
+            reset_timeout=60.0,
+        )
+
+    @property
+    def circuit_breaker(self) -> CircuitBreaker:
+        """Get the circuit breaker instance."""
+        return self._circuit_breaker
 
     async def __aenter__(self) -> "APIClient":
         self._client = httpx.AsyncClient(
@@ -92,24 +105,39 @@ class APIClient:
         if self._client is None:
             self.ensure_client()
 
+        # Check circuit breaker before making request
+        if not self._circuit_breaker.can_execute():
+            raise CircuitBreakerError(
+                self._circuit_breaker.name,
+                self._circuit_breaker.reset_timeout,
+            )
+
         last_error: Exception | None = None
 
         for attempt in range(self.retry):
             try:
-                assert self._client is not None
+                assert self._client is not None  # nosec B101 - Internal validation after ensure_client()
                 response = await self._client.request(method, endpoint, **kwargs)
 
                 if response.status_code == 200:
                     result = response.json()
+                    self._circuit_breaker.record_success()
                     return result if isinstance(result, dict) else {}
                 elif response.status_code == 401:
+                    # Auth errors don't indicate service failure
                     raise AuthenticationError()
                 elif response.status_code == 404:
+                    # Not found errors don't indicate service failure
                     raise NotFoundError()
                 elif response.status_code == 429:
+                    # Rate limit - record as failure but don't retry
+                    self._circuit_breaker.record_failure(RateLimitError())
                     raise RateLimitError()
                 elif response.status_code >= 500:
-                    raise ServerError(f"Server error: {response.status_code}")
+                    # Server errors indicate service failure
+                    error = ServerError(f"Server error: {response.status_code}")
+                    self._circuit_breaker.record_failure(error)
+                    raise error
                 else:
                     raise APIError(
                         f"API error: {response.status_code}",
@@ -127,6 +155,9 @@ class APIClient:
             except (AuthenticationError, NotFoundError, RateLimitError):
                 raise
 
+        # All retries failed - record failure
+        if last_error:
+            self._circuit_breaker.record_failure(last_error)
         raise last_error or APIConnectionError("Unknown error")
 
     async def get_task(self, task_id: int) -> TaskInfo:
@@ -268,17 +299,41 @@ class APIClient:
         if not value:
             return None
 
+        if isinstance(value, datetime):
+            return value
+
+        # 处理数值类型的时间戳
+        if isinstance(value, (int, float)):
+            try:
+                return datetime.fromtimestamp(value)
+            except (ValueError, OSError):
+                pass
+
+        value_str = str(value).strip()
+        if not value_str:
+            return None
+
         formats = [
             "%Y-%m-%d %H:%M:%S",
             "%Y-%m-%dT%H:%M:%S",
             "%Y-%m-%dT%H:%M:%S.%f",
             "%Y-%m-%d",
+            "%Y/%m/%d %H:%M:%S",
+            "%Y/%m/%d",
         ]
 
         for fmt in formats:
             try:
-                return datetime.strptime(value, fmt)
+                return datetime.strptime(value_str, fmt)
             except ValueError:
                 continue
 
-        raise ValueError(f"Cannot parse datetime: {value}")
+        # 尝试解析 ISO 格式（带时区）
+        try:
+            return datetime.fromisoformat(value_str.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+
+        # 作为最后手段，不抛出异常，返回 None
+        logger.warning(f"Cannot parse datetime: {value}")
+        return None
