@@ -4,17 +4,16 @@ import json
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
 from src.report.generator import (
+    ChartData,
+    ReportData,
+    ReportFormat,
     ReportGenerator,
     ReportType,
-    ReportFormat,
-    ReportData,
-    ChartData,
     TableData,
 )
 

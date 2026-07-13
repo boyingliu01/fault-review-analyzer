@@ -1,15 +1,15 @@
 """Tests for the refactored AnalysisPipeline class."""
 
 import tempfile
-from pathlib import Path
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig, PipelineResult
-from src.config.manager import ConfigManager
 from src.api.models import TaskInfo
+from src.config.manager import ConfigManager
 
 
 class TestAnalysisPipelineRefactored:

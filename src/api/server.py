@@ -1,15 +1,15 @@
 """FastAPI 服务 - 故障复盘分析 API 服务器"""
 
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from src.api.middleware import RateLimiter, TokenValidator, setup_middleware
-from src.api.routes import analyze, clusters, health, reports, feedback
+from src.api.routes import analyze, clusters, feedback, health, reports
 
 
 @asynccontextmanager

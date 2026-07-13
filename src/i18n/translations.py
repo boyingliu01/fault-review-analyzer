@@ -1,9 +1,9 @@
 """国际化翻译模块"""
 
-from typing import Dict, Any
+from typing import Any
 
 # 翻译词典
-TRANSLATIONS: Dict[str, Dict[str, str]] = {
+TRANSLATIONS: dict[str, dict[str, str]] = {
     "zh": {
         # 错误消息
         "error.api.connection": "API连接失败",
@@ -183,7 +183,7 @@ def get_translation(key: str, language: str = "zh") -> str:
     return key
 
 
-def translate_dict(data: Dict[str, Any], language: str = "zh") -> Dict[str, Any]:
+def translate_dict(data: dict[str, Any], language: str = "zh") -> dict[str, Any]:
     """
     递归翻译字典中的文本
 

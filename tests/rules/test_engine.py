@@ -1,10 +1,10 @@
 """Tests for the rules engine."""
 
-import pytest
-from datetime import datetime
-from typing import Dict, Any, List
+from typing import Any
 
-from src.rules.engine import Violation, Rule, RuleEngine, RuleResult, RuleSeverity
+import pytest
+
+from src.rules.engine import Rule, RuleEngine, RuleResult, RuleSeverity, Violation
 
 
 class TestViolation:
@@ -52,7 +52,7 @@ class TestRule:
     def test_rule_creation(self):
         """Test creating a basic rule."""
 
-        def check_func(code: str, context: Dict[str, Any]) -> List[Violation]:
+        def check_func(code: str, context: dict[str, Any]) -> list[Violation]:
             return []
 
         rule = Rule(
@@ -71,7 +71,7 @@ class TestRule:
     def test_rule_with_options(self):
         """Test creating a rule with custom options."""
 
-        def check_func(code: str, context: Dict[str, Any]) -> List[Violation]:
+        def check_func(code: str, context: dict[str, Any]) -> list[Violation]:
             return []
 
         rule = Rule(
@@ -89,7 +89,7 @@ class TestRule:
     def test_rule_execute_with_violations(self):
         """Test executing a rule that finds violations."""
 
-        def check_func(code: str, context: Dict[str, Any]) -> List[Violation]:
+        def check_func(code: str, context: dict[str, Any]) -> list[Violation]:
             if "bad_keyword" in code:
                 return [
                     Violation(rule_id="RULE001", message="Found bad keyword", location="test.py:1")
@@ -113,7 +113,7 @@ class TestRule:
     def test_rule_execute_without_violations(self):
         """Test executing a rule that finds no violations."""
 
-        def check_func(code: str, context: Dict[str, Any]) -> List[Violation]:
+        def check_func(code: str, context: dict[str, Any]) -> list[Violation]:
             return []
 
         rule = Rule(
@@ -137,12 +137,12 @@ class TestRuleEngine:
     def sample_rules(self):
         """Create sample rules for testing."""
 
-        def check_bad_keyword(code: str, context: Dict[str, Any]) -> List[Violation]:
+        def check_bad_keyword(code: str, context: dict[str, Any]) -> list[Violation]:
             if "bad" in code.lower():
                 return [Violation(rule_id="R001", message="Found 'bad'", location="line:1")]
             return []
 
-        def check_todo(code: str, context: Dict[str, Any]) -> List[Violation]:
+        def check_todo(code: str, context: dict[str, Any]) -> list[Violation]:
             if "TODO" in code:
                 return [Violation(rule_id="R002", message="Found TODO", location="line:1")]
             return []
@@ -285,7 +285,7 @@ class TestRuleEngine:
     def test_run_all_exception_in_rule(self):
         """Test handling exceptions during rule execution."""
 
-        def failing_check(code: str, context: Dict[str, Any]) -> List[Violation]:
+        def failing_check(code: str, context: dict[str, Any]) -> list[Violation]:
             raise ValueError("Simulated rule failure")
 
         failing_rule = Rule(

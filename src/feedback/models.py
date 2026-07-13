@@ -2,7 +2,8 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -26,25 +27,25 @@ class Feedback(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     task_id: str
     feedback_type: FeedbackType
-    original_result: Dict[str, Any]  # 原始分析结果
-    corrected_result: Optional[Dict[str, Any]] = None  # 纠正后的结果
+    original_result: dict[str, Any]  # 原始分析结果
+    corrected_result: dict[str, Any] | None = None  # 纠正后的结果
     rating: FeedbackRating
-    comment: Optional[str] = None
+    comment: str | None = None
     created_by: str
     created_at: datetime = Field(default_factory=datetime.now)
     reviewed: bool = False
-    reviewed_by: Optional[str] = None
-    reviewed_at: Optional[datetime] = None
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
 
 
 # API 请求/响应模型
 class FeedbackCreate(BaseModel):
     task_id: str
     feedback_type: FeedbackType
-    original_result: Dict[str, Any]
-    corrected_result: Optional[Dict[str, Any]] = None
+    original_result: dict[str, Any]
+    corrected_result: dict[str, Any] | None = None
     rating: FeedbackRating
-    comment: Optional[str] = None
+    comment: str | None = None
     created_by: str
 
 
@@ -66,8 +67,8 @@ class FeedbackListResponse(BaseModel):
 
 class FeedbackStatsResponse(BaseModel):
     total_feedback: int
-    by_type: Dict[str, int]
-    by_rating: Dict[int, int]
+    by_type: dict[str, int]
+    by_rating: dict[int, int]
     reviewed_count: int
     correction_ratio: float
     positive_ratio: float

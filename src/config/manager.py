@@ -1,8 +1,8 @@
-import os
 import json
+import os
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
-from copy import deepcopy
 
 import yaml
 

@@ -1,8 +1,10 @@
 """API 服务器测试"""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock, patch
+
 from src.api.server import create_app
 
 

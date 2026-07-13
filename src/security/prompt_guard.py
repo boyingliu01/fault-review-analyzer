@@ -4,9 +4,9 @@ Prompt 注入防护模块
 提供对 LLM 输入文本的清洗、注入模式检测和防护功能。
 """
 
-from loguru import logger
-from typing import Optional, Tuple, List
 import re
+
+from loguru import logger
 
 
 class PromptGuard:
@@ -60,7 +60,7 @@ class PromptGuard:
         self.max_length = max_length
         logger.debug(f"PromptGuard 初始化完成，最大长度限制: {self.max_length}")
 
-    def detect_injection(self, text: str) -> List[Tuple[str, str]]:
+    def detect_injection(self, text: str) -> list[tuple[str, str]]:
         """
         检测文本中的注入模式
 
@@ -97,7 +97,7 @@ class PromptGuard:
 
         return cleaned
 
-    def validate(self, text: str) -> Tuple[bool, str, List[Tuple[str, str]]]:
+    def validate(self, text: str) -> tuple[bool, str, list[tuple[str, str]]]:
         """
         验证文本是否安全
 
@@ -145,7 +145,7 @@ class PromptGuard:
 _default_guard = PromptGuard()
 
 
-def detect_injection(text: str) -> List[Tuple[str, str]]:
+def detect_injection(text: str) -> list[tuple[str, str]]:
     """
     检测文本中的注入模式（便捷函数）
 
@@ -171,7 +171,7 @@ def clean_text(text: str) -> str:
     return _default_guard.clean_text(text)
 
 
-def validate(text: str) -> Tuple[bool, str, List[Tuple[str, str]]]:
+def validate(text: str) -> tuple[bool, str, list[tuple[str, str]]]:
     """
     验证文本是否安全（便捷函数）
 

@@ -1,7 +1,6 @@
 """Token management with expiration detection and rotation alerts."""
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from loguru import logger
 
@@ -33,7 +32,7 @@ class TokenManager:
             f"alert: {rotation_alert_days} days"
         )
 
-    def is_token_expired(self, token: str, created_at: Optional[datetime] = None) -> bool:
+    def is_token_expired(self, token: str, created_at: datetime | None = None) -> bool:
         """
         Check if a token has expired.
 
@@ -58,7 +57,7 @@ class TokenManager:
 
         return is_expired
 
-    def needs_rotation_alert(self, token: str, created_at: Optional[datetime] = None) -> bool:
+    def needs_rotation_alert(self, token: str, created_at: datetime | None = None) -> bool:
         """
         Check if a token needs rotation alert.
 
@@ -87,7 +86,7 @@ class TokenManager:
 
         return needs_alert
 
-    def get_token_remaining_days(self, created_at: Optional[datetime] = None) -> Optional[float]:
+    def get_token_remaining_days(self, created_at: datetime | None = None) -> float | None:
         """
         Get remaining days until token expiration.
 

@@ -2,7 +2,7 @@ from typing import Any
 
 import numpy as np
 
-from src.clustering.models import ClusterInfo, ClusterResult
+from src.core.models import ClusterInfo, ClusterResult
 
 
 class ClusterAnalyzer:

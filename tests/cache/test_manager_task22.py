@@ -1,5 +1,5 @@
-import time
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -14,7 +14,6 @@ class TestCacheManagerTask22:
     @pytest.fixture
     def temp_cache_path(self):
         """创建临时数据库文件路径"""
-        import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
             yield Path(tmpdir) / "test_cache.db"
 

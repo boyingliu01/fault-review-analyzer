@@ -1,0 +1,116 @@
+{
+  "bug_detail": {
+    "data": {
+      "apiTask": {
+        "taskId": 1748712,
+        "taskNo": "11748712",
+        "taskTitle": "在表 CC.CUSTC_CONFIG_ITEM_PARAM 上创建唯一索引 CC.PK_CUST_CONFIG_ITEM_PARAM，确保 CONFIG_ITEM_ID 与 PARAM_CODE 组合唯一；通过 ALTER TABLE 添加对应主键约束 PK_CUST_CONFIG_ITEM_PARAM 并启用索引；同时添加外键约束 FK_CUST_CFG_PARAM_REF_CFG_ITEM，确保 CONFIG_ITEM_ID 参照表 CC.CUSTC_CONFIG_ITEM 的 CONFIG_ITEM_ID 字段，实现数据完整性约束。（ZSmart_CUSTC_Smartfren_R9.2_主分支）",
+        "projectId": 563716,
+        "taskFlowStageId": 20779,
+        "taskPriId": null,
+        "patchId": 79576,
+        "parentTaskId": null,
+        "beginDate": null,
+        "endDate": null,
+        "ownerUserId": 484,
+        "createUserId": 5708,
+        "createdDate": "2025-12-26 15:04:40",
+        "comments": "CREATE UNIQUE INDEX CC.PK\\_CUST\\_CONFIG\\_ITEM\\_PARAM ON CC.CUSTC\\_CONFIG\\_ITEM\\_PARAM (CONFIG\\_ITEM\\_ID, PARAM\\_CODE);\n\n  \n\n\nALTER TABLE CC.CUSTC\\_CONFIG\\_ITEM\\_PARAM ADD CONSTRAINT PK\\_CUST\\_CONFIG\\_ITEM\\_PARAM PRIMARY KEY (CONFIG\\_ITEM\\_ID, PARAM\\_CODE)USING INDEX ENABLE;\n\nALTER TABLE CC.CUSTC\\_CONFIG\\_ITEM\\_PARAM ADD CONSTRAINT FK\\_CUST\\_CFG\\_PARAM\\_REF\\_CFG\\_ITEM FOREIGN KEY (CONFIG\\_ITEM\\_ID)REFERENCES CC.CUSTC\\_CONFIG\\_ITEM (CONFIG\\_ITEM\\_ID) ENABLE;\n\n  \n\n\n说明：\n\n1.  首先，在表 CC.CUSTC\\_CONFIG\\_ITEM\\_PARAM 上创建了一个唯一索引 CC.PK\\_CUST\\_CONFIG\\_ITEM\\_PARAM，索引列为 CONFIG\\_ITEM\\_ID 和 PARAM\\_CODE，确保这两个字段的组合值唯一。\n2.  然后，通过 ALTER TABLE 语句为表 CC.CUSTC\\_CONFIG\\_ITEM\\_PARAM 添加主键约束 PK\\_CUST\\_CONFIG\\_ITEM\\_PARAM，指定主键列为 CONFIG\\_ITEM\\_ID 和 PARAM\\_CODE，并启用索引。\n3.  最后，为表 CC.CUSTC\\_CONFIG\\_ITEM\\_PARAM 添加外键约束 FK\\_CUST\\_CFG\\_PARAM\\_REF\\_CFG\\_ITEM，外键字段 CONFIG\\_ITEM\\_ID 关联到表 CC.CUSTC\\_CONFIG\\_ITEM 的 CONFIG\\_ITEM\\_ID 字段，确保数据的参照完整性，并启用该约束。\n\n  \n",
+        "finishFlag": 1,
+        "finishDate": "2025-12-29 16:13:57",
+        "productModuleId": 35038,
+        "taskSrc": "BUG_ON_SITE",
+        "taskClassification": null,
+        "zmpProjectId": 156197,
+        "expectWorkMinutes": 120,
+        "regressionCount": 0,
+        "expectPublishDate": "2025-12-30 00:00:00",
+        "expectOnlineDate": null,
+        "productVersionId": 20623,
+        "contractProjectId": null,
+        "sccbWorkMinutes": null,
+        "branchVersionId": 21650,
+        "storyPoint": null,
+        "frontWorkMinutes": null,
+        "isCommitCode": "N"
+      },
+      "parentTask": null,
+      "taskTypeDto": {
+        "code": "BUG",
+        "name": "BUG",
+        "prefix": "1",
+        "withProductModule": true,
+        "withSql": true,
+        "branchCount": 1,
+        "withTestCase": true,
+        "withCode": true,
+        "withParent": false,
+        "childTaskTypeCode": null,
+        "withConfig": true,
+        "withTaskDoc": true,
+        "withPatch": true,
+        "typeIcon": null
+      },
+      "apiTaskFlowStage": null,
+      "ownerUserDto": null,
+      "apiProductVersionDto": null,
+      "apiBranchVersionDto": null,
+      "productModuleDto": null,
+      "apiUserStoryEdoDto": null,
+      "taskActionDtoList": null,
+      "devCaseDtoList": null,
+      "testCaseDtoList": null,
+      "taskDocDtoList": null,
+      "apiAttachDtoList": null,
+      "createUserDto": {
+        "userId": 5708,
+        "userName": "李少嘉",
+        "userCode": "0027009347",
+        "email": null,
+        "phone": null,
+        "state": null,
+        "displayName": "李少嘉[0027009347]"
+      },
+      "apiTaskImpactDto": null,
+      "apiTaskConfigDto": null
+    },
+    "code": "9999",
+    "msg": "Operation success!",
+    "message": null,
+    "finalMessage": "Operation success!"
+  },
+  "commits": {
+    "data": null,
+    "code": "ZCM-AGILE-TASK-BRANCH-00004",
+    "msg": "单号[11748712]还未关联代码分支！",
+    "message": null,
+    "finalMessage": "单号[11748712]还未关联代码分支！"
+  },
+  "changes": {
+    "data": null,
+    "code": "ZCM-AGILE-TASK-BRANCH-00004",
+    "msg": "单号[11748712]还未关联代码分支！",
+    "message": null,
+    "finalMessage": "单号[11748712]还未关联代码分支！"
+  },
+  "actions": {
+    "error": "Status 404",
+    "message": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n"
+  },
+  "comments": {
+    "error": "Status 404",
+    "message": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n"
+  },
+  "impact": {
+    "error": "Status 404",
+    "message": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n"
+  },
+  "reviews": {
+    "error": "Status 404",
+    "message": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n"
+  },
+  "task_detail": {
+    "error": "Status 404",
+    "message": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n"
+  }
+}

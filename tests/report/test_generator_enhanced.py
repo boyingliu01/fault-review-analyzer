@@ -1,6 +1,5 @@
 """Tests for the report generator with enhanced functionality."""
 
-import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -8,8 +7,14 @@ from unittest.mock import patch
 
 import pytest
 
-from src.report.generator import ReportGenerator, ReportFormat, ReportType
-from src.report.generator import ReportData, ChartData, TableData
+from src.report.generator import (
+    ChartData,
+    ReportData,
+    ReportFormat,
+    ReportGenerator,
+    ReportType,
+    TableData,
+)
 
 
 class TestReportGeneratorEnhanced:
@@ -132,7 +137,7 @@ class TestReportGeneratorEnhanced:
         assert output_path.exists()
 
         # Verify content
-        with open(output_path, "r") as f:
+        with open(output_path) as f:
             file_content = f.read()
             assert "Sample Report" in file_content
 

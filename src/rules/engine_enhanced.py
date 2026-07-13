@@ -1,31 +1,29 @@
 """增强版规则引擎"""
 
-import json
 import re
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-from datetime import datetime
 import threading
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
 from loguru import logger
 
 from .advanced_models import (
     AdvancedRule,
     EnhancedRuleViolation,
-    RulesEvaluation,
-    RuleCheckResult,
     OperatorType,
-    RuleCondition,
+    RulesEvaluation,
 )
 from .condition_evaluator import ConditionEvaluator
 from .engine import RulesEngine as BaseRulesEngine
-from .models import Rule, RuleViolation
+from .models import RuleViolation
 
 
 class EnhancedRulesEngine(BaseRulesEngine):
     """增强版规则引擎"""
 
     def __init__(self):
-        self._rules: Dict[str, AdvancedRule] = {}
+        self._rules: dict[str, AdvancedRule] = {}
         self._evaluator = ConditionEvaluator()
         self._reload_lock = threading.RLock()
         self._last_reload = datetime.now()
@@ -80,9 +78,8 @@ class EnhancedRulesEngine(BaseRulesEngine):
         if hasattr(self, "_hot_reloader"):
             return
 
-        import time
-        from watchdog.observers import Observer
         from watchdog.events import FileSystemEventHandler
+        from watchdog.observers import Observer
 
         class RulesFileEventHandler(FileSystemEventHandler):
             def __init__(self, engine):
@@ -132,7 +129,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
         self.stop_hot_reloader()
 
     def check_with_evaluation(
-        self, task_data: Dict[str, Any], context: Optional[Dict[str, Any]] = None
+        self, task_data: dict[str, Any], context: dict[str, Any] | None = None
     ) -> RulesEvaluation:
         """
         检查任务数据并返回详细评估结果
@@ -147,7 +144,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
         violations = self._check_rules(task_data, context)
         return self._generate_evaluation(violations, task_data)
 
-    def check(self, task_data: Dict[str, Any]) -> List[RuleViolation]:
+    def check(self, task_data: dict[str, Any]) -> list[RuleViolation]:
         """
         检查任务数据是否违反规则（兼容旧接口）
 
@@ -171,8 +168,8 @@ class EnhancedRulesEngine(BaseRulesEngine):
         ]
 
     def _check_rules(
-        self, task_data: Dict[str, Any], context: Optional[Dict[str, Any]] = None
-    ) -> List[EnhancedRuleViolation]:
+        self, task_data: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> list[EnhancedRuleViolation]:
         """
         检查所有规则是否被违反
 
@@ -203,7 +200,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
 
         return violations
 
-    def _extract_code_content(self, task_data: Dict[str, Any]) -> str:
+    def _extract_code_content(self, task_data: dict[str, Any]) -> str:
         """提取任务数据中的代码内容"""
         code_content = ""
         if task_data.get("development"):
@@ -229,9 +226,9 @@ class EnhancedRulesEngine(BaseRulesEngine):
         self,
         rule: AdvancedRule,
         code_content: str,
-        task_data: Dict[str, Any],
-        context: Dict[str, Any],
-    ) -> Optional[EnhancedRuleViolation]:
+        task_data: dict[str, Any],
+        context: dict[str, Any],
+    ) -> EnhancedRuleViolation | None:
         """
         检查单个规则是否被违反
 
@@ -264,7 +261,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
         return None
 
     def _evaluate_advanced_conditions(
-        self, rule: AdvancedRule, task_data: Dict[str, Any], context: Dict[str, Any]
+        self, rule: AdvancedRule, task_data: dict[str, Any], context: dict[str, Any]
     ) -> bool:
         """评估高级条件"""
         if not rule.conditions:
@@ -291,7 +288,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
         else:
             return False
 
-    def _evaluate_simple_condition(self, condition: str, task_data: Dict[str, Any]) -> bool:
+    def _evaluate_simple_condition(self, condition: str, task_data: dict[str, Any]) -> bool:
         """评估简单条件"""
         try:
             lines = len(task_data.get("code_content", "").splitlines())
@@ -305,7 +302,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
     def _create_violation(
         self,
         rule: AdvancedRule,
-        matches: List[str],
+        matches: list[str],
         code_content: str,
     ) -> EnhancedRuleViolation:
         """创建违规记录"""
@@ -339,7 +336,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
         return min(base_score * priority_multiplier * weight_multiplier, 100.0)
 
     def _generate_evaluation(
-        self, violations: List[EnhancedRuleViolation], task_data: Dict[str, Any]
+        self, violations: list[EnhancedRuleViolation], task_data: dict[str, Any]
     ) -> RulesEvaluation:
         """
         生成评估报告

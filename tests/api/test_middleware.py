@@ -1,9 +1,10 @@
 """API 中间件测试"""
 
 import time
-import pytest
+
 from fastapi.testclient import TestClient
-from src.api.middleware import RateLimiter, TokenValidator, setup_middleware
+
+from src.api.middleware import RateLimiter, TokenValidator
 from src.api.server import create_app
 
 

@@ -1,13 +1,12 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 import numpy as np
+import pytest
 
 from src.embedding.generator import (
+    AdaptiveRateLimiter,
     EmbeddingGenerator,
     LRUEmbeddingCache,
-    AdaptiveRateLimiter,
 )
 
 
@@ -58,7 +57,6 @@ class TestLRUEmbeddingCache:
         assert cache.get("test") is not None
 
         # 修改内部时间，模拟过期
-        import time
         from datetime import datetime, timedelta
         cache._cache[cache._get_key("test")] = (
             [1.0],

@@ -1,9 +1,10 @@
 """国际化管理器"""
 
-from pathlib import Path
-from typing import Dict, Any, Optional
-import threading
 import json
+import threading
+from pathlib import Path
+from typing import Any, Optional
+
 import yaml
 from loguru import logger
 
@@ -27,7 +28,7 @@ class I18nManager:
         if hasattr(self, "_initialized"):
             return
         self._initialized = True
-        self._translations: Dict[str, Dict[str, str]] = dict(TRANSLATIONS)
+        self._translations: dict[str, dict[str, str]] = dict(TRANSLATIONS)
         self._default_language = "zh"
         self._local = threading.local()
         self._local.language = self._default_language
@@ -47,7 +48,7 @@ class I18nManager:
         self._default_language = lang.lower()
 
     def get(
-        self, key: str, language: Optional[str] = None, **kwargs: Any
+        self, key: str, language: str | None = None, **kwargs: Any
     ) -> str:
         """
         获取翻译文本
@@ -70,14 +71,14 @@ class I18nManager:
         return text
 
     def t(
-        self, key: str, language: Optional[str] = None, **kwargs: Any
+        self, key: str, language: str | None = None, **kwargs: Any
     ) -> str:
         """获取翻译文本的简写方法"""
         return self.get(key, language, **kwargs)
 
     def translate_dict(
-        self, data: Dict[str, Any], language: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, data: dict[str, Any], language: str | None = None
+    ) -> dict[str, Any]:
         """
         递归翻译字典
 
@@ -92,7 +93,7 @@ class I18nManager:
         return translate_dict(data, lang)
 
     def load_translations(
-        self, translations: Dict[str, Dict[str, str]]
+        self, translations: dict[str, dict[str, str]]
     ) -> None:
         """
         加载额外的翻译词典
