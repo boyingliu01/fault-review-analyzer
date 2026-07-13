@@ -5,8 +5,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
-from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig
-from src.analyzer.pipeline import PipelineResult
+
+from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig, PipelineResult
+from src.api.dependencies import get_config_manager
 from src.api.server_models import (
     BatchAnalyzeRequest,
     BatchAnalyzeResponse,
@@ -14,7 +15,6 @@ from src.api.server_models import (
     SingleAnalyzeRequest,
     SingleAnalyzeResponse,
 )
-from src.api.dependencies import get_config_manager, get_pipeline
 from src.config.manager import ConfigManager
 
 router = APIRouter()

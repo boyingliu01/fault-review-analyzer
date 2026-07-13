@@ -5,11 +5,11 @@
 """
 
 from .generator import (
-    ReportGenerator,
-    ReportFormat,
-    ReportType,
-    ReportData,
     ChartData,
+    ReportData,
+    ReportFormat,
+    ReportGenerator,
+    ReportType,
     TableData,
 )
 from .models import AnalysisReport, BatchReport, ClusterReport, ReportSection

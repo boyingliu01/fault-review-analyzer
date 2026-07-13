@@ -1,19 +1,24 @@
 """反馈 API 路由"""
 import sys
 from pathlib import Path
-from typing import List, Optional
+
 from loguru import logger
 
 # 确保能找到 src 模块
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
-    from fastapi import APIRouter, HTTPException, Query, Depends
+    from fastapi import APIRouter, Depends, HTTPException, Query
+
+    from src.feedback.manager import FeedbackManager, FeedbackRating, FeedbackType
     from src.feedback.models import (
-        Feedback, FeedbackCreate, FeedbackReview,
-        FeedbackResponse, FeedbackListResponse, FeedbackStatsResponse
+        Feedback,
+        FeedbackCreate,
+        FeedbackListResponse,
+        FeedbackResponse,
+        FeedbackReview,
+        FeedbackStatsResponse,
     )
-    from src.feedback.manager import FeedbackManager, FeedbackType, FeedbackRating
 except Exception as e:
     logger.error(f"Failed to import modules: {e}")
     raise
@@ -72,7 +77,7 @@ async def get_feedback(
     return feedback
 
 
-@router.get("/task/{task_id}", response_model=List[FeedbackResponse])
+@router.get("/task/{task_id}", response_model=list[FeedbackResponse])
 async def get_task_feedback(
     task_id: str,
     manager: FeedbackManager = Depends(get_feedback_manager)
@@ -83,9 +88,9 @@ async def get_task_feedback(
 
 @router.get("", response_model=FeedbackListResponse)
 async def list_feedback(
-    feedback_type: Optional[FeedbackType] = Query(None),
-    rating: Optional[int] = Query(None, ge=1, le=5),
-    reviewed: Optional[bool] = Query(None),
+    feedback_type: FeedbackType | None = Query(None),
+    rating: int | None = Query(None, ge=1, le=5),
+    reviewed: bool | None = Query(None),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     manager: FeedbackManager = Depends(get_feedback_manager)

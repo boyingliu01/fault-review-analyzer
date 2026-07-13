@@ -5,12 +5,13 @@ Prompt 注入防护模块测试
 """
 
 import pytest
+
 from src.security.prompt_guard import (
     PromptGuard,
-    detect_injection,
     clean_text,
-    validate,
+    detect_injection,
     guard,
+    validate,
 )
 
 

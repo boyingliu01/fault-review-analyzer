@@ -1,7 +1,8 @@
 """国际化模块测试"""
 
 import pytest
-from src.i18n import i18n, _, get_translation, translate_dict
+
+from src.i18n import _, get_translation, i18n, translate_dict
 
 
 class TestI18n:

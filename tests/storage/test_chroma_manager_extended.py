@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.core.models import EmbeddingResult
 from src.storage.chroma_manager import ChromaManager
 

@@ -1,0 +1,44 @@
+# Gitleaks configuration for fault-review-analyzer
+# See: https://github.com/gitleaks/gitleaks#configuration
+
+title = "Fault Review Analyzer Secret Detection"
+
+[extend]
+# Use default rules plus custom ones below
+useDefault = true
+
+[[rules]]
+id = "volcengine-api-key"
+description = "Volcengine (Doubao) API Key"
+regex = '''(?i)(volcengine|doubao)[\w\-]*.(api_?key|token|secret)[\s]*[=:]\s*['"]?[a-zA-Z0-9\-]{30,}'''
+tags = ["api-key", "volcengine"]
+
+[[rules]]
+id = "zhipu-api-key"
+description = "Zhipu AI API Key"
+regex = '''[a-f0-9]{32}\.[A-Za-z0-9]{16,}'''
+tags = ["api-key", "zhipu"]
+
+[[rules]]
+id = "iwhalecloud-api-token"
+description = "iWhalecloud API Token"
+regex = '''[a-f0-9]{32}'''
+tags = ["api-key", "iwhalecloud"]
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''.env.example''',
+    '''tests/test_api\.py$''',
+    '''scripts/test/.*''',
+    '''docs/.*''',
+    '''CLAUDE\.md$''',
+    '''\.gitleaks\.toml$''',
+    '''replacements\.txt$''',
+]
+regexes = [
+    '''REDACTED_''',
+    '''your-api-key-here''',
+    '''<your-.*>''',
+]
+commits = []

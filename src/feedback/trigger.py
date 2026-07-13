@@ -1,8 +1,9 @@
 """微调触发器"""
-from typing import Tuple, Dict, Any, List
+from typing import Any
+
 from loguru import logger
+
 from src.feedback.manager import FeedbackManager
-from src.feedback.models import Feedback
 
 
 class RetrainingTrigger:
@@ -20,7 +21,7 @@ class RetrainingTrigger:
         self.min_positive_ratio = min_positive_ratio
         self.max_correction_ratio = max_correction_ratio
 
-    def should_trigger_retraining(self) -> Tuple[bool, Dict[str, Any]]:
+    def should_trigger_retraining(self) -> tuple[bool, dict[str, Any]]:
         """检查是否应该触发重训练
 
         Returns:
@@ -57,7 +58,7 @@ class RetrainingTrigger:
 
         return False, {"reason": "all_metrics_healthy"}
 
-    def get_retraining_recommendations(self) -> List[Dict[str, Any]]:
+    def get_retraining_recommendations(self) -> list[dict[str, Any]]:
         """获取重训练建议
 
         分析反馈数据，识别需要改进的模型方面
@@ -96,7 +97,7 @@ class RetrainingTrigger:
 
         return recommendations
 
-    def trigger_retraining_pipeline(self) -> Dict[str, Any]:
+    def trigger_retraining_pipeline(self) -> dict[str, Any]:
         """触发重训练流程
 
         当满足触发条件时，执行重训练流程

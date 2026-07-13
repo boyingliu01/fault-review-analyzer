@@ -1,0 +1,137 @@
+{
+  "inter_analysis": {
+    "data": {
+      "taskNo": "11745664",
+      "apiDevTaskAnalysis": {
+        "relaTaskNo": null,
+        "isProductLine": "否",
+        "ownerTeamName": "智启",
+        "ownerUserDto": {
+          "userId": 1082,
+          "userName": "刘涛",
+          "userCode": "0027003300",
+          "email": "liu.tao58@iwhalecloud.com",
+          "phone": "15051842661",
+          "state": "A",
+          "displayName": "刘涛[0027003300]"
+        },
+        "analysisCatalog": {
+          "name": "研发环节",
+          "nameEn": "Development Phase"
+        },
+        "analysisCatalogDetail": {
+          "name": "正常场景遗漏",
+          "nameEn": "Missing normal scenarios"
+        },
+        "reason": "针对178复装场景，受理时卡类型先选择ESIM时会自动初始化出来对应的ResOrder数据，后面界面切换同时变更卡类型为物理卡时，没有将内存中的ResOrder数据置失效，导致预览界面出现报错\n产品历史遗留问题，前期处理过类似问题，当时只解决了新装/换卡/换号/卡丢失换卡创建，遗漏了复装同时换卡场景",
+        "breakBusinessChecklist": null,
+        "improveUserDto": {
+          "userId": 1082,
+          "userName": "刘涛",
+          "userCode": "0027003300",
+          "email": "liu.tao58@iwhalecloud.com",
+          "phone": "15051842661",
+          "state": "A",
+          "displayName": "刘涛[0027003300]"
+        },
+        "improveTask": null,
+        "conclusion": "考虑其他涉及虚拟卡换卡的场景",
+        "createUserDto": {
+          "userId": 1082,
+          "userName": "刘涛",
+          "userCode": "0027003300",
+          "email": "liu.tao58@iwhalecloud.com",
+          "phone": "15051842661",
+          "state": "A",
+          "displayName": "刘涛[0027003300]"
+        },
+        "createdTime": "2025-12-25 15:19:54",
+        "improveStage": "代码重构+自动化单元测试"
+      },
+      "apiTestTaskAnalysis": {
+        "ownerTeamName": "天璇",
+        "ownerUserDto": {
+          "userId": 1000,
+          "userName": "施鸣",
+          "userCode": "0027001156",
+          "email": "shi.ming2@iwhalecloud.com",
+          "phone": "13814003813",
+          "state": "A",
+          "displayName": "施鸣[0027001156]"
+        },
+        "analysisCatalog": {
+          "name": "测试设计类",
+          "nameEn": "Test Design Category"
+        },
+        "analysisCatalogDetail": {
+          "name": "关联场景考虑不全",
+          "nameEn": "Incomplete Consideration of Related Scenarios"
+        },
+        "reason": "针对178复装场景，受理时卡类型先选择ESIM时会自动初始化出来对应的ResOrder数据，后面界面切换同时变更卡类型为物理卡时，没有将内存中的ResOrder数据置失效，导致预览界面出现报错",
+        "breakBusinessChecklist": null,
+        "improveTask": null,
+        "improveUserDto": {
+          "userId": 1000,
+          "userName": "施鸣",
+          "userCode": "0027001156",
+          "email": "shi.ming2@iwhalecloud.com",
+          "phone": "13814003813",
+          "state": "A",
+          "displayName": "施鸣[0027001156]"
+        },
+        "conclusion": "梳理esim相关业务整理专题",
+        "comments": "",
+        "createUserDto": {
+          "userId": 10260,
+          "userName": "卢琳",
+          "userCode": "0027020189",
+          "email": "lu.lin3@iwhalecloud.com",
+          "phone": "15651691931",
+          "state": "A",
+          "displayName": "卢琳[0027020189]"
+        },
+        "createDate": "2025-12-30 10:42:55",
+        "improveStage": "模块测试"
+      },
+      "apiMgrTaskAnalysis": {
+        "isOtherProject": "否",
+        "testImproveStage": "模块测试",
+        "devImproveStage": "代码重构+自动化单元测试",
+        "createUserDto": {
+          "userId": 1000,
+          "userName": "施鸣",
+          "userCode": "0027001156",
+          "email": "shi.ming2@iwhalecloud.com",
+          "phone": "13814003813",
+          "state": "A",
+          "displayName": "施鸣[0027001156]"
+        },
+        "createDate": "2026-01-14 22:30:31"
+      }
+    },
+    "code": "9999",
+    "msg": "Operation success!",
+    "message": null,
+    "finalMessage": "Operation success!"
+  },
+  "task_analysis": {
+    "error": "Status 404",
+    "message": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n"
+  },
+  "analysis_comments": {
+    "error": "Status 404",
+    "message": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n"
+  },
+  "analysis_catalog": {
+    "error": "Status 404",
+    "message": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n"
+  },
+  "analysis_catalog_detail": {
+    "error": "Status 404",
+    "message": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n"
+  },
+  "improve_stage": {
+    "error": "Status 404",
+    "message": "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>\r\n"
+  }
+}

@@ -1,7 +1,6 @@
 """Tests for TokenManager."""
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
 
 import pytest
 

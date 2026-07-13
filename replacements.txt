@@ -1,0 +1,6 @@
+# API keys to remove from git history
+# Format: literal:string==>replacement
+
+2a114fffc93e4d3e9ebe5830ab6f2a90==>REDACTED_API_KEY
+803de240-5683-4ce3-9cbd-0ad5192db942==>REDACTED_LLM_KEY
+358433e76a844478b0130229b1719ea6.DHSmQbUUPkFPpvcl==>REDACTED_ZHIPU_KEY

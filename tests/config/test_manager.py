@@ -1,19 +1,14 @@
 """Tests for the configuration manager."""
 
 import json
-import os
-import tempfile
-from pathlib import Path
-from typing import Dict, Any
-from unittest.mock import Mock, patch, mock_open
 
 import pytest
 
 from src.config.manager import (
-    ConfigManager,
-    ConfigValidationError,
-    ConfigNotFoundError,
     ConfigKeyError,
+    ConfigManager,
+    ConfigNotFoundError,
+    ConfigValidationError,
 )
 from src.config.models import AppConfig
 

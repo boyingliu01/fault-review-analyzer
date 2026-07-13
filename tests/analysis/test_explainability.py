@@ -1,16 +1,16 @@
 """模型可解释性模块测试"""
 
-import pytest
-import numpy as np
 from pathlib import Path
-from typing import List
+
+import numpy as np
+import pytest
 
 from src.analysis.explainability import (
     ClusteringExplainabilityAnalyzer,
-    ExplainabilityVisualizer,
-    ModelExplanation,
     ClusteringExplanation,
+    ExplainabilityVisualizer,
     FeatureImportance,
+    ModelExplanation,
     SHAPResult,
 )
 
@@ -40,7 +40,7 @@ def sample_labels() -> np.ndarray:
 
 
 @pytest.fixture
-def feature_names() -> List[str]:
+def feature_names() -> list[str]:
     """生成特征名称"""
     return [f"feature_{i}" for i in range(20)]
 
@@ -145,7 +145,7 @@ class TestClusteringExplainabilityAnalyzer:
         self,
         sample_embeddings: np.ndarray,
         sample_labels: np.ndarray,
-        feature_names: List[str],
+        feature_names: list[str],
     ):
         """测试分析特征重要性"""
         analyzer = ClusteringExplainabilityAnalyzer(
@@ -329,7 +329,7 @@ class TestExplainabilityVisualizer:
 
         assert Path(saved_path).exists()
 
-        with open(saved_path, "r", encoding="utf-8") as f:
+        with open(saved_path, encoding="utf-8") as f:
             content = f.read()
             assert "Model Explanation Report" in content
             assert "Global Feature Importance" in content

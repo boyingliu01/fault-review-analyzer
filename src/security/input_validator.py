@@ -1,6 +1,6 @@
 """Input validator for security-related inputs."""
 
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -45,7 +45,7 @@ class InputValidator:
         return True
 
     @staticmethod
-    def validate_token(token: Optional[str]) -> bool:
+    def validate_token(token: str | None) -> bool:
         """
         Validate token format.
 

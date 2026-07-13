@@ -1,12 +1,10 @@
 """Enhanced tests for ReportGenerator with multiple output formats."""
 
-import tempfile
-from pathlib import Path
 from datetime import datetime
 
 import pytest
 
-from src.report.generator import ReportGenerator, ReportFormat, ReportData, ChartData, TableData
+from src.report.generator import ReportData, ReportFormat, ReportGenerator
 from src.report.models import BatchReport, ClusterReport
 
 

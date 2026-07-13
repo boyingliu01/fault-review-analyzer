@@ -4,7 +4,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
-from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig
+
+from src.api.dependencies import get_config_manager
 from src.api.server_models import (
     ClusterDetailResponse,
     ClusterInfo,
@@ -12,7 +13,6 @@ from src.api.server_models import (
     ClusterTaskInfo,
     ErrorResponse,
 )
-from src.api.dependencies import get_config_manager
 from src.config.manager import ConfigManager
 
 router = APIRouter()

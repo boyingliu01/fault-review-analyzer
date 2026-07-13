@@ -1,9 +1,11 @@
 """重训练触发器测试"""
-import tempfile
 import os
+import tempfile
+
 import pytest
-from src.feedback.models import Feedback, FeedbackType, FeedbackRating
+
 from src.feedback.manager import FeedbackManager
+from src.feedback.models import Feedback, FeedbackRating, FeedbackType
 from src.feedback.trigger import RetrainingTrigger
 
 

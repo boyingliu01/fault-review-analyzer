@@ -1,9 +1,11 @@
 """反馈管理器"""
 import sqlite3
-from typing import List, Optional, Dict, Any
 from pathlib import Path
+from typing import Any
+
 from loguru import logger
-from src.feedback.models import Feedback, FeedbackType, FeedbackRating
+
+from src.feedback.models import Feedback, FeedbackRating, FeedbackType
 
 
 class FeedbackManager:
@@ -78,7 +80,7 @@ class FeedbackManager:
         logger.debug(f"Feedback added: {feedback.id}")
         return feedback.id
 
-    def get_feedback(self, feedback_id: str) -> Optional[Feedback]:
+    def get_feedback(self, feedback_id: str) -> Feedback | None:
         """获取反馈"""
         import json
 
@@ -108,7 +110,7 @@ class FeedbackManager:
                 reviewed_at=self._parse_datetime(row["reviewed_at"]) if row["reviewed_at"] else None
             )
 
-    def get_feedback_by_task(self, task_id: str) -> List[Feedback]:
+    def get_feedback_by_task(self, task_id: str) -> list[Feedback]:
         """获取任务的所有反馈"""
         import json
 
@@ -139,12 +141,12 @@ class FeedbackManager:
 
     def list_feedback(
         self,
-        feedback_type: Optional[FeedbackType] = None,
-        rating: Optional[FeedbackRating] = None,
-        reviewed: Optional[bool] = None,
+        feedback_type: FeedbackType | None = None,
+        rating: FeedbackRating | None = None,
+        reviewed: bool | None = None,
         limit: int = 100,
         offset: int = 0
-    ) -> List[Feedback]:
+    ) -> list[Feedback]:
         """列出反馈"""
         import json
 
@@ -208,7 +210,7 @@ class FeedbackManager:
 
             return cursor.rowcount > 0
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """获取反馈统计"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()

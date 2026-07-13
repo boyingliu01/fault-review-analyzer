@@ -1,9 +1,9 @@
 """条件评估器"""
 
-from typing import Any, Dict, List, Optional, Union
-import re
 import operator
-from datetime import datetime
+import re
+from typing import Any
+
 from loguru import logger
 
 from .advanced_models import Condition, OperatorType
@@ -12,7 +12,7 @@ from .advanced_models import Condition, OperatorType
 class ConditionEvaluator:
     """条件评估器 - 支持AND/OR/NOT操作符的条件组合"""
 
-    def __init__(self, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, context: dict[str, Any] | None = None):
         self.context = context or {}
         self._operators = {
             "==": operator.eq,
@@ -33,7 +33,7 @@ class ConditionEvaluator:
         }
 
     def evaluate(
-        self, condition: Condition, context: Optional[Dict[str, Any]] = None
+        self, condition: Condition, context: dict[str, Any] | None = None
     ) -> bool:
         """
         评估条件
@@ -74,7 +74,7 @@ class ConditionEvaluator:
 
         return False
 
-    def _evaluate_atomic(self, expression: str, context: Dict[str, Any]) -> bool:
+    def _evaluate_atomic(self, expression: str, context: dict[str, Any]) -> bool:
         """
         评估原子条件表达式
 
@@ -109,7 +109,7 @@ class ConditionEvaluator:
             logger.warning(f"Failed to evaluate condition '{expression}': {e}")
             return False
 
-    def _get_value(self, key: str, context: Dict[str, Any]) -> Any:
+    def _get_value(self, key: str, context: dict[str, Any]) -> Any:
         """从上下文中获取值"""
         if not context:
             return None
@@ -164,7 +164,7 @@ class ConditionEvaluator:
         return value_str
 
 
-def create_condition(operator: OperatorType, *conditions: Union[str, Condition]) -> Condition:
+def create_condition(operator: OperatorType, *conditions: str | Condition) -> Condition:
     """
     便捷创建条件
 

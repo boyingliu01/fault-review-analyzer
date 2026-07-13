@@ -1,6 +1,6 @@
 """API 依赖注入"""
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig
 from src.config.manager import ConfigManager

@@ -1,9 +1,10 @@
 """模型可解释性模块 - 提供SHAP值和特征重要性分析"""
 
-import numpy as np
-from typing import Any, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
+import numpy as np
 from loguru import logger
 
 try:
@@ -14,8 +15,8 @@ except ImportError:
 
 try:
     import matplotlib.pyplot as plt
-    import plotly.graph_objects as go
     import plotly.express as px
+    import plotly.graph_objects as go
 except ImportError:
     plt = None
     go = None
@@ -40,8 +41,8 @@ class SHAPResult:
 
     base_value: float
     shap_values: np.ndarray
-    feature_names: List[str]
-    prediction: Optional[float] = None
+    feature_names: list[str]
+    prediction: float | None = None
 
 
 @dataclass
@@ -50,21 +51,21 @@ class ClusteringExplanation:
 
     cluster_id: int
     cluster_label: str = ""
-    top_features: List[FeatureImportance] = field(default_factory=list)
-    representative_samples: List[int] = field(default_factory=list)
-    shap_analysis: Optional[SHAPResult] = None
+    top_features: list[FeatureImportance] = field(default_factory=list)
+    representative_samples: list[int] = field(default_factory=list)
+    shap_analysis: SHAPResult | None = None
     explanation_text: str = ""
-    visualization_data: Dict[str, Any] = field(default_factory=dict)
+    visualization_data: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ModelExplanation:
     """完整模型解释"""
 
-    global_feature_importance: List[FeatureImportance] = field(default_factory=list)
-    local_explanations: Dict[int, ClusteringExplanation] = field(default_factory=dict)
-    summary_plot_path: Optional[str] = None
-    force_plot_paths: Dict[int, str] = field(default_factory=dict)
+    global_feature_importance: list[FeatureImportance] = field(default_factory=list)
+    local_explanations: dict[int, ClusteringExplanation] = field(default_factory=dict)
+    summary_plot_path: str | None = None
+    force_plot_paths: dict[int, str] = field(default_factory=dict)
 
 
 class SHAPExplainer:
@@ -72,9 +73,9 @@ class SHAPExplainer:
 
     def __init__(
         self,
-        model: Optional[Any] = None,
-        background_data: Optional[np.ndarray] = None,
-        feature_names: Optional[List[str]] = None,
+        model: Any | None = None,
+        background_data: np.ndarray | None = None,
+        feature_names: list[str] | None = None,
     ):
         if shap is None:
             raise ImportError("SHAP is not installed. Install with: pip install shap")
@@ -141,7 +142,7 @@ class SHAPExplainer:
         self,
         X: np.ndarray,
         nsamples: int = 100,
-    ) -> Tuple[List[FeatureImportance], np.ndarray]:
+    ) -> tuple[list[FeatureImportance], np.ndarray]:
         """
         全局特征重要性分析
 
@@ -173,7 +174,7 @@ class SHAPExplainer:
     def _calculate_feature_importance(
         self,
         shap_values: np.ndarray,
-    ) -> List[FeatureImportance]:
+    ) -> list[FeatureImportance]:
         """
         计算特征重要性
 
@@ -209,19 +210,19 @@ class ClusteringExplainabilityAnalyzer:
 
     def __init__(
         self,
-        embeddings: Optional[np.ndarray] = None,
-        labels: Optional[np.ndarray] = None,
-        feature_names: Optional[List[str]] = None,
+        embeddings: np.ndarray | None = None,
+        labels: np.ndarray | None = None,
+        feature_names: list[str] | None = None,
     ):
         self.embeddings = embeddings
         self.labels = labels
         self.feature_names = feature_names or []
-        self.shap_explainer: Optional[SHAPExplainer] = None
+        self.shap_explainer: SHAPExplainer | None = None
 
     def analyze_feature_importance(
         self,
-        embeddings: Optional[np.ndarray] = None,
-        labels: Optional[np.ndarray] = None,
+        embeddings: np.ndarray | None = None,
+        labels: np.ndarray | None = None,
         top_n: int = 10,
     ) -> ModelExplanation:
         """
@@ -253,7 +254,7 @@ class ClusteringExplainabilityAnalyzer:
         X: np.ndarray,
         y: np.ndarray,
         top_n: int,
-    ) -> List[FeatureImportance]:
+    ) -> list[FeatureImportance]:
         """计算全局特征重要性"""
         importance_scores = np.zeros(X.shape[1])
 
@@ -291,7 +292,7 @@ class ClusteringExplainabilityAnalyzer:
         X: np.ndarray,
         y: np.ndarray,
         top_n: int,
-    ) -> Dict[int, ClusteringExplanation]:
+    ) -> dict[int, ClusteringExplanation]:
         """计算各个聚类的解释"""
         explanations = {}
 
@@ -325,7 +326,7 @@ class ClusteringExplainabilityAnalyzer:
         cluster_data: np.ndarray,
         other_data: np.ndarray,
         top_n: int,
-    ) -> List[FeatureImportance]:
+    ) -> list[FeatureImportance]:
         """获取单个聚类的特征重要性"""
         importance_scores = []
 
@@ -363,7 +364,7 @@ class ClusteringExplainabilityAnalyzer:
         distances = np.linalg.norm(cluster_data - center, axis=1)
         return np.argsort(distances)[:n_samples]
 
-    def _generate_explanation_text(self, top_features: List[FeatureImportance]) -> str:
+    def _generate_explanation_text(self, top_features: list[FeatureImportance]) -> str:
         """生成解释文本"""
         if not top_features:
             return "没有足够的特征用于解释。"
@@ -385,10 +386,10 @@ class ExplainabilityVisualizer:
 
     def plot_feature_importance(
         self,
-        features: List[FeatureImportance],
+        features: list[FeatureImportance],
         title: str = "Feature Importance",
         top_n: int = 15,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """
         绘制特征重要性图
 
@@ -432,9 +433,9 @@ class ExplainabilityVisualizer:
 
     def plot_cluster_comparison(
         self,
-        explanations: Dict[int, ClusteringExplanation],
+        explanations: dict[int, ClusteringExplanation],
         feature_name: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """
         绘制聚类比较图
 
@@ -479,7 +480,7 @@ class ExplainabilityVisualizer:
     def save_summary_report(
         self,
         explanation: ModelExplanation,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
     ) -> str:
         """
         保存摘要报告
@@ -524,7 +525,7 @@ class ExplainabilityVisualizer:
         ]
 
         for cluster_id, cluster_exp in explanation.local_explanations.items():
-            html_parts.append(f'<div class="cluster">')
+            html_parts.append('<div class="cluster">')
             html_parts.append(f"<h3>Cluster {cluster_id}</h3>")
             html_parts.append(f"<p><strong>Explanation:</strong> {cluster_exp.explanation_text}</p>")
             html_parts.append("<h4>Top Features:</h4>")
@@ -536,7 +537,7 @@ class ExplainabilityVisualizer:
 
         return "\n".join(html_parts)
 
-    def _feature_table_to_html(self, features: List[FeatureImportance]) -> str:
+    def _feature_table_to_html(self, features: list[FeatureImportance]) -> str:
         """将特征列表转换为HTML表格"""
         if not features:
             return "<p>No features available.</p>"
@@ -549,7 +550,7 @@ class ExplainabilityVisualizer:
         html.append("</tr></thead><tbody>")
 
         for feature in features:
-            html.append(f"<tr>")
+            html.append("<tr>")
             html.append(f"<td>{feature.feature_name}</td>")
             html.append(f"<td>{feature.importance:.6f}</td>")
             html.append(f"<td>{feature.direction}</td>")

@@ -9,7 +9,8 @@ from typing import Any
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.core.models import ClusterInfo, ClusterResult
+# Backward compatibility: ClusterInfo and ClusterResult re-exported from core
+from src.core.models import ClusterInfo, ClusterResult  # noqa: F401
 
 
 class DimensionReductionResult(BaseModel):
