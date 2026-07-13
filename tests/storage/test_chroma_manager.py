@@ -1,9 +1,5 @@
 """Chroma向量数据库管理器测试套件"""
 
-import pytest
-from unittest.mock import MagicMock, patch
-
-from src.storage.chroma_manager import ChromaManager
 from src.core.models import EmbeddingResult
 
 
@@ -29,7 +25,10 @@ class TestChromaManager:
             embeddings=sample_embedding_results,
             collection_name="test_faults",
         )
-        assert result is True
+        # New API returns dict[str, bool]
+        assert isinstance(result, dict)
+        assert len(result) == len(sample_embedding_results)
+        assert all(result.values())
 
     def test_query_similar(self, chroma_manager):
         """测试相似向量查询"""

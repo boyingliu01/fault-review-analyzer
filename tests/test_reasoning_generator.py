@@ -13,7 +13,7 @@ class MockReasoningProvider:
 
 class TestRootCauseAnalyzer:
     async def test_analyze_root_cause(self):
-        mock_response = '''
+        mock_response = """
         {
             "root_causes": [
                 {
@@ -28,7 +28,7 @@ class TestRootCauseAnalyzer:
             "process_factors": ["测试不足"],
             "management_factors": ["资源不足"]
         }
-        '''
+        """
         provider = MockReasoningProvider(mock_response)
         analyzer = RootCauseAnalyzer(llm_provider=provider)
 
@@ -48,7 +48,7 @@ class TestRootCauseAnalyzer:
         assert result.analysis_summary == "分析总结"
 
     async def test_analyze_batch(self):
-        mock_response = '''
+        mock_response = """
         {
             "root_causes": [{"cause_type": "测试", "description": "测试", "evidence": [], "confidence": 0.5}],
             "analysis_summary": "测试",
@@ -56,7 +56,7 @@ class TestRootCauseAnalyzer:
             "process_factors": [],
             "management_factors": []
         }
-        '''
+        """
         provider = MockReasoningProvider(mock_response)
         analyzer = RootCauseAnalyzer(llm_provider=provider)
 

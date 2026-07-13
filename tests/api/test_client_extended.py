@@ -1,8 +1,5 @@
 """APIClient 扩展测试 - 边界场景"""
 
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
-import httpx
 
 from src.api.client import APIClient
 from src.api.exceptions import APIError, AuthenticationError, NotFoundError

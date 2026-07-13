@@ -104,8 +104,8 @@ class TestPhase2Analyze:
 
         mock_embeddings = np.array([[0.1] * 128, [0.11] * 128, [0.9] * 128])
 
-        from src.core.models import ClusteringResult
-        mock_result = MagicMock(spec=ClusteringResult)
+        from src.clustering.models import ClusterResult
+        mock_result = MagicMock(spec=ClusterResult)
         mock_result.labels = [0, 0, 1]
         mock_result.n_clusters = 2
         mock_result.n_noise = 0
@@ -134,9 +134,9 @@ class TestPhase2GenerateReport:
 
     def test_generate_report_creates_file(self, phase2: Phase2Analyze, tmp_path: Path):
         """测试报告生成并写入文件"""
-        from src.core.models import ClusteringResult
+        from src.clustering.models import ClusterResult
 
-        mock_clustering = MagicMock(spec=ClusteringResult)
+        mock_clustering = MagicMock(spec=ClusterResult)
         mock_clustering.silhouette_score = 0.75
         mock_clustering.algorithm = "hdbscan"
 

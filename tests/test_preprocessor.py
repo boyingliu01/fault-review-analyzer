@@ -44,7 +44,11 @@ class TestDataPreprocessor:
         result = preprocessor.process(sample_task)
 
         # 检查是否有生产相关的片段
-        prod_segments = [s for s in result.segments if s.type in ["symptom", "log", "stack_trace", "resolution", "production"]]
+        prod_segments = [
+            s
+            for s in result.segments
+            if s.type in ["symptom", "log", "stack_trace", "resolution", "production"]
+        ]
         assert len(prod_segments) > 0
 
     def test_combine_all_text(self, preprocessor, sample_task):

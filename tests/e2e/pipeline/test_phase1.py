@@ -1,6 +1,5 @@
 """Phase1 数据准备 E2E 测试"""
 
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -95,7 +94,6 @@ class TestPhase1Prepare:
         small_test_ids: list[str],
     ):
         """测试批量处理（完全 mock）"""
-        from src.core.models import EmbeddingResult
 
         # Mock 内部方法
         mock_task = MagicMock()

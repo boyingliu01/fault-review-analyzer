@@ -1,16 +1,7 @@
-import json
-from pathlib import Path
-from unittest.mock import patch
-
-import pytest
-
-from src.core.models import StandardCategory, StandardRule
-
-
 class TestStandardKnowledgeBase:
     """规范知识库管理器测试套件"""
 
-    def test_load_java_coding_standards(self, standards_manager, sample_java_standards):
+    def test_load_java_coding_standards(self, standards_manager, sample_java_standards):  # noqa: ARG002
         """测试加载Java编码规范"""
         standards = standards_manager.load_category("java_coding")
         assert standards is not None
@@ -18,7 +9,7 @@ class TestStandardKnowledgeBase:
         assert standards.name == "Java编码规范"
         assert len(standards.rules) >= 1
 
-    def test_load_database_standards(self, standards_manager, sample_database_standards):
+    def test_load_database_standards(self, standards_manager, sample_database_standards):  # noqa: ARG002
         """测试加载数据库规范"""
         standards = standards_manager.load_category("database_design")
         assert standards is not None

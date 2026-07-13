@@ -1,11 +1,8 @@
 """CodeChangeAnalyzer 扩展测试 - 边界场景"""
 
-import pytest
 from datetime import datetime
-from unittest.mock import Mock, patch
 
-from src.analysis.code_change_analyzer import CodeChangeAnalyzer, FILE_TYPE_MAP, CODE_PATTERNS
-from src.core.models import CodeChange
+from src.analysis.code_change_analyzer import CODE_PATTERNS, FILE_TYPE_MAP, CodeChangeAnalyzer
 
 
 class TestCodeChangeAnalyzerBoundary:
@@ -212,9 +209,7 @@ class TestCodePatternsBoundary:
 
     def test_file_type_map_completeness(self):
         """测试文件类型映射完整性"""
-        common_extensions = [
-            ".py", ".java", ".js", ".ts", ".go", ".cpp", ".c", ".sql"
-        ]
+        common_extensions = [".py", ".java", ".js", ".ts", ".go", ".cpp", ".c", ".sql"]
         for ext in common_extensions:
             assert ext in FILE_TYPE_MAP, f"Missing {ext} in FILE_TYPE_MAP"
 
@@ -228,11 +223,13 @@ class TestCodePatternsBoundary:
                 assert isinstance(pattern, str)
                 # 验证是有效的正则表达式
                 import re
+
                 re.compile(pattern)
 
     def test_code_patterns_database_connection(self):
         """测试数据库连接模式匹配"""
         import re
+
         test_cases = [
             ("Connection conn = getConnection();", True),
             ("Statement stmt = conn.createStatement();", True),
@@ -240,7 +237,6 @@ class TestCodePatternsBoundary:
         ]
         for text, should_match in test_cases:
             matched = any(
-                re.search(pattern, text)
-                for pattern in CODE_PATTERNS["database_connection"]
+                re.search(pattern, text) for pattern in CODE_PATTERNS["database_connection"]
             )
             assert matched == should_match, f"Failed for: {text}"

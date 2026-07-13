@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.config.manager import ConfigManager
+from src.config.manager import ConfigManager, ConfigValidationError
 from src.config.models import (
     APIConfig,
     CacheConfig,
@@ -88,14 +88,16 @@ class TestConfigModels:
 class TestConfigManager:
     def test_load_config_from_yaml(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   base_url: "https://api.example.com"
   timeout: 60
 llm:
   provider: "qwen"
   model: "qwen-max"
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
         config = manager.load()
 
@@ -106,17 +108,22 @@ llm:
 
     def test_env_override_config(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   base_url: "https://api.example.com"
 llm:
   api_key: "default-key"
-""")
+"""
+        )
 
-        with patch.dict(os.environ, {
-            "API_BASE_URL": "https://override.example.com",
-            "LLM_API_KEY": "override-key",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "API_BASE_URL": "https://override.example.com",
+                "LLM_API_KEY": "override-key",
+            },
+        ):
             manager = ConfigManager(config_path=config_file)
             config = manager.load()
 
@@ -125,35 +132,41 @@ llm:
 
     def test_config_validation_invalid_timeout(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   timeout: -1
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ConfigValidationError):
             manager.load()
 
     def test_config_validation_invalid_temperature(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 llm:
   temperature: 2.0
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ConfigValidationError):
             manager.load()
 
     def test_get_config_value(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   base_url: "https://api.example.com"
 llm:
   provider: "openai"
   model: "gpt-4"
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
         manager.load()
 
@@ -163,12 +176,14 @@ llm:
 
     def test_set_config_value(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   base_url: "https://api.example.com"
 llm:
   provider: "openai"
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
         manager.load()
         manager.set("llm.model", "gpt-3.5-turbo")
@@ -177,10 +192,12 @@ llm:
 
     def test_save_config(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   base_url: "https://api.example.com"
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
         manager.load()
         manager.set("llm.provider", "qwen")
@@ -200,31 +217,39 @@ api:
 
     def test_config_property(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   base_url: "https://api.example.com"
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
-        config = manager.config
-        assert config.api.base_url == "https://api.example.com"
+        manager.load()  # Ensure config is loaded
+        config_dict = manager.config
+        assert config_dict["api"]["base_url"] == "https://api.example.com"
 
     def test_get_config_method(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   base_url: "https://api.example.com"
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
         config = manager.get_config()
         assert config.api.base_url == "https://api.example.com"
 
     def test_config_with_missing_api_key_warning(self, temp_dir, caplog):
         import logging
+
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   base_url: "https://api.example.com"
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
         with caplog.at_level(logging.WARNING):
             config = manager.load()
@@ -232,10 +257,12 @@ api:
 
     def test_set_nested_config_value(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   base_url: "https://api.example.com"
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
         manager.load()
         manager.set("cache.ttl", 3600)
@@ -243,7 +270,8 @@ api:
 
     def test_load_config_with_all_sections(self, temp_dir):
         config_file = temp_dir / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 api:
   base_url: "https://api.example.com"
   api_key: "test-key"
@@ -269,7 +297,8 @@ output:
   directory: "./output"
 logging:
   level: "DEBUG"
-""")
+"""
+        )
         manager = ConfigManager(config_path=config_file)
         config = manager.load()
 

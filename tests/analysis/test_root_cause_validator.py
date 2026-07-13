@@ -1,8 +1,6 @@
 """根因可落地性验证器测试套件"""
 
-import pytest
 
-from src.analysis.root_cause_validator import RootCauseValidator
 from src.core.models import RootCauseValidation
 
 

@@ -1,8 +1,6 @@
 """违规检测器测试套件"""
 
-import pytest
 
-from src.analysis.violation_detector import ViolationDetector
 from src.core.models import ViolationDetection
 
 
@@ -72,7 +70,7 @@ class TestViolationDetector:
             "task_id": "TASK-005",
             "title": "明显违规",
             "description": "代码中使用System.out.println",
-            "code_snippet": "System.out.println(\"debug info\");",
+            "code_snippet": 'System.out.println("debug info");',
             "development": {"commits": []},
         }
         result = violation_detector.detect(fault_info)
@@ -85,7 +83,7 @@ class TestViolationDetector:
             "task_id": "TASK-006",
             "title": "SQL注入风险",
             "description": "存在SQL注入风险",
-            "code_snippet": "String sql = \"SELECT * FROM users WHERE id=\" + userId;",
+            "code_snippet": 'String sql = "SELECT * FROM users WHERE id=" + userId;',
             "development": {"commits": []},
         }
         result = violation_detector.detect(fault_info)

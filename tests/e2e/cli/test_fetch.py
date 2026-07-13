@@ -1,6 +1,5 @@
 """CLI fetch 命令 E2E 测试"""
 
-import asyncio
 import subprocess
 import sys
 from pathlib import Path

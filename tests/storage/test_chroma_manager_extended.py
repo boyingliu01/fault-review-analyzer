@@ -1,23 +1,24 @@
 """ChromaManager 扩展测试套件 - 补充测试以提升覆盖率"""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-import numpy as np
+from unittest.mock import MagicMock, patch
 
-from src.storage.chroma_manager import ChromaManager
+import pytest
+
 from src.core.models import EmbeddingResult
+from src.storage.chroma_manager import ChromaManager
 
 
 class TestChromaManagerExtended:
     """ChromaManager 扩展测试"""
 
-    def test_init_client_failure(self):
-        """测试初始化客户端失败"""
+    def test_init_client_failure_with_fallback(self):
+        """测试初始化客户端失败时启用降级"""
         with patch("src.storage.chroma_manager.chromadb") as mock_chroma:
             mock_chroma.PersistentClient.side_effect = Exception("初始化失败")
-            
-            with pytest.raises(Exception, match="初始化失败"):
-                ChromaManager()
+
+            # 启用降级时不抛出异常
+            manager = ChromaManager(enable_fallback=True)
+            assert manager.is_healthy() is False
 
     def test_query_similar_with_results(self):
         """测试查询相似向量有结果"""
@@ -110,7 +111,7 @@ class TestChromaManagerExtended:
             mock_chroma.PersistentClient.return_value = mock_client
 
             manager = ChromaManager()
-            result = manager.delete_by_task_id("TASK-001")
+            result = manager.delete_embedding("TASK-001")
 
             assert result is True
             mock_collection.delete.assert_called_once_with(ids=["TASK-001"])
@@ -126,7 +127,7 @@ class TestChromaManagerExtended:
             mock_chroma.PersistentClient.return_value = mock_client
 
             manager = ChromaManager()
-            result = manager.delete_by_task_id("TASK-001")
+            result = manager.delete_embedding("TASK-001")
 
             assert result is False
 
@@ -213,7 +214,7 @@ class TestChromaManagerExtended:
             col1_mock.name = "col1"
             col2_mock = MagicMock()
             col2_mock.name = "col2"
-            
+
             mock_client.list_collections.return_value = [col1_mock, col2_mock]
             mock_chroma.PersistentClient.return_value = mock_client
 
@@ -246,9 +247,7 @@ class TestChromaManagerExtended:
             result = manager.delete_collection("test_collection")
 
             assert result is True
-            mock_client.delete_collection.assert_called_once_with(
-                name="test_collection"
-            )
+            mock_client.delete_collection.assert_called_once_with(name="test_collection")
 
     def test_delete_collection_error(self):
         """测试删除集合失败"""

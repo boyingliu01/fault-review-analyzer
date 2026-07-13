@@ -1,7 +1,6 @@
 """Analysis模块测试 fixtures"""
 
 from datetime import datetime
-
 from unittest.mock import MagicMock
 
 import pytest

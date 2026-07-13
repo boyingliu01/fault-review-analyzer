@@ -3,12 +3,11 @@
 import subprocess
 import sys
 import time
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
-from playwright.sync_api import Browser, Page, expect
-
+from playwright.sync_api import Browser, Page
 
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent

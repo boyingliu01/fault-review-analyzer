@@ -1,4 +1,3 @@
-
 import gc
 
 from loguru import logger
@@ -82,20 +81,20 @@ class TestHelpers:
         assert result == ""
 
     def test_extract_code_blocks(self):
-        text = '''
+        text = """
 Here is some code:
 ```python
 def hello():
     print("Hello World")
 ```
 And more text.
-'''
+"""
         result = extract_code_blocks(text)
         assert len(result) == 1
-        assert 'def hello():' in result[0]
+        assert "def hello():" in result[0]
 
     def test_extract_code_blocks_multiple(self):
-        text = '''
+        text = """
 ```python
 code1
 ```
@@ -103,25 +102,25 @@ some text
 ```javascript
 code2
 ```
-'''
+"""
         result = extract_code_blocks(text)
         assert len(result) == 2
 
     def test_extract_stack_traces(self):
-        text = '''
+        text = """
 Exception in thread "main" java.lang.NullPointerException
     at com.example.Main.main(Main.java:10)
 RuntimeError: Something went wrong
-'''
+"""
         result = extract_stack_traces(text)
         assert len(result) > 0
 
     def test_extract_sql_queries(self):
-        text = '''
+        text = """
 SELECT * FROM users WHERE id = 1;
 INSERT INTO logs VALUES ('test');
 UPDATE users SET name = 'test';
-'''
+"""
         result = extract_sql_queries(text)
         assert len(result) >= 3
 

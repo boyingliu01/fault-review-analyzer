@@ -105,11 +105,13 @@ class TestEmbeddingGenerator:
         assert sim == 0.0
 
     def test_cosine_similarity_matrix(self, generator):
-        vecs = np.array([
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 1.0, 0.0],
-        ])
+        vecs = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
+            ]
+        )
 
         matrix = generator.cosine_similarity_matrix(vecs)
 

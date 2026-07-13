@@ -129,11 +129,11 @@ class TestPhase2GenerateReport:
 
     def test_generate_report_truncates_long_task_id_list(self, tmp_path):
         """超过10个task_id时，报告应显示截断提示行"""
-        from src.core.models import ClusteringResult
+        from src.clustering.models import ClusterResult
 
         phase2 = self._make_phase2()
 
-        mock_clustering = MagicMock(spec=ClusteringResult)
+        mock_clustering = MagicMock(spec=ClusterResult)
         mock_clustering.silhouette_score = 0.75
         mock_clustering.algorithm = "hdbscan"
 
@@ -165,11 +165,11 @@ class TestPhase2GenerateReport:
 
     def test_generate_report_no_truncation_for_small_cluster(self, tmp_path):
         """不超过10个task_id时，不显示截断提示行"""
-        from src.core.models import ClusteringResult
+        from src.clustering.models import ClusterResult
 
         phase2 = self._make_phase2()
 
-        mock_clustering = MagicMock(spec=ClusteringResult)
+        mock_clustering = MagicMock(spec=ClusterResult)
         mock_clustering.silhouette_score = 0.5
         mock_clustering.algorithm = "kmeans"
 

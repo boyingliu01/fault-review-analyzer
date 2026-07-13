@@ -164,11 +164,7 @@ rules:
         engine = RulesEngine()
         task_data = {
             "title": "测试任务",
-            "development": {
-                "code_reviews": [
-                    {"comments": ["评审意见"], "approved": True}
-                ]
-            },
+            "development": {"code_reviews": [{"comments": ["评审意见"], "approved": True}]},
         }
         violations = engine.check(task_data)
         assert isinstance(violations, list)

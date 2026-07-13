@@ -5,7 +5,7 @@ import httpx
 import pytest
 
 from src.api.client import APIClient
-from src.api.exceptions import AuthenticationError, NotFoundError
+from src.api.exceptions import APIConnectionError, APIError, AuthenticationError, NotFoundError
 from src.api.models import CommitInfo, ProductionInfo, TaskInfo
 
 
@@ -69,8 +69,9 @@ class TestAPIClient:
             return mock_resp
 
         api_client.ensure_client()
-        with patch("asyncio.sleep"), patch.object(
-            api_client._client, "request", side_effect=mock_http_request
+        with (
+            patch("asyncio.sleep"),
+            patch.object(api_client._client, "request", side_effect=mock_http_request),
         ):
             result = await api_client.get_task(12345)
             assert call_count == 3
@@ -447,6 +448,28 @@ class TestAPIClientExtended:
         result = api_client._parse_datetime("2024-01-15")
         assert result is not None
 
+        # YYYY/MM/DD HH:MM:SS
+        result = api_client._parse_datetime("2024/01/15 10:30:45")
+        assert result is not None
+        assert result.year == 2024
+
+        # YYYY/MM/DD
+        result = api_client._parse_datetime("2024/01/15")
+        assert result is not None
+
+        # ISO format with timezone
+        result = api_client._parse_datetime("2024-01-15T10:30:45+08:00")
+        assert result is not None
+
+        # ISO format with Z
+        result = api_client._parse_datetime("2024-01-15T10:30:45Z")
+        assert result is not None
+
+        # Timestamp
+        result = api_client._parse_datetime(1705294245)
+        assert result is not None
+        assert result.year == 2024
+
         # None/empty
         result = api_client._parse_datetime("")
         assert result is None
@@ -454,9 +477,12 @@ class TestAPIClientExtended:
         result = api_client._parse_datetime(None)
         assert result is None
 
-        # Invalid format should raise
-        with pytest.raises(ValueError):
-            api_client._parse_datetime("invalid-date")
+        # Invalid format should return None (not raise)
+        result = api_client._parse_datetime("invalid-date")
+        assert result is None
+
+        result = api_client._parse_datetime("abc123")
+        assert result is None
 
     def test_map_priority(self, api_client):
         """测试优先级映射"""
@@ -477,12 +503,10 @@ class TestAPIClientExtended:
     @pytest.mark.asyncio
     async def test_request_timeout_handling(self, api_client):
         """测试超时错误处理"""
-        import httpx
-
         with patch("httpx.AsyncClient.request") as mock_request:
             mock_request.side_effect = httpx.TimeoutException("Timeout")
 
-            with pytest.raises(Exception):  # Should raise APIConnectionError
+            with pytest.raises(APIConnectionError):  # Should raise APIConnectionError
                 await api_client._request("GET", "/test")
 
     @pytest.mark.asyncio
@@ -493,5 +517,5 @@ class TestAPIClientExtended:
             mock_resp.status_code = 400
             mock_request.return_value = mock_resp
 
-            with pytest.raises(Exception):  # Should raise APIError
+            with pytest.raises(APIError):  # Should raise APIError
                 await api_client._request("GET", "/test")

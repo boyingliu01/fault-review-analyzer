@@ -3,10 +3,10 @@
 import numpy as np
 
 from src.analysis.clustering import (
-    ClusteringAnalysisResult,
     ClusteringAnalyzer,
     _prepare_embeddings,
 )
+from src.clustering.models import ClusterResult
 
 
 class TestPrepareEmbeddings:
@@ -56,8 +56,8 @@ class TestClusteringAnalyzer:
             min_samples=1,
         )
 
-        assert isinstance(result, ClusteringAnalysisResult)
-        assert result.algorithm == "hdbscan"
+        assert isinstance(result, ClusterResult)
+        assert result.metadata.get("algorithm") == "hdbscan"
         assert result.n_clusters >= 1
         assert len(result.labels) == 6
 
@@ -83,8 +83,8 @@ class TestClusteringAnalyzer:
 
         result = analyzer.cluster_kmeans(embeddings, n_clusters=2)
 
-        assert isinstance(result, ClusteringAnalysisResult)
-        assert result.algorithm == "kmeans"
+        assert isinstance(result, ClusterResult)
+        assert result.metadata.get("algorithm") == "kmeans"
         assert result.n_clusters == 2
         assert len(result.labels) == 4
         assert result.n_noise == 0  # K-Means 没有噪声点
@@ -110,8 +110,8 @@ class TestClusteringAnalyzer:
 
         result = analyzer.cluster_hierarchical(embeddings, n_clusters=2)
 
-        assert isinstance(result, ClusteringAnalysisResult)
-        assert result.algorithm == "hierarchical"
+        assert isinstance(result, ClusterResult)
+        assert result.metadata.get("algorithm") == "hierarchical"
         assert result.n_clusters == 2
         assert len(result.labels) == 4
 

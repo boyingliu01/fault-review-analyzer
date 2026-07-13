@@ -1,8 +1,6 @@
 """Streamlit 应用测试套件"""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-import numpy as np
+from unittest.mock import MagicMock, patch
 
 from src.ui.streamlit_app import FaultAnalysisUI
 
@@ -53,9 +51,7 @@ class TestFaultAnalysisUI:
     def test_load_all_embeddings_error(self):
         """测试加载失败"""
         with patch("src.ui.streamlit_app.ChromaManager") as mock_chroma:
-            mock_chroma.return_value.get_or_create_collection.side_effect = Exception(
-                "连接失败"
-            )
+            mock_chroma.return_value.get_or_create_collection.side_effect = Exception("连接失败")
 
             ui = FaultAnalysisUI()
             embeddings, metadatas = ui._load_all_embeddings()

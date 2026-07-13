@@ -243,8 +243,8 @@ class TestAnalysisPipeline:
 
                 with patch.object(pipeline, "_get_cluster_analyzer") as mock_clust:
                     mock_cluster = MagicMock()
-                    from src.core.models import ClusteringResult
-                    mock_result = MagicMock(spec=ClusteringResult)
+                    from src.clustering.models import ClusterResult
+                    mock_result = MagicMock(spec=ClusterResult)
                     mock_result.labels = [0, 0]
                     mock_result.n_clusters = 1
                     mock_result.n_noise = 0

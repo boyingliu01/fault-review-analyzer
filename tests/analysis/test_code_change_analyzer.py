@@ -1,9 +1,7 @@
 """代码变更分析器测试套件"""
 
-import pytest
 from datetime import datetime
 
-from src.analysis.code_change_analyzer import CodeChangeAnalyzer
 from src.core.models import CodeChange
 
 
@@ -39,7 +37,7 @@ class TestCodeChangeAnalyzer:
 @@ -10,6 +10,8 @@
 +import logging
 +log = logging.getLogger(__name__)
- 
+-
 -def authenticate(user):
 +def authenticate(user, password):
      return user.is_authenticated()

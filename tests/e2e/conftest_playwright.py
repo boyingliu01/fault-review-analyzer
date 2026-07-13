@@ -1,6 +1,5 @@
 """E2E 测试 Playwright 配置"""
 
-import pytest
 
 
 def pytest_runtest_setup(item):

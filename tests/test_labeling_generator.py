@@ -1,4 +1,3 @@
-
 import pytest
 
 from src.analyzer.labeling.generator import LabelGenerator
@@ -14,7 +13,7 @@ class MockProvider:
 
 class TestLabelGenerator:
     async def test_generate_labels(self):
-        mock_response = '''
+        mock_response = """
         {
             "labels": [
                 {"name": "编码错误", "confidence": 0.9, "category": "code", "description": "代码逻辑错误"}
@@ -22,7 +21,7 @@ class TestLabelGenerator:
             "summary": "这是一个测试故障",
             "reasoning": "通过分析代码发现..."
         }
-        '''
+        """
         provider = MockProvider(mock_response)
         generator = LabelGenerator(llm_provider=provider)
 
@@ -42,7 +41,7 @@ class TestLabelGenerator:
         assert result.labels[0].confidence == 0.9
 
     async def test_generate_for_cluster(self):
-        mock_response = '''
+        mock_response = """
         {
             "labels": [
                 {"name": "性能问题", "confidence": 0.85, "category": "performance", "description": "性能瓶颈"}
@@ -50,7 +49,7 @@ class TestLabelGenerator:
             "summary": "聚类总结",
             "reasoning": "这些任务都有性能问题"
         }
-        '''
+        """
         provider = MockProvider(mock_response)
         generator = LabelGenerator(llm_provider=provider)
 
@@ -78,13 +77,13 @@ class TestLabelGenerator:
         assert len(result.labels) == 0
 
     async def test_generate_without_segments(self):
-        mock_response = '''
+        mock_response = """
         {
             "labels": [{"name": "测试", "confidence": 0.5, "category": "test", "description": ""}],
             "summary": "测试",
             "reasoning": "测试"
         }
-        '''
+        """
         provider = MockProvider(mock_response)
         generator = LabelGenerator(llm_provider=provider)
 

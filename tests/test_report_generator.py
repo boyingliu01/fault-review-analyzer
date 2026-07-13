@@ -46,7 +46,12 @@ class TestReportGenerator:
         task_data = {"task_id": 1, "title": "测试", "summary": "总结"}
 
         labels = [
-            {"name": "性能问题", "category": "performance", "confidence": 0.8, "description": "性能瓶颈"},
+            {
+                "name": "性能问题",
+                "category": "performance",
+                "confidence": 0.8,
+                "description": "性能瓶颈",
+            },
         ]
 
         report = generator.generate_single(task_data, labels=labels)
@@ -166,7 +171,9 @@ class TestReportGenerator:
         with tempfile.TemporaryDirectory() as tmpdir:
             template_dir = Path(tmpdir)
             template_file = template_dir / "cluster.md.j2"
-            template_file.write_text("# Cluster {{ cluster_id }}\nCount: {{ task_count }}", encoding="utf-8")
+            template_file.write_text(
+                "# Cluster {{ cluster_id }}\nCount: {{ task_count }}", encoding="utf-8"
+            )
 
             generator = ReportGenerator(template_dir=template_dir)
             cluster_report = ClusterReport(
