@@ -123,7 +123,6 @@ class TestAdaptiveRateLimiter:
         # 多次成功
         for _ in range(10):
             limiter.record_success()
-        max_qps = limiter.current_qps
         limiter.record_success()
         # 检查是否接近 max_qps，允许浮点误差
         assert abs(limiter.current_qps - limiter.max_qps) < 0.0001 or limiter.current_qps <= limiter.max_qps

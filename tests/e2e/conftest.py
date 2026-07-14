@@ -56,9 +56,3 @@ def output_dir() -> Path:
     return Path(__file__).parent.parent.parent / "output" / "e2e"
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """创建事件循环供所有异步测试使用"""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()

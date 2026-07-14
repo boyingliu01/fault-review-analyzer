@@ -189,7 +189,7 @@ class SHAPExplainer:
         mean_shap = np.mean(shap_values, axis=0)
 
         features = []
-        for i, (mean_abs, std, mean) in enumerate(zip(mean_abs_shap, std_shap, mean_shap)):
+        for i, (mean_abs, std, mean) in enumerate(zip(mean_abs_shap, std_shap, mean_shap, strict=False)):
             feature_name = self.feature_names[i] if i < len(self.feature_names) else f"feature_{i}"
             direction = "positive" if mean > 0 else "negative"
             features.append(
@@ -425,7 +425,7 @@ class ExplainabilityVisualizer:
             title=title,
             xaxis_title="Importance",
             yaxis_title="Feature",
-            yaxis=dict(autorange="reversed"),
+            yaxis={"autorange": "reversed"},
             height=min(400, len(display_features) * 30 + 100),
         )
 

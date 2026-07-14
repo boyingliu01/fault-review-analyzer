@@ -63,7 +63,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
         self._rules_path = rules_path
 
         with self._reload_lock:
-            initial_count = len(self.get_all_rules())
+            len(self.get_all_rules())
             count = super().load_custom_rules(rules_path)
             self._last_reload = datetime.now()
 
@@ -217,10 +217,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
         if rule.effective_from and now < datetime.fromisoformat(rule.effective_from):
             return False
 
-        if rule.effective_to and now > datetime.fromisoformat(rule.effective_to):
-            return False
-
-        return True
+        return not (rule.effective_to and now > datetime.fromisoformat(rule.effective_to))
 
     def _check_single_rule(
         self,

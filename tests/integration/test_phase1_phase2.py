@@ -2,6 +2,8 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from scripts.phase1_prepare import Phase1Prepare
 from scripts.phase2_analyze import Phase2Analyze
 
@@ -23,6 +25,7 @@ def make_mock_config() -> MagicMock:
 class TestPhase1Phase2Integration:
     """阶段一和阶段二集成测试"""
 
+    @pytest.mark.asyncio
     async def test_phase1_to_phase2_flow(self):
         """测试阶段一到阶段二的完整流程（mock 内部组件）"""
         from src.core.models import EmbeddingResult
@@ -199,6 +202,7 @@ class TestPhase2GenerateReport:
 class TestEndToEndWorkflow:
     """端到端工作流测试（纯接口协议验证，不依赖真实组件）"""
 
+    @pytest.mark.asyncio
     async def test_full_analysis_workflow(self):
         """验证阶段一和阶段二的接口协议"""
         mock_phase1 = MagicMock(spec=Phase1Prepare)

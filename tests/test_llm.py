@@ -4,12 +4,15 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.analyzer.llm_provider import OpenAILLMProvider
 from src.config.manager import ConfigManager
 
 
+@pytest.mark.skip(reason="Manual e2e test script, requires real API credentials")
 async def test_llm():
     print("=" * 60)
     print("测试LLM API (智谱)")
