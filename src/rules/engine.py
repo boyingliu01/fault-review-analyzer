@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 from enum import Enum
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
 from .models import Rule, RuleCheckResult, RuleViolation
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ============================================================================
 # Backward compatibility layer for tests
@@ -354,15 +356,13 @@ class RulesEngine:
 # Monkey-patch Rule.execute for backward compat with old test API
 # ============================================================================
 
-def _rule_execute(self: Rule, code: str, context: dict[str, Any] | None = None) -> "RuleResult":
+def _rule_execute(self: Rule, code: str, context: dict[str, Any] | None = None) -> RuleResult:
     """Execute a rule check. Backward compat for old test API."""
     ctx = context or {}
     violations: list[Any] = []
     if self.check_function:
-        try:
+        with contextlib.suppress(Exception):
             violations = self.check_function(code, ctx)
-        except Exception:
-            pass
     passed = len(violations) == 0
     return RuleResult(
         rule_id=self.id,

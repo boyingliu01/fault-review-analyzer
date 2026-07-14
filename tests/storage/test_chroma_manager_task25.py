@@ -122,7 +122,7 @@ class TestChromaManagerTask25:
         assert "1" in results
         assert "2" in results
 
-        for task_id, info in results.items():
+        for _task_id, info in results.items():
             assert "success" in info
             assert "source" in info
             assert isinstance(info["success"], bool)

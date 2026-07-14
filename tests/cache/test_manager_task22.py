@@ -1,6 +1,4 @@
-import tempfile
 import time
-from pathlib import Path
 
 import pytest
 
@@ -12,28 +10,26 @@ class TestCacheManagerTask22:
     """CacheManager 扩展测试 - TTL 和性能验证"""
 
     @pytest.fixture
-    def temp_cache_path(self):
-        """创建临时数据库文件路径"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir) / "test_cache.db"
+    def temp_cache_path(self, tmp_path):
+        """创建临时数据库文件路径 — 每个测试独立隔离"""
+        db_path = tmp_path / "test_cache.db"
+        yield db_path
+        import gc
+        gc.collect()
 
     @pytest.fixture
     def cache_manager(self, temp_cache_path):
         """创建 CacheManager 实例"""
         cache = CacheManager(db_path=temp_cache_path, ttl=3600)
         yield cache
-        # 确保所有连接都关闭
-        try:
-            cache.close()
-        except Exception:
-            pass
         import gc
         gc.collect()
 
-    def test_ttl_precise_expiration(self, temp_cache_path):
+    def test_ttl_precise_expiration(self, tmp_path):
         """测试精确的 TTL 过期机制"""
         # 使用非常短的 TTL
-        cache = CacheManager(db_path=temp_cache_path, ttl=1)
+        db_path = tmp_path / "test_ttl.db"
+        cache = CacheManager(db_path=db_path, ttl=1)
 
         task_data = {"task_id": 123, "title": "Test Task"}
         cache.save_task(123, task_data)
@@ -50,9 +46,10 @@ class TestCacheManagerTask22:
         result = cache.get_task(123)
         assert result is None
 
-    def test_ttl_status_transitions(self, temp_cache_path):
+    def test_ttl_status_transitions(self, tmp_path):
         """测试缓存状态转换"""
-        cache = CacheManager(db_path=temp_cache_path, ttl=1)
+        db_path = tmp_path / "test_ttl_status.db"
+        cache = CacheManager(db_path=db_path, ttl=1)
 
         # 初始状态：不存在
         assert cache.get_status(999) == CacheStatus.NOT_EXISTS
@@ -65,9 +62,10 @@ class TestCacheManagerTask22:
         time.sleep(1.5)
         assert cache.get_status(999) == CacheStatus.EXPIRED
 
-    def test_ttl_independent_entries(self, temp_cache_path):
+    def test_ttl_independent_entries(self, tmp_path):
         """测试不同任务的 TTL 独立"""
-        cache = CacheManager(db_path=temp_cache_path, ttl=10)
+        db_path = tmp_path / "test_ttl_entries.db"
+        cache = CacheManager(db_path=db_path, ttl=10)
 
         # 先保存一个任务
         cache.save_task(1, {"task_id": 1, "title": "Task 1"})
@@ -106,9 +104,10 @@ class TestCacheManagerTask22:
         # 100次读取应该在 1 秒内完成
         assert elapsed < 1.0, f"Read operations too slow: {elapsed:.2f}s"
 
-    def test_cache_write_performance(self, temp_cache_path):
+    def test_cache_write_performance(self, tmp_path):
         """测试缓存写入性能"""
-        cache = CacheManager(db_path=temp_cache_path, ttl=3600)
+        db_path = tmp_path / "test_write_perf.db"
+        cache = CacheManager(db_path=db_path, ttl=3600)
         num_tasks = 100
 
         start_time = time.time()
@@ -144,10 +143,11 @@ class TestCacheManagerTask22:
         # 150次操作应该在 2 秒内完成
         assert elapsed < 2.0, f"Mixed operations too slow: {elapsed:.2f}s"
 
-    def test_cleanup_expired_performance(self, temp_cache_path):
+    def test_cleanup_expired_performance(self, tmp_path):
         """测试清理过期数据的性能"""
         # 使用短期 TTL
-        cache = CacheManager(db_path=temp_cache_path, ttl=1)
+        db_path = tmp_path / "test_cleanup_perf.db"
+        cache = CacheManager(db_path=db_path, ttl=1)
 
         # 写入大量数据
         num_tasks = 100
@@ -195,9 +195,10 @@ class TestCacheManagerTask22:
         assert result["version"] == 2
         assert result["title"] == "Second"
 
-    def test_get_all_tasks_excludes_expired(self, temp_cache_path):
+    def test_get_all_tasks_excludes_expired(self, tmp_path):
         """测试 get_all_tasks 排除过期项"""
-        cache = CacheManager(db_path=temp_cache_path, ttl=1)
+        db_path = tmp_path / "test_excludes_expired.db"
+        cache = CacheManager(db_path=db_path, ttl=1)
 
         # 保存一些任务
         cache.save_task(1, {"task_id": 1, "title": "Expired Task"})
@@ -207,7 +208,7 @@ class TestCacheManagerTask22:
         time.sleep(1.5)
 
         # 保存一个新的
-        cache3 = CacheManager(db_path=temp_cache_path, ttl=3600)
+        cache3 = CacheManager(db_path=db_path, ttl=3600)
         cache3.save_task(3, {"task_id": 3, "title": "Valid Task"})
 
         # 只应该返回有效的
@@ -215,9 +216,10 @@ class TestCacheManagerTask22:
         assert len(all_tasks) == 1
         assert all_tasks[0]["task_id"] == 3
 
-    def test_stats_calculation(self, temp_cache_path):
+    def test_stats_calculation(self, tmp_path):
         """测试统计信息计算"""
-        cache = CacheManager(db_path=temp_cache_path, ttl=3600)
+        db_path = tmp_path / "test_stats.db"
+        cache = CacheManager(db_path=db_path, ttl=3600)
 
         # 空缓存
         stats = cache.get_stats()

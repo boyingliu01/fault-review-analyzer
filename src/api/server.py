@@ -129,7 +129,7 @@ def main() -> None:
     # 解析有效 tokens
     valid_tokens = None
     if valid_tokens_env:
-        valid_tokens = set(token.strip() for token in valid_tokens_env.split(","))
+        valid_tokens = {token.strip() for token in valid_tokens_env.split(",")}
 
     # 创建应用
     app = create_app(

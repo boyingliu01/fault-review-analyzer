@@ -348,11 +348,9 @@ class TestAnalysisPipeline:
         assert result.dev_reason == "原因"
         assert result.test_catalog == "测试"
 
-    @pytest.mark.xfail(reason="Intermittent race condition in event loop cleanup when run in suite. Passes standalone.", strict=False)
-    def test_pipeline_close(self, mock_config, pipeline_config):
+    @pytest.mark.asyncio
+    async def test_pipeline_close(self, mock_config, pipeline_config):
         """测试 pipeline 关闭"""
-        import asyncio
-
         pipeline = AnalysisPipeline(
             config=mock_config,
             pipeline_config=pipeline_config,
@@ -363,7 +361,7 @@ class TestAnalysisPipeline:
         mock_api_client.close = AsyncMock()
         pipeline._api_client = mock_api_client
 
-        asyncio.get_event_loop().run_until_complete(pipeline.close())
+        await pipeline.close()
 
         mock_api_client.close.assert_called_once()
         assert pipeline._api_client is None

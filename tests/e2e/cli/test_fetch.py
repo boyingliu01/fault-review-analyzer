@@ -29,23 +29,25 @@ class TestCLIFetch:
         """测试获取单个故障单"""
         from src.api.client import APIClient
 
+        # api_key from fixture already contains "Bearer " prefix
         async with APIClient(
             base_url=api_base_url,
-            token=f"Bearer {api_key}",
+            token=api_key,
             api_path_prefix="/portal/ai-gateway/devspace/rpc/v3/work-item",
         ) as client:
             task = await client.get_task(int(small_test_ids[0]))
             assert task is not None
-            assert task.task_no == small_test_ids[0]
+            assert str(task.task_id) == small_test_ids[0]
 
     @pytest.mark.asyncio
     async def test_fetch_multiple_tasks(self, api_key: str, api_base_url: str, small_test_ids: list[str]):
         """测试批量获取多个故障单"""
         from src.api.client import APIClient
 
+        # api_key from fixture already contains "Bearer " prefix
         async with APIClient(
             base_url=api_base_url,
-            token=f"Bearer {api_key}",
+            token=api_key,
             api_path_prefix="/portal/ai-gateway/devspace/rpc/v3/work-item",
         ) as client:
             tasks = []

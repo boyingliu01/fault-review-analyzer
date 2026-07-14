@@ -113,5 +113,7 @@ class TestTokenManager:
             assert manager.needs_rotation_alert("test-token", created_at) is True
 
             created_at = datetime.now(timezone.utc) - timedelta(days=80)
-            assert manager.get_token_remaining_days(created_at) is not None
-            assert 10 <= manager.get_token_remaining_days(created_at) <= 90
+            remaining = manager.get_token_remaining_days(created_at)
+            assert remaining is not None
+            # Allow floating-point tolerance (~10 days remaining from 90-day expiration)
+            assert remaining == pytest.approx(10.0, rel=1e-6)

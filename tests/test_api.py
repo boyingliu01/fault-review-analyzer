@@ -2,11 +2,14 @@
 import asyncio
 import sys
 
+import pytest
+
 sys.path.insert(0, "e:/Study/LLM/Bug聚类分析")
 
 from src.api.client import APIClient
 
 
+@pytest.mark.skip(reason="Manual e2e test script, requires real API credentials")
 async def test_api():
     client = APIClient(
         base_url="https://dev.iwhalecloud.com",
@@ -31,4 +34,5 @@ async def test_api():
             await client._client.aclose()
 
 
-asyncio.run(test_api())
+if __name__ == "__main__":
+    asyncio.run(test_api())

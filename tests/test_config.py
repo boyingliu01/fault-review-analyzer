@@ -15,6 +15,20 @@ from src.config.models import (
     RulesConfig,
 )
 
+_CONFIG_ENV_VARS = [
+    "API_BASE_URL", "API_TIMEOUT", "API_RETRY", "DEVCLOUD_TOKEN",
+    "LLM_PROVIDER", "LLM_MODEL", "LLM_API_KEY", "LLM_TEMPERATURE",
+    "LLM_MAX_TOKENS", "LLM_BASE_URL",
+    "EMBEDDING_PROVIDER", "EMBEDDING_MODEL", "EMBEDDING_API_KEY",
+    "EMBEDDING_BASE_URL", "EMBEDDING_BATCH_SIZE",
+    "CLUSTERING_ALGORITHM", "CLUSTERING_MIN_CLUSTER_SIZE",
+    "CLUSTERING_MIN_SAMPLES", "CLUSTERING_METRIC",
+    "CACHE_ENABLED", "CACHE_TTL", "CACHE_STORAGE", "CACHE_DB_PATH",
+    "RULES_BUILTIN_ENABLED",
+    "OUTPUT_FORMAT", "OUTPUT_DIRECTORY",
+    "LOG_LEVEL", "LOG_FILE",
+]
+
 
 class TestConfigModels:
     def test_api_config_defaults(self):
@@ -86,6 +100,13 @@ class TestConfigModels:
 
 
 class TestConfigManager:
+
+    @pytest.fixture(autouse=True)
+    def _isolate_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Clear all config-related env vars to prevent .env leakage into unit tests."""
+        for var in _CONFIG_ENV_VARS:
+            monkeypatch.delenv(var, raising=False)
+
     def test_load_config_from_yaml(self, temp_dir):
         config_file = temp_dir / "config.yaml"
         config_file.write_text(
