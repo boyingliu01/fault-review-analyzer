@@ -95,7 +95,7 @@ class PDFRuleParser:
         Raises:
             ImportError: If PyMuPDF is not installed.
         """
-        import fitz  # PyMuPDF
+        import fitz  # type: ignore[import-untyped]  # PyMuPDF
 
         doc = fitz.open(str(pdf_path))
         try:

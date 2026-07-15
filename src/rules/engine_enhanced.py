@@ -22,8 +22,8 @@ from .models import RuleViolation
 class EnhancedRulesEngine(BaseRulesEngine):
     """增强版规则引擎"""
 
-    def __init__(self):
-        self._rules: dict[str, AdvancedRule] = {}
+    def __init__(self) -> None:
+        self._rules: dict[str, AdvancedRule] = {}  # type: ignore[assignment]
         self._evaluator = ConditionEvaluator()
         self._reload_lock = threading.RLock()
         self._last_reload = datetime.now()
@@ -73,7 +73,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
             logger.info(f"Loaded {count} custom rules")
             return count
 
-    def _start_hot_reloader(self):
+    def _start_hot_reloader(self) -> None:
         """启动热重载监视"""
         if hasattr(self, "_hot_reloader"):
             return
@@ -82,10 +82,10 @@ class EnhancedRulesEngine(BaseRulesEngine):
         from watchdog.observers import Observer
 
         class RulesFileEventHandler(FileSystemEventHandler):
-            def __init__(self, engine):
+            def __init__(self, engine: Any) -> None:
                 self.engine = engine
 
-            def on_modified(self, event):
+            def on_modified(self, event: Any) -> None:
                 if event.src_path.endswith((".yaml", ".yml", ".json")):
                     logger.info(f"Rules file modified: {event.src_path}")
                     try:
@@ -117,7 +117,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
             logger.info(f"Rules reloaded. Total rules: {len(self.get_all_rules())}")
             return count
 
-    def stop_hot_reloader(self):
+    def stop_hot_reloader(self) -> None:
         """停止热重载监视"""
         if hasattr(self, "_hot_reloader"):
             self._hot_reloader.stop()
@@ -125,7 +125,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
             delattr(self, "_hot_reloader")
             logger.info("Hot reload monitoring stopped")
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.stop_hot_reloader()
 
     def check_with_evaluation(
@@ -350,8 +350,8 @@ class EnhancedRulesEngine(BaseRulesEngine):
         evaluation.rules_evaluated = len(self.get_all_rules())
         evaluation.rules_triggered = len(violations)
 
-        severity_counts = {}
-        category_scores = {}
+        severity_counts: dict[str, int] = {}
+        category_scores: dict[str, float] = {}
 
         total_score = 100.0
 

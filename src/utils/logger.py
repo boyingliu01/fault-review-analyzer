@@ -50,7 +50,7 @@ def setup_logger(
 
     if json_format:
         # JSON 格式输出 - 使用自定义序列化器
-        def json_sink(message):
+        def json_sink(message: Any) -> None:
             record = message.record
             print(_json_serializer(record), file=sys.stderr)
 
@@ -82,7 +82,7 @@ def setup_logger(
 
         if json_format:
             # JSON 文件格式
-            def json_file_sink(message):
+            def json_file_sink(message: Any) -> None:
                 record = message.record
                 with log_path.open("a", encoding="utf-8") as f:
                     f.write(_json_serializer(record) + "\n")
