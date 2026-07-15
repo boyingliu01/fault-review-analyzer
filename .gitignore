@@ -43,3 +43,4 @@ data/
 *.db
 .env
 config.yaml
+.omo/
