@@ -108,3 +108,20 @@ class AnalyzeHandler:
         # Reset generators so they pick up the new provider
         self._label_generator = None
         self._root_cause_analyzer = None
+
+    async def analyze_root_cause_deep(
+        self,
+        task_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Perform enhanced 5-layer deep root cause analysis.
+
+        Args:
+            task_data: Task data as dict.
+
+        Returns:
+            Deep root cause analysis result dict, or empty dict if unavailable.
+        """
+        # Deep root cause analysis requires additional API calls and
+        # the DeepRootCauseAnalyzer. This is a placeholder that returns
+        # empty until the full integration is wired up.
+        return {}
