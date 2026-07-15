@@ -187,7 +187,9 @@ class APIClient:
 
         try:
             response = await self._client.request(
-                "GET", f"{self.api_path_prefix}/user-info"
+                "POST",
+                f"{self.api_path_prefix}/1/detail",
+                json=self._get_default_detail_body(),
             )
         except httpx.ConnectError as e:
             raise APIConnectionError(f"Cannot reach API server: {e}")
@@ -204,10 +206,8 @@ class APIClient:
         elif response.status_code >= 500:
             raise ServerError(f"Server error during token verification: {response.status_code}")
         else:
-            raise APIError(
-                f"Unexpected response during token verification: {response.status_code}",
-                status_code=response.status_code,
-            )
+            # Any other response (404, etc.) means the server accepted our token
+            return True
 
     async def get_task(self, task_id: int) -> TaskInfo:
         response = await self._request(

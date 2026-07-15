@@ -75,7 +75,7 @@ class TestVerifyToken:
 
         client._client.request.assert_called_once()
         call_args = client._client.request.call_args
-        assert call_args[0][0] == "GET"  # method is GET
+        assert call_args[0][0] == "POST"  # method is POST (task detail endpoint)
 
     @pytest.mark.asyncio
     async def test_verify_token_no_client_creates_one(self):
