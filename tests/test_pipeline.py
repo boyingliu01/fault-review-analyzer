@@ -365,3 +365,351 @@ class TestAnalysisPipeline:
 
         mock_api_client.close.assert_called_once()
         assert pipeline._api_client is None
+
+    @pytest.mark.asyncio
+    async def test_run_single_preprocess_raises_exception(
+        self, mock_config, pipeline_config
+    ):
+        """Preprocess raises exception → caught, result.error set."""
+        from datetime import datetime
+
+        from src.api.models import TaskInfo
+
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        mock_task = TaskInfo(
+            task_id=12345,
+            title="Test Task",
+            description="Test Description",
+            status="open",
+            priority="medium",
+            create_time=datetime.now(),
+        )
+
+        with patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_task
+
+            # Make preprocessor.process raise an exception
+            with patch.object(
+                pipeline._preprocessor, "process", side_effect=ValueError("Bad data")
+            ):
+                async with pipeline:
+                    result = await pipeline.run_single(12345)
+
+        assert result.task_id == 12345
+        assert result.error == "Bad data"
+
+    @pytest.mark.asyncio
+    async def test_run_single_llm_not_available(
+        self, mock_config
+    ):
+        """use_llm=True but no LLM provider → labels/root_causes empty, no crash."""
+        from datetime import datetime
+
+        from src.api.models import TaskInfo
+
+        pipeline_config = PipelineConfig(
+            use_llm=True,
+            generate_labels=True,
+            analyze_root_cause=True,
+            check_rules=False,
+            generate_report=False,
+        )
+
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        mock_task = TaskInfo(
+            task_id=12345,
+            title="Test Task",
+            description="Test Description",
+            status="open",
+            priority="medium",
+            create_time=datetime.now(),
+        )
+
+        with (
+            patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
+            patch(
+                "src.analyzer.pipeline.create_llm_provider", return_value=None
+            ) as mock_llm_factory,
+        ):
+            mock_fetch.return_value = mock_task
+
+            async with pipeline:
+                result = await pipeline.run_single(12345)
+
+        assert result.task_id == 12345
+        assert result.error == ""
+        assert result.labels == []
+        assert result.root_causes == []
+        mock_llm_factory.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_run_single_all_flags_false(
+        self, mock_config
+    ):
+        """All PipelineConfig flags False → only fetch + preprocess, no analysis."""
+        from datetime import datetime
+
+        from src.api.models import TaskInfo
+
+        pipeline_config = PipelineConfig(
+            use_llm=False,
+            generate_labels=False,
+            analyze_root_cause=False,
+            check_rules=False,
+            generate_report=False,
+        )
+
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        mock_task = TaskInfo(
+            task_id=12345,
+            title="Test Task",
+            description="Test Description",
+            status="open",
+            priority="medium",
+            create_time=datetime.now(),
+        )
+
+        with patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_task
+
+            async with pipeline:
+                result = await pipeline.run_single(12345)
+
+        assert result.task_id == 12345
+        assert result.task_data is not None
+        assert result.preprocessed is not None
+        assert result.labels is None
+        assert result.root_causes is None
+        assert result.violations is None
+        assert result.report == ""
+
+    @pytest.mark.asyncio
+    async def test_run_batch_empty_task_ids(
+        self, mock_config, pipeline_config
+    ):
+        """Empty task_ids list → empty results list, no crash."""
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        async with pipeline:
+            results = await pipeline.run_batch([])
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_run_batch_partial_failure(
+        self, mock_config, pipeline_config
+    ):
+        """One task fails (not found), others succeed → partial results returned."""
+        from datetime import datetime
+
+        from src.api.models import TaskInfo
+
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        mock_task = TaskInfo(
+            task_id=12345,
+            title="Valid Task",
+            description="Valid Description",
+            status="open",
+            priority="medium",
+            create_time=datetime.now(),
+        )
+
+        async def mock_fetch(task_id: int):
+            if task_id == 99999:
+                return None
+            return mock_task
+
+        with patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch_fn:
+            mock_fetch_fn.side_effect = mock_fetch
+
+            async with pipeline:
+                results = await pipeline.run_batch([12345, 99999, 12346])
+
+        assert len(results) == 3
+        # First task succeeded
+        assert results[0].task_id == 12345
+        assert results[0].error == ""
+        assert results[0].task_data is not None
+        # Second task failed (not found)
+        assert results[1].task_id == 99999
+        assert "not found" in results[1].error
+        # Third task succeeded
+        assert results[2].task_id == 12346
+        assert results[2].error == ""
+
+    @pytest.mark.asyncio
+    async def test_run_clustering_single_task(
+        self, mock_config, pipeline_config
+    ):
+        """Only 1 task provided → should still return result, not crash."""
+        from datetime import datetime
+
+        from src.api.models import TaskInfo
+
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        mock_task = TaskInfo(
+            task_id=12345,
+            title="Single Task",
+            description="Only one task",
+            status="open",
+            priority="medium",
+            create_time=datetime.now(),
+        )
+
+        with patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch_fn:
+            mock_fetch_fn.return_value = mock_task
+
+            with patch.object(pipeline, "_get_embedding_generator") as mock_emb:
+                mock_emb_gen = MagicMock()
+                mock_emb_gen.embed_batch = AsyncMock(return_value=[[0.1] * 128])
+                mock_emb.return_value = mock_emb_gen
+
+                with patch.object(pipeline, "_get_cluster_analyzer") as mock_clust:
+                    mock_cluster = MagicMock()
+                    mock_result = MagicMock()
+                    mock_result.labels = [0]
+                    mock_result.n_clusters = 1
+                    mock_result.n_noise = 0
+                    mock_cluster.fit_predict.return_value = mock_result
+                    mock_clust.return_value = mock_cluster
+
+                    async with pipeline:
+                        result = await pipeline.run_clustering([12345])
+
+        assert "tasks" in result
+        assert result["total_requested"] == 1
+        assert result["total_found"] == 1
+
+    @pytest.mark.asyncio
+    async def test_run_clustering_all_missing(
+        self, mock_config, pipeline_config
+    ):
+        """All task IDs not found → error result with missing_tasks."""
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        with patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch_fn:
+            mock_fetch_fn.return_value = None
+
+            async with pipeline:
+                result = await pipeline.run_clustering([99999, 88888])
+
+        assert "error" in result
+        assert "No tasks to cluster" in result["error"]
+        assert result["missing_tasks"] == [99999, 88888]
+
+    def test_generate_report_with_none_data(
+        self, mock_config, pipeline_config
+    ):
+        """Report generation with None labels and None root_causes → should not crash."""
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        task_data = {"task_id": 12345, "title": "Test", "description": ""}
+        preprocessed = {"segments": []}
+
+        report = pipeline._generate_report(task_data, preprocessed, None, None)
+
+        assert isinstance(report, str)
+        assert len(report) > 0
+
+    @pytest.mark.asyncio
+    async def test_close_idempotent(self, mock_config, pipeline_config):
+        """Calling close() multiple times should be safe (idempotent)."""
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        mock_api_client = MagicMock()
+        mock_api_client.close = AsyncMock()
+        pipeline._api_client = mock_api_client
+
+        await pipeline.close()
+        assert pipeline._api_client is None
+
+        # Second close should not raise
+        await pipeline.close()
+        assert pipeline._api_client is None
+
+    @pytest.mark.asyncio
+    async def test_context_manager_exit_calls_close(
+        self, mock_config, pipeline_config
+    ):
+        """__aexit__ should invoke close(), cleaning up API client."""
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        mock_api_client = MagicMock()
+        mock_api_client.close = AsyncMock()
+        pipeline._api_client = mock_api_client
+
+        async with pipeline:
+            pass  # Just enter and exit
+
+        mock_api_client.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_single_exception_mid_pipeline(
+        self, mock_config, pipeline_config
+    ):
+        """Exception during check_rules → caught, error set on result."""
+        from datetime import datetime
+
+        from src.api.models import TaskInfo
+
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=pipeline_config,
+        )
+
+        mock_task = TaskInfo(
+            task_id=12345,
+            title="Test Task",
+            description="Test Description",
+            status="open",
+            priority="medium",
+            create_time=datetime.now(),
+        )
+
+        with patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_task
+
+            # Simulate rules engine crashing at runtime
+            with patch.object(
+                pipeline._rules_engine, "check", side_effect=RuntimeError("Rules engine unavailable")
+            ):
+                async with pipeline:
+                    result = await pipeline.run_single(12345)
+
+        assert result.task_id == 12345
+        assert "Rules engine unavailable" in result.error
