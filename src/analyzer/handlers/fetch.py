@@ -66,9 +66,9 @@ class FetchHandler:
 
         results = await asyncio.gather(
             *[self.fetch_task(tid) for tid in task_ids],
-            return_exceptions=False,
+            return_exceptions=True,
         )
-        return [t for t in results if t is not None]
+        return [t for t in results if isinstance(t, TaskInfo)]
 
     def set_api_client(self, client: APIClient) -> None:
         """Set or replace the API client."""

@@ -82,6 +82,11 @@ class PipelineOrchestrator:
                         task_dict, preprocessed
                     )
 
+                if config.analyze_root_cause_deep:
+                    result.deep_root_causes = await self._analyze_handler.analyze_root_cause_deep(
+                        task_dict
+                    )
+
             # Step 4: Report
             if config.check_rules:
                 result.violations = self._report_handler.check_rules(task_data.model_dump())
