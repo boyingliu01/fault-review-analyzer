@@ -1,0 +1,128 @@
+# Sprint Specification — 迭代4代码质量基础 + 迭代1 E2E验证
+# Phase 2/6: DESIGN output
+# Date: 2026-07-15
+# Branch: sprint/2026-07-15-01
+
+sprint:
+  name: "代码质量基础 + E2E验证"
+  version: "1.0.0"
+  issues: ["#11", "#9", "#12", "#13", "#14", "#7", "#1", "#2"]
+
+requirements:
+  - id: REQ-1
+    issue: "#9"
+    title: "Pipeline 错误处理框架"
+    description: "建立自定义异常体系，统一错误处理模式"
+    priority: P0
+    modules: ["src/analyzer/exceptions.py", "src/core/exceptions.py"]
+    acceptance:
+      - "定义 FaultAnalyzerError 基类"
+      - "派生 APIConnectionError, AnalysisError, ReportGenerationError 等"
+      - "Pipeline 各阶段使用具体异常类型"
+      - "所有异常包含 error_code 和 context 信息"
+    dependencies: []
+    estimated_effort: medium
+
+  - id: REQ-2
+    issue: "#12"
+    title: "结构化日志完善"
+    description: "JSON 输出 + correlation ID 贯穿全链路"
+    priority: P1
+    modules: ["src/utils/logger.py"]
+    acceptance:
+      - "StructuredLogger 支持 JSON 格式输出"
+      - "每个请求/分析任务自动生成 correlation_id"
+      - "日志包含 timestamp, level, correlation_id, module, message"
+      - "兼容现有 loguru 调用方式"
+    dependencies: ["REQ-1"]
+    estimated_effort: small
+
+  - id: REQ-3
+    issue: "#13"
+    title: "Pipeline 拆分重构"
+    description: "将单体 AnalysisPipeline 拆分为 Orchestrator + Handlers"
+    priority: P1
+    modules: ["src/analyzer/pipeline.py", "src/analyzer/orchestrator.py", "src/analyzer/handlers/"]
+    acceptance:
+      - "PipelineOrchestrator 负责流程编排"
+      - "FetchHandler, AnalyzeHandler, ReportHandler 各司其职"
+      - "保持向后兼容（AnalysisPipeline 作为 facade）"
+      - "api/cli 调用方无需修改"
+    dependencies: ["REQ-1"]
+    estimated_effort: large
+
+  - id: REQ-4
+    issue: "#11"
+    title: "mypy 类型检查修复"
+    description: "消除所有 mypy 类型错误，达到零错误"
+    priority: P0
+    modules: ["src/**/*.py"]
+    acceptance:
+      - "mypy src/ 零错误"
+      - "所有公开函数有完整类型注解"
+      - "使用 strict_optional = true"
+    dependencies: ["REQ-3"]
+    estimated_effort: medium
+
+  - id: REQ-5
+    issue: "#7"
+    title: "PDF 规范解析"
+    description: "从 PDF 文件提取规则定义到 RulesEngine"
+    priority: P2
+    modules: ["src/rules/pdf_parser.py"]
+    acceptance:
+      - "支持从 PDF 提取文本内容"
+      - "解析规则定义（名称、描述、严重级别）"
+      - "输出 StandardRule 格式"
+      - "处理 PDF 不可用时优雅降级"
+    dependencies: []
+    estimated_effort: medium
+
+  - id: REQ-6
+    issue: "#14"
+    title: "快照回归测试"
+    description: "使用 syrupy 为 report/labeling 输出建立快照"
+    priority: P2
+    modules: ["tests/"]
+    acceptance:
+      - "报告生成输出建立 syrupy snapshot"
+      - "标签生成输出建立 syrupy snapshot"
+      - "CI 中自动对比快照"
+    dependencies: ["REQ-3"]
+    estimated_effort: small
+
+  - id: REQ-7
+    issue: "#1"
+    title: "API Token 验证"
+    description: "验证 DEVCLOUD_TOKEN 有效并可获取数据"
+    priority: P0
+    modules: ["src/api/client.py"]
+    acceptance:
+      - "fault-analyzer fetch --task-id <id> 返回有效数据"
+      - "Token 过期时给出明确错误提示"
+    dependencies: []
+    estimated_effort: small
+
+  - id: REQ-8
+    issue: "#2"
+    title: "E2E 冒烟测试"
+    description: "fetch → analyze → report 全链路验证"
+    priority: P0
+    modules: ["tests/e2e/"]
+    acceptance:
+      - "fetch 获取真实故障单数据"
+      - "analyze 完成聚类+标签+根因分析"
+      - "report 生成可读报告"
+      - "全流程无未处理异常"
+    dependencies: ["REQ-7"]
+    estimated_effort: small
+
+execution_order:
+  - REQ-1  # 错误处理框架（基础）
+  - REQ-2  # 结构化日志（依赖 REQ-1）
+  - REQ-5  # PDF 解析（独立）
+  - REQ-7  # Token 验证（独立）
+  - REQ-3  # Pipeline 拆分（依赖 REQ-1）
+  - REQ-4  # mypy 修复（依赖 REQ-3 稳定接口）
+  - REQ-6  # 快照测试（依赖 REQ-3 稳定输出）
+  - REQ-8  # E2E 测试（依赖 REQ-7）

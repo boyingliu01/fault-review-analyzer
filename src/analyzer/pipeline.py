@@ -24,12 +24,12 @@ from src.rules.engine import RulesEngine
 class _LLMClientAdapter:
     """Adapter that converts generate(system, user) to generate(prompt)."""
 
-    def __init__(self, provider) -> None:
+    def __init__(self, provider: Any) -> None:
         self._provider = provider
 
     async def generate(self, prompt: str) -> str:
         """Generate using the provider with combined system and user prompt."""
-        return await self._provider.generate(system="You are a helpful assistant.", user=prompt)
+        return str(await self._provider.generate(system="You are a helpful assistant.", user=prompt))
 
 
 @dataclass
@@ -143,7 +143,7 @@ class AnalysisPipeline:
 
     async def _analyze_with_llm(
         self, task_data: TaskInfo, preprocessed: ProcessedTask, result: PipelineResult
-    ):
+    ) -> None:
         """Perform LLM-based analysis if configured."""
         if self._pipeline_config.use_llm:
             task_dict = task_data.model_dump()
@@ -158,14 +158,14 @@ class AnalysisPipeline:
 
     def _check_and_generate_report(
         self, task_data: TaskInfo, _preprocessed: Any, result: PipelineResult
-    ):
+    ) -> None:
         """Check rules and generate report if configured."""
         if self._pipeline_config.check_rules:
             result.violations = self._check_rules(task_data.model_dump())
 
         if self._pipeline_config.generate_report:
             result.report = self._generate_report(
-                task_data.model_dump(), result.preprocessed, result.labels, result.root_causes
+                task_data.model_dump(), result.preprocessed or {}, result.labels, result.root_causes
             )
 
     async def run_batch(

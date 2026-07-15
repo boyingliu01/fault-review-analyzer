@@ -99,7 +99,7 @@ class ConditionEvaluator:
                 left_value = self._get_value(left_part, context)
                 right_value = self._parse_value(right_part)
 
-                return op_func(left_value, right_value)
+                return bool(op_func(left_value, right_value))
 
             if expression in context:
                 return bool(context[expression])
@@ -115,7 +115,7 @@ class ConditionEvaluator:
             return None
 
         keys = key.split(".")
-        value = context
+        value: Any = context
 
         for k in keys:
             if isinstance(value, dict):

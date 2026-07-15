@@ -78,10 +78,10 @@ class SingleAnalyzeResponse(BaseModel):
     error: str = Field(default="", description="错误信息")
 
     # 分析结果
-    labels: list[LabelInfo] = Field(default_factory=list, description="标签列表")
-    root_causes: list[RootCauseInfo] = Field(default_factory=list, description="根因列表")
+    labels: list[dict[str, Any]] = Field(default_factory=list, description="标签列表")
+    root_causes: list[dict[str, Any]] = Field(default_factory=list, description="根因列表")
     deep_root_causes: dict[str, Any] = Field(default_factory=dict, description="深度根因分析结果")
-    violations: list[ViolationInfo] = Field(default_factory=list, description="违规列表")
+    violations: list[dict[str, Any]] = Field(default_factory=list, description="违规列表")
     suggestions: list[str] = Field(default_factory=list, description="改进建议")
     report: str = Field(default="", description="分析报告")
 
