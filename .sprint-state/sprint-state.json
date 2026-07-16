@@ -1,0 +1,20 @@
+{
+  "requirement": "迭代4代码质量基础 + 迭代1 E2E验证",
+  "isolation": {
+    "branch": "sprint/2026-07-15-01",
+    "created_from": "master",
+    "worktree_path": ".worktrees/sprint/sprint-2026-07-15-01",
+    "created_from_commit": "85e24f234a91489f21a6f2c24af2d48bc86eed08"
+  },
+  "phase": -1,
+  "status": "running",
+  "phase_history": [
+    {
+      "phase_name": "PREP",
+      "started_at": "2026-07-15T20:54:35.2917665+08:00",
+      "completed_at": null,
+      "phase": -1,
+      "status": "running"
+    }
+  ]
+}

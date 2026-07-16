@@ -50,7 +50,7 @@ def setup_logger(
 
     if json_format:
         # JSON 格式输出 - 使用自定义序列化器
-        def json_sink(message):
+        def json_sink(message: Any) -> None:
             record = message.record
             print(_json_serializer(record), file=sys.stderr)
 
@@ -82,7 +82,7 @@ def setup_logger(
 
         if json_format:
             # JSON 文件格式
-            def json_file_sink(message):
+            def json_file_sink(message: Any) -> None:
                 record = message.record
                 with log_path.open("a", encoding="utf-8") as f:
                     f.write(_json_serializer(record) + "\n")
@@ -129,10 +129,66 @@ def get_correlation_id() -> str:
 
 
 class StructuredLogger:
-    """结构化日志记录器包装类，提供更简洁的接口"""
+    """结构化日志记录器包装类，提供更简洁的接口。
 
-    def __init__(self, name: str = __name__):
+    支持 correlation_id 绑定和上下文结构化字段，用于全链路追踪。
+
+    Usage:
+        log = StructuredLogger("my.module")
+        bound = log.with_correlation()  # auto-generates correlation_id
+        bound.info("processing", task_id=123)
+
+        # Or with explicit correlation_id:
+        bound = log.with_correlation("my-cid").context(task_id=123)
+        bound.info("processing")
+    """
+
+    def __init__(
+        self,
+        name: str = __name__,
+        correlation_id: str | None = None,
+        extra_context: dict[str, Any] | None = None,
+    ) -> None:
+        self._name = name
+        self._correlation_id = correlation_id
+        self._extra_context: dict[str, Any] = extra_context or {}
         self.logger = get_logger(name)
+        if correlation_id:
+            self.logger = self.logger.bind(correlation_id=correlation_id)
+        if self._extra_context:
+            self.logger = self.logger.bind(**self._extra_context)
+
+    def with_correlation(self, correlation_id: str | None = None) -> "StructuredLogger":
+        """Return a new StructuredLogger bound to a correlation_id.
+
+        Args:
+            correlation_id: Explicit correlation ID. Auto-generated if None.
+
+        Returns:
+            New StructuredLogger instance with correlation_id bound.
+        """
+        cid = correlation_id or get_correlation_id()
+        return StructuredLogger(
+            name=self._name,
+            correlation_id=cid,
+            extra_context=self._extra_context,
+        )
+
+    def context(self, **kwargs: Any) -> "StructuredLogger":
+        """Return a new StructuredLogger with additional context fields.
+
+        Args:
+            **kwargs: Key-value pairs to include in log context.
+
+        Returns:
+            New StructuredLogger instance with extra context bound.
+        """
+        merged = {**self._extra_context, **kwargs}
+        return StructuredLogger(
+            name=self._name,
+            correlation_id=self._correlation_id,
+            extra_context=merged,
+        )
 
     def debug(self, message: str, **kwargs: Any) -> None:
         """Debug 级别日志"""

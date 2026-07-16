@@ -160,6 +160,55 @@ class APIClient:
             self._circuit_breaker.record_failure(last_error)
         raise last_error or APIConnectionError("Unknown error")
 
+    async def verify_token(self) -> bool:
+        """Verify that the current API token is valid and can access the API.
+
+        Makes a lightweight request to the user-info endpoint to check
+        authentication. Raises clear errors for common failure modes.
+
+        Returns:
+            True if the token is valid.
+
+        Raises:
+            AuthenticationError: If token is missing, expired, or invalid.
+            APIConnectionError: If the API server is unreachable.
+            ServerError: If the server returns a 5xx error.
+        """
+        if not self.token:
+            raise AuthenticationError(
+                "No API token configured. Set DEVCLOUD_TOKEN environment "
+                "variable or pass token to APIClient()."
+            )
+
+        if self._client is None:
+            self.ensure_client()
+
+        assert self._client is not None  # nosec B101
+
+        try:
+            response = await self._client.request(
+                "POST",
+                f"{self.api_path_prefix}/1/detail",
+                json=self._get_default_detail_body(),
+            )
+        except httpx.ConnectError as e:
+            raise APIConnectionError(f"Cannot reach API server: {e}")
+        except httpx.TimeoutException as e:
+            raise APIConnectionError(f"API server timeout: {e}")
+
+        if response.status_code == 200:
+            return True
+        elif response.status_code == 401:
+            raise AuthenticationError(
+                "API token is expired or invalid. "
+                "Please refresh your DEVCLOUD_TOKEN and try again."
+            )
+        elif response.status_code >= 500:
+            raise ServerError(f"Server error during token verification: {response.status_code}")
+        else:
+            # Any other response (404, etc.) means the server accepted our token
+            return True
+
     async def get_task(self, task_id: int) -> TaskInfo:
         response = await self._request(
             "POST", f"{self.api_path_prefix}/{task_id}/detail", json=self._get_default_detail_body()

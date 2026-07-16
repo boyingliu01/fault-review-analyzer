@@ -15,7 +15,7 @@ class FeedbackManager:
         self.db_path = db_path
         self._init_db()
 
-    def _init_db(self):
+    def _init_db(self) -> None:
         """初始化数据库"""
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -151,7 +151,7 @@ class FeedbackManager:
         import json
 
         query = "SELECT * FROM feedback WHERE 1=1"
-        params = []
+        params: list[Any] = []
 
         if feedback_type:
             query += " AND feedback_type = ?"
@@ -264,7 +264,7 @@ class FeedbackManager:
                 "positive_ratio": positive_ratio,
             }
 
-    def _parse_datetime(self, date_str: str):
+    def _parse_datetime(self, date_str: str) -> Any:
         """解析日期时间字符串"""
         from datetime import datetime
         try:

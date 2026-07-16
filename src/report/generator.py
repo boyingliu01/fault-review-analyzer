@@ -393,7 +393,7 @@ class ReportGenerator:
             raise ValueError(f"Unsupported report format: {format}")
 
     def generate(
-        self, data: ReportData, format: ReportFormat = ReportFormat.MARKDOWN, filename: str = None
+        self, data: ReportData, format: ReportFormat = ReportFormat.MARKDOWN, filename: str | None = None
     ) -> Path | str:
         """Generate a report and save to file.
 
@@ -704,12 +704,13 @@ class ReportGenerator:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(content, encoding="utf-8")
 
-    def get_template(self, template_name: str, format: ReportFormat = ReportFormat.MARKDOWN) -> str:
+    def get_template(self, template_name: str, format: ReportFormat = ReportFormat.MARKDOWN) -> str | None:
         """Get template content from template directory or default."""
         if self._env:
             try:
                 ext = "md" if format == ReportFormat.MARKDOWN else "html"
-                return self._env.get_template(f"{template_name}.{ext}.j2")
+                tpl = self._env.get_template(f"{template_name}.{ext}.j2")
+                return tpl.source or ""  # type: ignore[attr-defined]
             except Exception:
                 logger.warning(f"Template {template_name} not found in template directory")
 
