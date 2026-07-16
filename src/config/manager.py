@@ -41,6 +41,7 @@ class ConfigKeyError(Exception):
 
 class ConfigManager:
     DEFAULT_CONFIG_PATH = Path("config/config.yaml")
+    config_path: Path | None
 
     def __init__(
         self,

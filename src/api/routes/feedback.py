@@ -1,6 +1,8 @@
 """反馈 API 路由"""
 import sys
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
@@ -26,7 +28,7 @@ except Exception as e:
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 
-def get_feedback_manager() -> FeedbackManager:
+def get_feedback_manager() -> Generator[FeedbackManager, None, None]:
     """依赖注入 - 获取反馈管理器实例"""
     manager = FeedbackManager()
     try:
@@ -39,7 +41,7 @@ def get_feedback_manager() -> FeedbackManager:
 async def create_feedback(
     feedback: FeedbackCreate,
     manager: FeedbackManager = Depends(get_feedback_manager)
-):
+) -> Any:
     """创建反馈"""
     try:
         # 创建完整的 Feedback 对象
@@ -69,7 +71,7 @@ async def create_feedback(
 async def get_feedback(
     feedback_id: str,
     manager: FeedbackManager = Depends(get_feedback_manager)
-):
+) -> Any:
     """获取反馈详情"""
     feedback = manager.get_feedback(feedback_id)
     if not feedback:
@@ -81,7 +83,7 @@ async def get_feedback(
 async def get_task_feedback(
     task_id: str,
     manager: FeedbackManager = Depends(get_feedback_manager)
-):
+) -> Any:
     """获取任务的反馈列表"""
     return manager.get_feedback_by_task(task_id)
 
@@ -94,7 +96,7 @@ async def list_feedback(
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     manager: FeedbackManager = Depends(get_feedback_manager)
-):
+) -> Any:
     """列出反馈"""
     rating_enum = FeedbackRating(rating) if rating else None
 
@@ -116,7 +118,7 @@ async def list_feedback(
 
     return FeedbackListResponse(
         total=len(all_items),
-        items=items,
+        items=[FeedbackResponse.model_validate(item) for item in items],
         offset=offset,
         limit=limit
     )
@@ -127,7 +129,7 @@ async def review_feedback(
     feedback_id: str,
     review: FeedbackReview,
     manager: FeedbackManager = Depends(get_feedback_manager)
-):
+) -> Any:
     """审核反馈"""
     success = manager.review_feedback(feedback_id, review.reviewed_by)
     if not success:
@@ -143,7 +145,7 @@ async def review_feedback(
 @router.get("/stats/summary", response_model=FeedbackStatsResponse)
 async def get_feedback_statistics(
     manager: FeedbackManager = Depends(get_feedback_manager)
-):
+) -> Any:
     """获取反馈统计"""
     stats = manager.get_statistics()
     return FeedbackStatsResponse(
