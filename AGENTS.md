@@ -1,4 +1,6 @@
-# Repository Guidelines
+# AGENTS.md
+
+This file provides guidance to Qoder (qoder.com) when working with code in this repository.
 
 ## Project Overview
 **Fault Review Analyzer** - AI驱动的故障复盘分析工具，使用HDBSCAN聚类自动发现故障模式，通过LLM提取技术标签并识别规范冲突。

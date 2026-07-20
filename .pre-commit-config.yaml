@@ -1,3 +1,25 @@
+# =============================================================================
+# INACTIVE — 本文件当前未生效，仅供参考/备用
+# =============================================================================
+# 实际生效的质量门禁系统: xp-gate hooks (.git/hooks/pre-commit + pre-push)
+# core.hooksPath 指向 .git/hooks，xp-gate 的 pre-commit hook 完全替代了
+# pre-commit 框架的 hook 执行流程。
+#
+# 功能映射 (xp-gate 已覆盖):
+#   trailing-whitespace / end-of-file-fixer → 编辑器/CI 层面处理
+#   check-yaml / check-json               → ruff 已覆盖 Python 语法检查
+#   check-added-large-files               → xp-gate Gate 1 间接覆盖
+#   check-merge-conflict                  → 编辑器/Git 原生提示
+#   ruff / ruff-format                    → xp-gate Gate 1 (ruff check)
+#   mypy                                  → xp-gate Gate 1 (mypy)
+#   pytest                                → xp-gate Gate 5 (pytest + coverage)
+#
+# 未被 xp-gate 覆盖的检查:
+#   debug-statements   → Python debug 语句检测 (breakpoint/pdb)
+#   detect-secrets     → 密钥泄漏扫描 (需安装: pip install detect-secrets)
+#
+# 如需重新激活: pre-commit install (会覆盖 xp-gate hook，请谨慎操作)
+# =============================================================================
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
