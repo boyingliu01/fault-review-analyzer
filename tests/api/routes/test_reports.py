@@ -1,0 +1,165 @@
+"""Unit tests for /reports/{task_id} routes."""
+
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
+
+from src.api.server import create_app
+from src.analyzer.pipeline import PipelineResult
+
+
+@pytest.fixture
+def client():
+    """Create test client with a valid token."""
+    app = create_app(valid_tokens={"test-token-123"})
+    return TestClient(app)
+
+
+def _headers() -> dict[str, str]:
+    return {"X-API-Token": "test-token-123"}
+
+
+# ---------------------------------------------------------------------------
+# GET /reports/{task_id}
+# ---------------------------------------------------------------------------
+
+
+class TestGetReport:
+    """Tests for GET /reports/{task_id}."""
+
+    def test_default_format_html(self, client):
+        """Default format=html returns report content."""
+        with patch("src.api.routes.reports.AnalysisPipeline") as mock_pipeline:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.run_single.return_value = PipelineResult(
+                task_id=12345,
+                report="<html><body>Analysis Report</body></html>",
+                error="",
+            )
+            mock_pipeline.return_value = mock_instance
+
+            response = client.get("/reports/12345", headers=_headers())
+            assert response.status_code == 200
+            data = response.json()
+            assert data["task_id"] == "12345"
+            assert data["report_format"] == "html"
+            assert "<html>" in data["content"]
+
+    def test_format_markdown(self, client):
+        """Explicit format=markdown."""
+        with patch("src.api.routes.reports.AnalysisPipeline") as mock_pipeline:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.run_single.return_value = PipelineResult(
+                task_id=12345,
+                report="# Analysis Report\n\nDetails here.",
+                error="",
+            )
+            mock_pipeline.return_value = mock_instance
+
+            response = client.get("/reports/12345?format=markdown", headers=_headers())
+            assert response.status_code == 200
+            data = response.json()
+            assert data["report_format"] == "markdown"
+            assert "# Analysis Report" in data["content"]
+
+    def test_format_json(self, client):
+        """Explicit format=json."""
+        with patch("src.api.routes.reports.AnalysisPipeline") as mock_pipeline:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.run_single.return_value = PipelineResult(
+                task_id=12345,
+                report='{"summary": "ok"}',
+                error="",
+            )
+            mock_pipeline.return_value = mock_instance
+
+            response = client.get("/reports/12345?format=json", headers=_headers())
+            assert response.status_code == 200
+            assert response.json()["report_format"] == "json"
+
+    def test_invalid_format_returns_400(self, client):
+        """Invalid format value returns HTTP 400."""
+        response = client.get("/reports/12345?format=pdf", headers=_headers())
+        assert response.status_code == 400
+        data = response.json()
+        assert "detail" in data
+        assert data["detail"]["error"] == "InvalidFormat"
+
+    def test_task_not_found_returns_404(self, client):
+        """When pipeline returns an error containing 'not found', route returns 404."""
+        with patch("src.api.routes.reports.AnalysisPipeline") as mock_pipeline:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.run_single.return_value = PipelineResult(
+                task_id=99999,
+                error="Task 99999 not found",
+            )
+            mock_pipeline.return_value = mock_instance
+
+            response = client.get("/reports/99999", headers=_headers())
+            assert response.status_code == 404
+            assert response.json()["detail"]["error"] == "TaskNotFound"
+
+    def test_non_integer_task_id_valueerror_returns_400(self, client):
+        """When task_id is not a valid integer, ValueError is caught and returns 400."""
+        with patch("src.api.routes.reports.AnalysisPipeline") as mock_pipeline:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.run_single.side_effect = ValueError("invalid literal for int()")
+            mock_pipeline.return_value = mock_instance
+
+            response = client.get("/reports/not-a-number", headers=_headers())
+            assert response.status_code == 400
+            assert response.json()["detail"]["error"] == "InvalidTaskId"
+
+    def test_server_error_returns_500(self, client):
+        """Generic exception during pipeline execution returns 500."""
+        with patch("src.api.routes.reports.AnalysisPipeline") as mock_pipeline:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.run_single.side_effect = RuntimeError("DB connection failed")
+            mock_pipeline.return_value = mock_instance
+
+            response = client.get("/reports/12345", headers=_headers())
+            assert response.status_code == 500
+            data = response.json()
+            assert data["detail"]["error"] == "ReportFetchFailed"
+            assert "DB connection failed" in data["detail"]["message"]
+
+    def test_pipeline_non_not_found_error_returns_500(self, client):
+        """Pipeline error NOT containing 'not found' returns 500, not 404."""
+        with patch("src.api.routes.reports.AnalysisPipeline") as mock_pipeline:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.run_single.return_value = PipelineResult(
+                task_id=12345,
+                error="Authentication failure",
+            )
+            mock_pipeline.return_value = mock_instance
+
+            response = client.get("/reports/12345", headers=_headers())
+            assert response.status_code == 500
+            assert response.json()["detail"]["error"] == "ReportGenerationFailed"
+
+    def test_use_cache_query_param(self, client):
+        """use_cache query param is accepted."""
+        with patch("src.api.routes.reports.AnalysisPipeline") as mock_pipeline:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.run_single.return_value = PipelineResult(
+                task_id=12345,
+                report="cached report",
+                error="",
+            )
+            mock_pipeline.return_value = mock_instance
+
+            response = client.get(
+                "/reports/12345?use_cache=false&format=markdown",
+                headers=_headers(),
+            )
+            assert response.status_code == 200
+            assert response.json()["content"] == "cached report"
