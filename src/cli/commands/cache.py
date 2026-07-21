@@ -7,17 +7,32 @@ from rich.console import Console
 from rich.table import Table
 
 from src.cache import CacheManager
+from src.config import ConfigManager
 
 app = typer.Typer(help="缓存管理")
 console = Console()
 
 
+def _get_cache_db_path(config_path: Path | None) -> Path:
+    """从配置文件获取缓存数据库路径，如果无法加载则使用默认路径。"""
+    if config_path:
+        try:
+            config_manager = ConfigManager(config_path)
+            config = config_manager.load()
+            return Path(config.cache.db_path)
+        except Exception:
+            pass
+    return Path("./data/cache/cache.db")
+
+
 @app.command("list")
 def list_cache(
     limit: int = typer.Option(20, "--limit", "-l", help="显示数量限制"),
+    config_path: Path | None = typer.Option(None, "--config", "-c", help="配置文件路径"),
 ) -> None:
     """列出缓存条目"""
-    cache_manager = CacheManager(db_path=Path("./data/cache/cache.db"))
+    cache_db = _get_cache_db_path(config_path)
+    cache_manager = CacheManager(db_path=cache_db)
     index = cache_manager.get_index()[:limit]
 
     if not index:
@@ -43,9 +58,11 @@ def list_cache(
 def clear_cache(
     task_id: int | None = typer.Argument(None, help="任务ID (不指定则清空全部)"),
     force: bool = typer.Option(False, "--force", "-f", help="强制清除，不询问确认"),
+    config_path: Path | None = typer.Option(None, "--config", "-c", help="配置文件路径"),
 ) -> None:
     """清除缓存"""
-    cache_manager = CacheManager(db_path=Path("./data/cache/cache.db"))
+    cache_db = _get_cache_db_path(config_path)
+    cache_manager = CacheManager(db_path=cache_db)
 
     if task_id:
         cache_manager.invalidate(task_id)
@@ -62,9 +79,12 @@ def clear_cache(
 
 
 @app.command("stats")
-def cache_stats() -> None:
+def cache_stats(
+    config_path: Path | None = typer.Option(None, "--config", "-c", help="配置文件路径"),
+) -> None:
     """显示缓存统计"""
-    cache_manager = CacheManager(db_path=Path("./data/cache/cache.db"))
+    cache_db = _get_cache_db_path(config_path)
+    cache_manager = CacheManager(db_path=cache_db)
     stats = cache_manager.get_stats()
 
     table = Table(title="缓存统计")
@@ -79,8 +99,11 @@ def cache_stats() -> None:
 
 
 @app.command("cleanup")
-def cleanup_cache() -> None:
+def cleanup_cache(
+    config_path: Path | None = typer.Option(None, "--config", "-c", help="配置文件路径"),
+) -> None:
     """清理过期缓存"""
-    cache_manager = CacheManager(db_path=Path("./data/cache/cache.db"))
+    cache_db = _get_cache_db_path(config_path)
+    cache_manager = CacheManager(db_path=cache_db)
     count = cache_manager.cleanup_expired()
     console.print(f"[green]已清理 {count} 条过期缓存[/green]")
