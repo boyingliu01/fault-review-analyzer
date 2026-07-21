@@ -1,15 +1,14 @@
 # ruff: noqa: E402
+"""手动调试脚本：测试故障平台 API 连通性 - 直接运行 python scripts/test_api.py"""
 import asyncio
 import sys
+from pathlib import Path
 
-import pytest
-
-sys.path.insert(0, "e:/Study/LLM/Bug聚类分析")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.api.client import APIClient
 
 
-@pytest.mark.skip(reason="Manual e2e test script, requires real API credentials")
 async def test_api():
     client = APIClient(
         base_url="https://dev.iwhalecloud.com",

@@ -1,18 +1,15 @@
 # ruff: noqa: E402
-"""测试LLM API - 在外网终端执行"""
+"""手动调试脚本：测试智谱 LLM API 连通性 - 在外网终端执行 python scripts/test_llm.py"""
 import asyncio
 import sys
 from pathlib import Path
 
-import pytest
-
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.analyzer.llm_provider import OpenAILLMProvider
 from src.config.manager import ConfigManager
 
 
-@pytest.mark.skip(reason="Manual e2e test script, requires real API credentials")
 async def test_llm():
     print("=" * 60)
     print("测试LLM API (智谱)")
