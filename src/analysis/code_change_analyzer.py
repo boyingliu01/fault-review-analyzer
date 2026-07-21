@@ -68,8 +68,9 @@ CODE_PATTERNS = {
 class CodeChangeAnalyzer:
     """代码变更分析器 - 解析commit和diff，提取关键信息"""
 
-    def __init__(self) -> None:
+    def __init__(self, llm_provider: Any | None = None) -> None:
         self._file_type_map = FILE_TYPE_MAP
+        self._llm_provider = llm_provider
 
     def parse_commits(self, commits: list[dict[str, Any]]) -> list[CodeChange]:
         """解析commit列表
@@ -283,3 +284,112 @@ class CodeChangeAnalyzer:
             },
             "detected_patterns": all_patterns,
         }
+
+    def generate_analysis_text(self, commits: list[dict[str, Any]]) -> str:
+        """生成用于向量化和聚类的代码变更分析文本
+
+        将代码变更的统计信息、模式检测结果等综合为一段文本，
+        用于后续的embedding和聚类分析。
+
+        Args:
+            commits: commit信息列表
+
+        Returns:
+            str: 分析文本
+        """
+        result = self.analyze_code_changes(commits)
+        summary = result["summary"]
+        diff_stats = result["diff_stats"]
+        patterns = result["detected_patterns"]
+
+        parts = []
+
+        # 基本统计
+        if summary["total_commits"] > 0:
+            parts.append(f"代码变更: {summary['total_commits']}次提交")
+            parts.append(f"涉及{summary['total_files_changed']}个文件")
+
+            if diff_stats["total_added"] > 0 or diff_stats["total_removed"] > 0:
+                parts.append(
+                    f"新增{diff_stats['total_added']}行，删除{diff_stats['total_removed']}行"
+                )
+
+            # 文件类型分布
+            if summary["file_types"]:
+                type_desc = ", ".join(
+                    f"{k}({v})" for k, v in summary["file_types"].items()
+                )
+                parts.append(f"文件类型: {type_desc}")
+
+            # 变更模块
+            if summary["modules"]:
+                parts.append(f"变更模块: {', '.join(summary['modules'])}")
+
+            # 检测到的代码模式
+            if patterns:
+                pattern_types = [p["type"] for p in patterns]
+                parts.append(f"涉及代码模式: {', '.join(set(pattern_types))}")
+
+        # 如果有LLM，生成更深层的语义分析
+        if self._llm_provider and any(c.get("diff", "") for c in commits):
+            try:
+                llm_analysis = self._llm_analyze_changes(commits)
+                if llm_analysis:
+                    parts.append(f"LLM分析: {llm_analysis}")
+            except Exception as e:
+                logger.debug(f"LLM代码分析失败: {e}")
+
+        return "; ".join(parts) if parts else ""
+
+    def _llm_analyze_changes(self, commits: list[dict[str, Any]]) -> str:
+        """使用LLM对代码变更进行语义分析
+
+        Args:
+            commits: commit信息列表（含diff）
+
+        Returns:
+            str: LLM分析结果摘要
+        """
+        if not self._llm_provider:
+            return ""
+
+        # 构建分析输入
+        diffs_summary = []
+        for c in commits:
+            diff = c.get("diff", "")
+            if diff:
+                # 截取关键部分
+                diff_preview = diff[:1000]
+                diffs_summary.append(
+                    f"Commit: {c.get('message', '')}\n"
+                    f"Files: {', '.join(c.get('files_changed', []))}\n"
+                    f"Diff preview:\n{diff_preview}"
+                )
+
+        if not diffs_summary:
+            return ""
+
+        combined = "\n---\n".join(diffs_summary[:5])  # 限制输入量
+
+        prompt = f"""你是一个代码审查专家。请分析以下代码变更，用简短的中文总结：
+1. 这些变更的主要目的和功能
+2. 涉及的技术领域（如数据库、API、并发、安全等）
+3. 潜在的风险点
+
+代码变更：
+{combined}
+
+请用3-5句话总结，重点关注变更的性质和风险。"""
+
+        try:
+            import asyncio
+
+            if hasattr(self._llm_provider, "generate"):
+                result = self._llm_provider.generate(prompt)
+                if asyncio.iscoroutine(result):
+                    result = asyncio.get_event_loop().run_until_complete(result)
+                return str(result)[:500]
+        except Exception as e:
+            logger.debug(f"LLM分析失败: {e}")
+
+        return ""

@@ -14,6 +14,7 @@ from src.api.exceptions import (
     ServerError,
 )
 from src.api.models import (
+    CodeChange,
     CommitInfo,
     DevelopmentInfo,
     ProductionInfo,
@@ -56,6 +57,7 @@ class APIClient:
             base_url=self.base_url,
             timeout=self.timeout,
             headers=self._get_headers(),
+            trust_env=False,  # 企业网络中避免系统代理干扰内网域名
         )
         self._owns_client = True
         return self
@@ -82,6 +84,7 @@ class APIClient:
                 base_url=self.base_url,
                 timeout=self.timeout,
                 headers=self._get_headers(),
+                trust_env=False,  # 企业网络中避免系统代理干扰内网域名
             )
 
     def _get_headers(self) -> dict[str, str]:
@@ -192,9 +195,9 @@ class APIClient:
                 json=self._get_default_detail_body(),
             )
         except httpx.ConnectError as e:
-            raise APIConnectionError(f"Cannot reach API server: {e}")
+            raise APIConnectionError(f"Cannot reach API server: {e}") from e
         except httpx.TimeoutException as e:
-            raise APIConnectionError(f"API server timeout: {e}")
+            raise APIConnectionError(f"API server timeout: {e}") from e
 
         if response.status_code == 200:
             return True
@@ -252,9 +255,47 @@ class APIClient:
         }
 
     async def get_commits(self, task_id: int) -> list[CommitInfo]:
+        """获取任务的commit列表（含diff数据）"""
         response = await self._request("GET", f"/task/{task_id}/commits")
         commits_data: list[Any] = response if isinstance(response, list) else []
-        return [self._parse_commit(item) for item in commits_data]
+        commits = [self._parse_commit(item) for item in commits_data]
+
+        # 尝试为每个commit获取diff数据
+        for commit in commits:
+            if not commit.diff and commit.commit_id:
+                try:
+                    diff_data = await self.get_commit_diff(task_id, commit.commit_id)
+                    commit.diff = diff_data
+                except Exception:
+                    logger.debug(f"无法获取commit {commit.commit_id} 的diff数据")
+
+        return commits
+
+    async def get_commit_diff(self, task_id: int, commit_id: str) -> str:
+        """获取单个commit的diff内容
+
+        尝试多个可能的API端点来获取diff数据，支持降级。
+        """
+        # 尝试端点1: 标准diff端点
+        endpoints = [
+            f"/task/{task_id}/commit/{commit_id}/diff",
+            f"/task/{task_id}/commits/{commit_id}/diff",
+            f"{self.api_path_prefix}/{task_id}/commit/{commit_id}/diff",
+        ]
+
+        for endpoint in endpoints:
+            try:
+                response = await self._request("GET", endpoint)
+                if isinstance(response, dict):
+                    diff_text = response.get("diff", response.get("content", ""))
+                    if diff_text:
+                        return diff_text
+                elif isinstance(response, str):
+                    return response
+            except (NotFoundError, APIConnectionError):
+                continue
+
+        return ""
 
     async def get_production_info(self, task_id: int) -> ProductionInfo:
         response = await self._request("GET", f"/task/{task_id}/production")
@@ -266,7 +307,21 @@ class APIClient:
         try:
             commits = await self.get_commits(task_id)
             if commits:
-                task.development = DevelopmentInfo(commits=commits)
+                # 从commits中提取code_changes
+                code_changes = [
+                    CodeChange(
+                        file_path=f,
+                        old_content="",
+                        new_content="",
+                        change_type="modify",
+                    )
+                    for c in commits
+                    for f in c.changes
+                ]
+                task.development = DevelopmentInfo(
+                    commits=commits,
+                    code_changes=code_changes,
+                )
         except NotFoundError:
             pass
 
@@ -328,6 +383,9 @@ class APIClient:
             author=data.get("author", ""),
             time=commit_time or dt.now(),
             changes=data.get("changes", data.get("files", [])),
+            diff=data.get("diff", data.get("diffContent", data.get("patch", ""))),
+            branch=data.get("branch", data.get("branchName", "")),
+            repository=data.get("repository", data.get("repoName", "")),
         )
 
     def _parse_production_info(self, data: dict[str, Any]) -> ProductionInfo:
