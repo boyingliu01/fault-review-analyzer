@@ -134,18 +134,18 @@ class CodeChangeAnalyzer:
         added_lines = len(re.findall(r"^\+[^+]", diff, re.MULTILINE))
         removed_lines = len(re.findall(r"^-[^-]", diff, re.MULTILINE))
 
-        file_changes = re.findall(r"^\+\+\+ b/(.*)$", diff, re.MULTILINE)
-        files_added = len(
-            [f for f in file_changes if f not in re.findall(r"^--- a/(.*)$", diff, re.MULTILINE)]
-        )
+        file_changes = set(re.findall(r"^\+\+\+ b/(.*)$", diff, re.MULTILINE))
+        removed_files = set(re.findall(r"^--- a/(.*)$", diff, re.MULTILINE))
+        files_added = len(file_changes - removed_files)
+        files_removed = len(removed_files - file_changes)
 
         return {
             "added_lines": added_lines,
             "removed_lines": removed_lines,
             "modified_lines": added_lines + removed_lines,
             "files_added": files_added,
-            "files_removed": 0,
-            "files_modified": len(set(file_changes)),
+            "files_removed": files_removed,
+            "files_modified": len(file_changes & removed_files),
         }
 
     def detect_file_types(self, files: list[str]) -> dict[str, str]:
@@ -387,9 +387,17 @@ class CodeChangeAnalyzer:
             if hasattr(self._llm_provider, "generate"):
                 result = self._llm_provider.generate(prompt)
                 if asyncio.iscoroutine(result):
-                    result = asyncio.get_event_loop().run_until_complete(result)
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        loop = None
+                    if loop and loop.is_running():
+                        # 已在异步事件循环中，无法同步等待，跳过 LLM 分析
+                        logger.warning("LLM分析跳过: 已在异步事件循环中")
+                        return ""
+                    result = asyncio.run(result)
                 return str(result)[:500]
         except Exception as e:
-            logger.debug(f"LLM分析失败: {e}")
+            logger.warning(f"LLM分析失败: {e}")
 
         return ""

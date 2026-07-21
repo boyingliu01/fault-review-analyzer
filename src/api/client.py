@@ -260,14 +260,25 @@ class APIClient:
         commits_data: list[Any] = response if isinstance(response, list) else []
         commits = [self._parse_commit(item) for item in commits_data]
 
-        # 尝试为每个commit获取diff数据
-        for commit in commits:
+        # 尝试为每个commit获取diff数据（并发控制）
+        import asyncio
+
+        sem = asyncio.Semaphore(5)  # 限制并发，避免触发API限流
+
+        async def _fetch_diff(commit: CommitInfo) -> None:
             if not commit.diff and commit.commit_id:
-                try:
-                    diff_data = await self.get_commit_diff(task_id, commit.commit_id)
-                    commit.diff = diff_data
-                except Exception:
-                    logger.debug(f"无法获取commit {commit.commit_id} 的diff数据")
+                async with sem:
+                    try:
+                        diff_data = await self.get_commit_diff(task_id, commit.commit_id)
+                        commit.diff = diff_data
+                    except (NotFoundError, APIConnectionError) as e:
+                        logger.debug(f"无法获取commit {commit.commit_id} 的diff数据: {e}")
+                    except AuthenticationError:
+                        raise  # 认证错误应向上传播
+                    except Exception as e:
+                        logger.warning(f"获取commit {commit.commit_id} diff时发生未预期错误: {e}")
+
+        await asyncio.gather(*[_fetch_diff(c) for c in commits])
 
         return commits
 
@@ -286,12 +297,10 @@ class APIClient:
         for endpoint in endpoints:
             try:
                 response = await self._request("GET", endpoint)
-                if isinstance(response, dict):
-                    diff_text = response.get("diff", response.get("content", ""))
-                    if isinstance(diff_text, str) and diff_text:
-                        return diff_text
-                elif isinstance(response, str):
-                    return response
+                # _request() 返回 dict，从 diff/content 字段提取文本
+                diff_text = response.get("diff", response.get("content", ""))
+                if isinstance(diff_text, str) and diff_text:
+                    return diff_text
             except (NotFoundError, APIConnectionError):
                 continue
 
