@@ -9,6 +9,9 @@ class CommitInfo(BaseModel):
     author: str = Field(default="", description="作者")
     time: datetime = Field(..., description="提交时间")
     changes: list[str] = Field(default_factory=list, description="变更文件列表")
+    diff: str = Field(default="", description="代码diff内容")
+    branch: str = Field(default="", description="分支名")
+    repository: str = Field(default="", description="仓库名")
 
 
 class CodeChange(BaseModel):

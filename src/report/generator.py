@@ -107,6 +107,55 @@ DEFAULT_TEMPLATE = """# 故障复盘分析报告
 {% endfor %}
 {% endif %}
 
+{% if code_change_analysis %}
+## 代码变更分析
+
+{% if code_change_analysis.summary %}
+### 变更概览
+
+- 提交次数: {{ code_change_analysis.summary.total_commits }}
+- 变更文件数: {{ code_change_analysis.summary.total_files_changed }}
+{% if code_change_analysis.summary.authors %}
+- 作者: {{ code_change_analysis.summary.authors | join(', ') }}
+{% endif %}
+{% if code_change_analysis.summary.modules %}
+- 涉及模块: {{ code_change_analysis.summary.modules | join(', ') }}
+{% endif %}
+{% endif %}
+
+{% if code_change_analysis.diff_stats %}
+### Diff统计
+
+- 新增行数: {{ code_change_analysis.diff_stats.total_added }}
+- 删除行数: {{ code_change_analysis.diff_stats.total_removed }}
+{% endif %}
+
+{% if code_change_analysis.detected_patterns %}
+### 检测到的代码模式
+
+{% for pattern in code_change_analysis.detected_patterns %}
+- {{ pattern.type }}
+{% endfor %}
+{% endif %}
+
+{% if code_change_analysis.analysis_text %}
+### 分析摘要
+
+{{ code_change_analysis.analysis_text }}
+{% endif %}
+{% endif %}
+
+{% if violations %}
+## 规范违规检测
+
+{% for violation in violations %}
+- **[{{ violation.severity }}] {{ violation.rule_name }}**: {{ violation.message }}
+{% if violation.evidence %}
+  - 证据: {{ violation.evidence[:200] }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
 {% if labels %}
 ## 分类标签
 
@@ -255,6 +304,8 @@ class ReportGenerator:
         root_causes: list[dict] | None = None,
         suggestions: list[str] | None = None,
         format: ReportFormat = ReportFormat.MARKDOWN,
+        violations: list[dict] | None = None,
+        code_change_analysis: dict[str, Any] | None = None,
     ) -> str:
         """Generate a single task analysis report."""
         if format == ReportFormat.MARKDOWN:
@@ -269,6 +320,8 @@ class ReportGenerator:
                         labels=labels or [],
                         root_causes=root_causes or [],
                         suggestions=suggestions or [],
+                        violations=violations or [],
+                        code_change_analysis=code_change_analysis,
                         metadata={
                             "generated_at": self._get_timestamp(),
                         },
@@ -278,7 +331,9 @@ class ReportGenerator:
                     pass
 
             return self._render_single_markdown(
-                task_data, segments, labels, root_causes, suggestions
+                task_data, segments, labels, root_causes, suggestions,
+                violations=violations,
+                code_change_analysis=code_change_analysis,
             )
         elif format == ReportFormat.HTML:
             return self._generate_single_html(task_data, segments, labels, root_causes, suggestions)
@@ -744,6 +799,8 @@ class ReportGenerator:
         labels: list[dict] | None,
         root_causes: list[dict] | None,
         suggestions: list[str] | None,
+        violations: list[dict] | None = None,
+        code_change_analysis: dict[str, Any] | None = None,
     ) -> str:
         """Render single task report with default template."""
         template = Template(DEFAULT_TEMPLATE)
@@ -755,6 +812,8 @@ class ReportGenerator:
             labels=labels or [],
             root_causes=root_causes or [],
             suggestions=suggestions or [],
+            violations=violations or [],
+            code_change_analysis=code_change_analysis,
             metadata={
                 "generated_at": self._get_timestamp(),
             },

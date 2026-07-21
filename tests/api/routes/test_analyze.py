@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.server import create_app
 from src.analyzer.pipeline import PipelineResult
+from src.api.server import create_app
 
 
 @pytest.fixture
@@ -62,11 +62,11 @@ class TestConvertPipelineResultToResponse:
         assert resp.status == "completed"
         assert resp.error == ""
         assert len(resp.labels) == 1
-        assert resp.labels[0].name == "oom"
+        assert resp.labels[0]["name"] == "oom"
         assert len(resp.root_causes) == 1
         assert resp.deep_root_causes == {"layer1": "analysis"}
         assert len(resp.violations) == 1
-        assert resp.violations[0].rule_id == "R1"
+        assert resp.violations[0]["rule_id"] == "R1"
         assert resp.report == "<html>report</html>"
 
     def test_failure_result(self):

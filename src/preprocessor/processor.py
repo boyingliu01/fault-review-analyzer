@@ -71,6 +71,12 @@ class DataPreprocessor:
                 commit_text = f"提交: {commit.message}"
                 if commit.changes:
                     commit_text += f"\n变更文件: {', '.join(commit.changes)}"
+                if commit.diff:
+                    # 截取diff内容，避免文本过长
+                    diff_preview = commit.diff[:2000]
+                    if len(commit.diff) > 2000:
+                        diff_preview += "\n... (diff内容已截断)"
+                    commit_text += f"\n代码变更:\n```\n{diff_preview}\n```"
                 segments.append(
                     TextSegment(
                         task_id=task.task_id,
@@ -80,6 +86,7 @@ class DataPreprocessor:
                             "source": "commit",
                             "commit_id": commit.commit_id,
                             "author": commit.author,
+                            "has_diff": bool(commit.diff),
                         },
                     )
                 )

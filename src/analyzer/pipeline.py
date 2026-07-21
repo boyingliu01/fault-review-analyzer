@@ -4,6 +4,7 @@ from typing import Any
 
 import numpy as np
 
+from src.analysis.code_change_analyzer import CodeChangeAnalyzer
 from src.analysis.root_cause import ExistingFaultAnalysis, FaultAnalysisInput
 from src.analysis.root_cause import RootCauseAnalyzer as DeepRootCauseAnalyzer
 from src.analyzer.labeling import LabelGenerator
@@ -58,6 +59,7 @@ class PipelineResult:
     root_causes: list[dict] | None = None
     deep_root_causes: dict[str, Any] | None = None  # Enhanced root cause analysis result
     violations: list[dict] | None = None
+    code_change_analysis: dict[str, Any] | None = None  # 代码变更分析结果
     cluster_id: int | None = None
     report: str = ""
     error: str = ""
@@ -83,6 +85,7 @@ class AnalysisPipeline:
         self._root_cause_analyzer: RootCauseAnalyzer | None = None
         self._deep_root_cause_analyzer: DeepRootCauseAnalyzer | None = None
         self._rules_engine = RulesEngine()
+        self._code_change_analyzer: CodeChangeAnalyzer | None = None
         self._report_generator: ReportGenerator | None = None
 
     async def __aenter__(self) -> "AnalysisPipeline":
@@ -113,6 +116,10 @@ class AnalysisPipeline:
                 return result
 
             preprocessed = await self._prepare_task_data(task_data, result)
+
+            # 代码变更分析（新增）
+            await self._analyze_code_changes(task_data, result)
+
             await self._analyze_with_llm(task_data, preprocessed, result)
             self._check_and_generate_report(task_data, preprocessed, result)
 
@@ -156,6 +163,39 @@ class AnalysisPipeline:
             if self._pipeline_config.analyze_root_cause_deep:
                 result.deep_root_causes = await self._analyze_root_cause_deep(task_dict)
 
+    async def _analyze_code_changes(
+        self, task_data: TaskInfo, result: PipelineResult
+    ) -> None:
+        """分析代码变更（diff分析、模式检测、规范检查）"""
+        if not task_data.development or not task_data.development.commits:
+            return
+
+        # 构建commit字典列表供CodeChangeAnalyzer使用
+        commits_data = []
+        for commit in task_data.development.commits:
+            commit_dict = {
+                "commit_id": commit.commit_id,
+                "author": commit.author,
+                "message": commit.message,
+                "diff": commit.diff,
+                "files_changed": commit.changes,
+                "branch": commit.branch,
+                "repository": commit.repository,
+                "timestamp": commit.time.isoformat() if commit.time else "",
+            }
+            commits_data.append(commit_dict)
+
+        # 使用CodeChangeAnalyzer进行分析
+        analyzer = self._get_code_change_analyzer()
+        analysis_result = analyzer.analyze_code_changes(commits_data)
+
+        result.code_change_analysis = {
+            "summary": analysis_result["summary"],
+            "diff_stats": analysis_result["diff_stats"],
+            "detected_patterns": analysis_result["detected_patterns"],
+            "analysis_text": analyzer.generate_analysis_text(commits_data),
+        }
+
     def _check_and_generate_report(
         self, task_data: TaskInfo, _preprocessed: Any, result: PipelineResult
     ) -> None:
@@ -165,7 +205,12 @@ class AnalysisPipeline:
 
         if self._pipeline_config.generate_report:
             result.report = self._generate_report(
-                task_data.model_dump(), result.preprocessed or {}, result.labels, result.root_causes
+                task_data.model_dump(),
+                result.preprocessed or {},
+                result.labels,
+                result.root_causes,
+                violations=result.violations,
+                code_change_analysis=result.code_change_analysis,
             )
 
     async def run_batch(
@@ -185,7 +230,11 @@ class AnalysisPipeline:
         self,
         task_ids: list[int],
     ) -> dict[str, Any]:
-        """Run clustering analysis on tasks."""
+        """Run clustering analysis on tasks.
+
+        当有代码变更数据时，将代码变更分析结果与故障文本结合进行聚类。
+        否则降级到纯文本聚类。
+        """
         import asyncio
 
         fetch_tasks = [self._fetch_task(task_id) for task_id in task_ids]
@@ -197,7 +246,42 @@ class AnalysisPipeline:
 
         processed_tasks = self._preprocessor.process_batch(tasks_data)
 
-        texts = [t.combined_text for t in processed_tasks]
+        # 生成聚类文本：结合故障描述和代码变更分析
+        code_analyzer = self._get_code_change_analyzer()
+        texts = []
+        has_code_data = False
+
+        for i, task in enumerate(tasks_data):
+            base_text = processed_tasks[i].combined_text if i < len(processed_tasks) else ""
+
+            # 如果有代码变更数据，生成代码变更分析文本并合并
+            code_analysis_text = ""
+            if task.development and task.development.commits:
+                commits_data = []
+                for commit in task.development.commits:
+                    commits_data.append({
+                        "commit_id": commit.commit_id,
+                        "author": commit.author,
+                        "message": commit.message,
+                        "diff": commit.diff,
+                        "files_changed": commit.changes,
+                        "branch": commit.branch,
+                        "repository": commit.repository,
+                        "timestamp": commit.time.isoformat() if commit.time else "",
+                    })
+
+                # 只有当有diff数据时才生成代码分析文本
+                if any(c.get("diff", "") for c in commits_data):
+                    code_analysis_text = code_analyzer.generate_analysis_text(commits_data)
+                    has_code_data = True
+
+            if code_analysis_text:
+                # 代码变更分析权重更高，放在前面
+                combined = f"[代码变更分析] {code_analysis_text} [故障描述] {base_text}"
+            else:
+                combined = base_text
+
+            texts.append(combined)
 
         embedding_gen = self._get_embedding_generator()
         embeddings = await embedding_gen.embed_batch(texts)
@@ -215,7 +299,12 @@ class AnalysisPipeline:
                     "title": processed_tasks[i].metadata.get("title", "")
                     if i < len(processed_tasks)
                     else "",
-                    "text": t.combined_text[:200],
+                    "text": texts[i][:200],
+                    "has_code_analysis": bool(
+                        tasks_data[i].development
+                        and tasks_data[i].development.commits
+                        and any(c.diff for c in tasks_data[i].development.commits)
+                    ) if i < len(tasks_data) else False,
                 }
                 for i, t in enumerate(processed_tasks)
             ],
@@ -223,6 +312,7 @@ class AnalysisPipeline:
             "noise_count": sum(1 for label in labels_list if label == -1),
             "total_requested": len(task_ids),
             "total_found": len(tasks_data),
+            "clustering_mode": "code_change_enhanced" if has_code_data else "text_only",
         }
 
     async def _fetch_task(self, task_id: int) -> TaskInfo | None:
@@ -241,6 +331,17 @@ class AnalysisPipeline:
             cache.save_task(task_id, task.model_dump(mode="json"))
 
         return task
+
+    def _get_code_change_analyzer(self) -> CodeChangeAnalyzer:
+        """Get or create code change analyzer."""
+        if self._code_change_analyzer is None:
+            llm_provider = None
+            if self._pipeline_config.use_llm:
+                llm_config = self._config.get_config().llm
+                if llm_config.api_key:
+                    llm_provider = create_llm_provider(llm_config)
+            self._code_change_analyzer = CodeChangeAnalyzer(llm_provider=llm_provider)
+        return self._code_change_analyzer
 
     def _get_api_client(self) -> APIClient:
         """Get or create API client."""
@@ -446,6 +547,8 @@ class AnalysisPipeline:
         preprocessed: dict[str, Any],
         labels: list[dict] | None,
         root_causes: list[dict] | None,
+        violations: list[dict] | None = None,
+        code_change_analysis: dict[str, Any] | None = None,
     ) -> str:
         """Generate report for task."""
         if self._report_generator is None:
@@ -458,10 +561,19 @@ class AnalysisPipeline:
                 for rc in root_causes[:3]
             ]
 
+        # 如果有代码变更违规，添加针对性建议
+        if violations:
+            for v in violations[:3]:
+                suggestions.append(
+                    f"代码规范违规 [{v.get('rule_name', '')}]: {v.get('message', '')}"
+                )
+
         return self._report_generator.generate_single(
             task_data=task_data,
             segments=preprocessed.get("segments", []),
             labels=labels or [],
             root_causes=root_causes or [],
             suggestions=suggestions,
+            violations=violations,
+            code_change_analysis=code_change_analysis,
         )

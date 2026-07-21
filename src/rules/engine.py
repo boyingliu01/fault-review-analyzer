@@ -322,15 +322,35 @@ class RulesEngine:
         return [r for r in self._rules.values() if r.category == category]
 
     def check(self, task_data: dict[str, Any]) -> list[RuleViolation]:
-        """Check task data against all rules."""
+        """Check task data against all rules.
+
+        优先检查代码diff内容，如果没有diff则降级到检查commit message。
+        """
         violations = []
 
+        # 收集可检查的代码内容
         code_content = ""
+
         if task_data.get("development"):
             dev = task_data["development"]
             if isinstance(dev, dict):
+                # 首先尝试从commits中获取diff
                 for commit in dev.get("commits", []):
-                    code_content += commit.get("message", "") + "\n"
+                    diff = commit.get("diff", "")
+                    if diff:
+                        code_content += diff + "\n"
+                    else:
+                        # 降级：使用commit message
+                        code_content += commit.get("message", "") + "\n"
+
+                # 如果有code_changes中的内容也加入检查
+                for change in dev.get("code_changes", []):
+                    old_content = change.get("old_content", "")
+                    new_content = change.get("new_content", "")
+                    if new_content:
+                        code_content += new_content + "\n"
+                    elif old_content:
+                        code_content += old_content + "\n"
 
         for rule in self._rules.values():
             if not rule.enabled:
