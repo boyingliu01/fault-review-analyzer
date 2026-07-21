@@ -198,9 +198,5 @@ class DataPreprocessor:
         return text[: self.max_text_length] + "..."
 
     def process_batch(self, tasks: list[TaskInfo]) -> list[ProcessedTask]:
-        processed_tasks = []
-        for task in tasks:
-            processed = self.process(task)
-            if processed.combined_text and processed.combined_text.strip():
-                processed_tasks.append(processed)
-        return processed_tasks
+        """批量处理任务，保持与输入列表的一一对应关系。"""
+        return [self.process(task) for task in tasks]

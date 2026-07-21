@@ -138,7 +138,8 @@ class TestProcessedTask:
         results = preprocessor.process_batch(tasks)
         assert len(results) == 2
 
-    def test_process_batch_filters_empty(self, preprocessor):
+    def test_process_batch_preserves_all_tasks(self, preprocessor):
+        """process_batch 应保持与输入列表一一对应，不过滤空任务。"""
         task = TaskInfo(
             task_id=1,
             title="",
@@ -147,7 +148,7 @@ class TestProcessedTask:
             create_time=datetime.now(),
         )
         results = preprocessor.process_batch([task])
-        assert len(results) == 0
+        assert len(results) == 1  # 不再过滤，保持一一对应
 
     def test_truncate_text(self, preprocessor, sample_task):
         preprocessor.max_text_length = 50

@@ -329,7 +329,8 @@ class RulesEngine:
         violations = []
 
         # 收集可检查的代码内容
-        code_content = ""
+        code_parts: list[str] = []
+        max_content_size = 500_000  # 500KB 上限，防止大 diff 导致性能问题
 
         if task_data.get("development"):
             dev = task_data["development"]
@@ -338,19 +339,22 @@ class RulesEngine:
                 for commit in dev.get("commits", []):
                     diff = commit.get("diff", "")
                     if diff:
-                        code_content += diff + "\n"
+                        code_parts.append(diff)
                     else:
                         # 降级：使用commit message
-                        code_content += commit.get("message", "") + "\n"
+                        code_parts.append(commit.get("message", ""))
 
                 # 如果有code_changes中的内容也加入检查
                 for change in dev.get("code_changes", []):
                     old_content = change.get("old_content", "")
                     new_content = change.get("new_content", "")
                     if new_content:
-                        code_content += new_content + "\n"
+                        code_parts.append(new_content)
                     elif old_content:
-                        code_content += old_content + "\n"
+                        code_parts.append(old_content)
+
+        # 使用 join 代替 += 拼接，限制总大小
+        code_content = "\n".join(code_parts)[:max_content_size]
 
         for rule in self._rules.values():
             if not rule.enabled:
