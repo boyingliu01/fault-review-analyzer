@@ -288,7 +288,7 @@ class APIClient:
                 response = await self._request("GET", endpoint)
                 if isinstance(response, dict):
                     diff_text = response.get("diff", response.get("content", ""))
-                    if diff_text:
+                    if isinstance(diff_text, str) and diff_text:
                         return diff_text
                 elif isinstance(response, str):
                     return response
