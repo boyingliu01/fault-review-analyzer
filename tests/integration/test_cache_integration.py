@@ -111,7 +111,7 @@ class TestCacheManagerRealSQLite:
         status = cache_manager.get_status(99999)
         assert status == CacheStatus.NOT_EXISTS
 
-    def test_get_status_expired(self, tmp_path: Path):
+    def test_get_status_expired(self, tmp_path: Path) -> None:
         """TTL 过期后状态应为 EXPIRED，且 get_task 返回 None。"""
         # 使用极短 TTL
         db_path = tmp_path / "short_ttl.db"
@@ -131,7 +131,7 @@ class TestCacheManagerRealSQLite:
         result = manager.get_task(10008)
         assert result is None
 
-    def test_get_stats(self, cache_manager: CacheManager):
+    def test_get_stats(self, cache_manager: CacheManager) -> None:
         """get_stats 应返回正确的统计信息。"""
         cache_manager.save_task(10009, {"task_id": 10009, "title": "A"})
         cache_manager.save_task(10010, {"task_id": 10010, "title": "B"})
@@ -141,7 +141,7 @@ class TestCacheManagerRealSQLite:
         assert stats["valid_entries"] == 2
         assert stats["expired_entries"] == 0
 
-    def test_get_index(self, cache_manager: CacheManager):
+    def test_get_index(self, cache_manager: CacheManager) -> None:
         """get_index 应返回所有条目的索引信息。"""
         cache_manager.save_task(10011, {"task_id": 10011, "title": "A"})
         cache_manager.save_task(10012, {"task_id": 10012, "title": "B"})
@@ -152,7 +152,7 @@ class TestCacheManagerRealSQLite:
         assert 10011 in task_ids
         assert 10012 in task_ids
 
-    def test_cleanup_expired(self, tmp_path: Path):
+    def test_cleanup_expired(self, tmp_path: Path) -> None:
         """cleanup_expired 应只删除过期条目。"""
         db_path = tmp_path / "cleanup_test.db"
         manager = CacheManager(db_path=db_path, ttl=3600)
@@ -175,7 +175,7 @@ class TestCacheManagerRealSQLite:
         assert manager.get_task(10013) is not None
         assert manager.get_task(10014) is None
 
-    def test_db_file_created_on_init(self, tmp_path: Path):
+    def test_db_file_created_on_init(self, tmp_path: Path) -> None:
         """CacheManager 初始化时应创建数据库文件。"""
         db_path = tmp_path / "subdir" / "cache.db"
         CacheManager(db_path=db_path, ttl=60)  # 初始化触发文件创建
@@ -187,7 +187,7 @@ class TestCacheManagerRealSQLite:
             tables = [row[0] for row in cursor.fetchall()]
             assert "cache" in tables
 
-    def test_complex_data_roundtrip(self, cache_manager: CacheManager, sample_task_info: TaskInfo):
+    def test_complex_data_roundtrip(self, cache_manager: CacheManager, sample_task_info: TaskInfo) -> None:
         """复杂嵌套数据应能正确保存和读取。"""
         task_dict = sample_task_info.model_dump(mode="json")
         cache_manager.save_task(10001, task_dict)

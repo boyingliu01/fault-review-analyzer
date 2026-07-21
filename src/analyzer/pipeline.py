@@ -300,11 +300,7 @@ class AnalysisPipeline:
                     if i < len(processed_tasks)
                     else "",
                     "text": texts[i][:200],
-                    "has_code_analysis": bool(
-                        tasks_data[i].development
-                        and tasks_data[i].development.commits
-                        and any(c.diff for c in tasks_data[i].development.commits)
-                    ) if i < len(tasks_data) else False,
+                    "has_code_analysis": self._has_code_analysis(tasks_data, i),
                 }
                 for i, t in enumerate(processed_tasks)
             ],
@@ -314,6 +310,16 @@ class AnalysisPipeline:
             "total_found": len(tasks_data),
             "clustering_mode": "code_change_enhanced" if has_code_data else "text_only",
         }
+
+    @staticmethod
+    def _has_code_analysis(tasks_data: list[TaskInfo], index: int) -> bool:
+        """Check if a task has code analysis data."""
+        if index >= len(tasks_data):
+            return False
+        dev = tasks_data[index].development
+        if dev is None or not dev.commits:
+            return False
+        return any(c.diff for c in dev.commits)
 
     async def _fetch_task(self, task_id: int) -> TaskInfo | None:
         """Fetch task from API or cache."""

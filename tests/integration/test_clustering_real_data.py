@@ -48,7 +48,7 @@ def small_clustered_data() -> np.ndarray:
 class TestHDBSCANClustering:
     """测试 HDBSCAN 聚类算法。"""
 
-    def test_hdbscan_finds_clusters(self, clustered_data: np.ndarray):
+    def test_hdbscan_finds_clusters(self, clustered_data: np.ndarray) -> None:
         """HDBSCAN 应能从合成数据中发现聚类。"""
         analyzer = ClusterAnalyzer(
             algorithm="hdbscan",
@@ -65,7 +65,7 @@ class TestHDBSCANClustering:
         # 噪声点应该较少（数据分离良好）
         assert result.n_noise < len(clustered_data) * 0.3
 
-    def test_hdbscan_labels_match_data_length(self, clustered_data: np.ndarray):
+    def test_hdbscan_labels_match_data_length(self, clustered_data: np.ndarray) -> None:
         """聚类标签数量应与数据点数量一致。"""
         analyzer = ClusterAnalyzer(
             algorithm="hdbscan",
@@ -76,7 +76,7 @@ class TestHDBSCANClustering:
         result = analyzer.fit_predict(clustered_data)
         assert len(result.labels) == len(clustered_data)
 
-    def test_hdbscan_clusters_have_members(self, clustered_data: np.ndarray):
+    def test_hdbscan_clusters_have_members(self, clustered_data: np.ndarray) -> None:
         """每个发现的聚类应有成员。"""
         analyzer = ClusterAnalyzer(
             algorithm="hdbscan",
@@ -96,7 +96,7 @@ class TestHDBSCANClustering:
 class TestSklearnFallbackClustering:
     """测试 sklearn 回退聚类算法。"""
 
-    def test_sklearn_fallback_finds_clusters(self, small_clustered_data: np.ndarray):
+    def test_sklearn_fallback_finds_clusters(self, small_clustered_data: np.ndarray) -> None:
         """sklearn 回退算法应能发现聚类。"""
         analyzer = ClusterAnalyzer(
             algorithm="hdbscan",  # 会尝试 hdbscan，失败则回退到 sklearn
