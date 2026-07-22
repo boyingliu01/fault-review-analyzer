@@ -1,20 +1,56 @@
 {
-  "requirement": "迭代4代码质量基础 + 迭代1 E2E验证",
+  "requirement": "补齐代码diff分析链路 - 获取/分析/规范检查/聚类集成",
   "isolation": {
-    "branch": "sprint/2026-07-15-01",
+    "branch": "sprint/2026-07-21-code-diff-analysis",
     "created_from": "master",
-    "worktree_path": ".worktrees/sprint/sprint-2026-07-15-01",
-    "created_from_commit": "85e24f234a91489f21a6f2c24af2d48bc86eed08"
+    "worktree_path": null,
+    "created_from_commit": "f9589e5"
   },
-  "phase": -1,
-  "status": "running",
+  "phase": 6,
+  "status": "user_acceptance_pending",
+  "pr_url": "https://github.com/boyingliu01/fault-review-analyzer/pull/20",
   "phase_history": [
     {
       "phase_name": "PREP",
-      "started_at": "2026-07-15T20:54:35.2917665+08:00",
+      "phase": 1,
+      "started_at": "2026-07-21T18:00:00+08:00",
+      "completed_at": "2026-07-21T18:10:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_name": "DESIGN",
+      "phase": 2,
+      "started_at": "2026-07-21T18:10:00+08:00",
+      "completed_at": "2026-07-21T19:00:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_name": "BUILD",
+      "phase": 3,
+      "started_at": "2026-07-21T19:00:00+08:00",
+      "completed_at": "2026-07-21T21:00:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_name": "VERIFY",
+      "phase": 4,
+      "started_at": "2026-07-21T21:00:00+08:00",
+      "completed_at": "2026-07-21T23:30:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_name": "SHIP",
+      "phase": 5,
+      "started_at": "2026-07-21T23:30:00+08:00",
+      "completed_at": "2026-07-22T00:10:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_name": "CLOSE",
+      "phase": 6,
+      "started_at": "2026-07-22T00:10:00+08:00",
       "completed_at": null,
-      "phase": -1,
-      "status": "running"
+      "status": "user_acceptance_pending"
     }
   ]
 }
