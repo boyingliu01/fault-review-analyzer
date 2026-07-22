@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -17,7 +17,6 @@ from src.api.client import APIClient
 from src.api.exceptions import (
     APIConnectionError,
     AuthenticationError,
-    NotFoundError,
 )
 from src.api.models import CommitInfo, DevelopmentInfo, TaskInfo
 from src.preprocessor.processor import DataPreprocessor
@@ -190,9 +189,11 @@ class TestGetCommitsConcurrency:
         async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
             raise AuthenticationError("token expired")
 
-        with patch.object(client, "_request", side_effect=mock_request):
-            with pytest.raises(AuthenticationError):
-                await client.get_commits(12345)
+        with (
+            patch.object(client, "_request", side_effect=mock_request),
+            pytest.raises(AuthenticationError),
+        ):
+            await client.get_commits(12345)
 
     @pytest.mark.asyncio
     async def test_connection_error_propagates(self, client: APIClient) -> None:
@@ -200,9 +201,11 @@ class TestGetCommitsConcurrency:
         async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
             raise APIConnectionError("connection refused")
 
-        with patch.object(client, "_request", side_effect=mock_request):
-            with pytest.raises(APIConnectionError):
-                await client.get_commits(12345)
+        with (
+            patch.object(client, "_request", side_effect=mock_request),
+            pytest.raises(APIConnectionError),
+        ):
+            await client.get_commits(12345)
 
     @pytest.mark.asyncio
     async def test_empty_file_list(self, client: APIClient) -> None:

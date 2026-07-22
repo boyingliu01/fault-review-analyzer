@@ -211,8 +211,12 @@ detect_mutation_testable() {
 }
 # Detect if a Python project has mutmut installed and configured
 detect_python_mutation_testable() {
-  # Check for mutmut installation
+  # Check for mutmut CLI
   if command -v mutmut >/dev/null 2>&1; then
+    return 0
+  fi
+  # Check for mutmut as Python module (fallback when CLI not in PATH)
+  if python3 -m mutmut --version >/dev/null 2>&1; then
     return 0
   fi
   # Check for pip-installed mutmut in current venv
