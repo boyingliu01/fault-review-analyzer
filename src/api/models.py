@@ -3,6 +3,17 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
+class CodeChange(BaseModel):
+    """文件级代码变更详情"""
+
+    file_path: str = Field(..., description="文件路径")
+    old_content: str = Field(default="", description="旧内容")
+    new_content: str = Field(default="", description="新内容")
+    change_type: str = Field(default="modify", description="变更类型: add/modify/delete")
+    head_commit_id: str = Field(default="", description="修改前的CommitId")
+    latest_commit_id: str = Field(default="", description="修改后的CommitId")
+
+
 class CommitInfo(BaseModel):
     commit_id: str = Field(..., description="提交ID")
     message: str = Field(..., description="提交信息")
@@ -12,13 +23,10 @@ class CommitInfo(BaseModel):
     diff: str = Field(default="", description="代码diff内容")
     branch: str = Field(default="", description="分支名")
     repository: str = Field(default="", description="仓库名")
-
-
-class CodeChange(BaseModel):
-    file_path: str = Field(..., description="文件路径")
-    old_content: str = Field(default="", description="旧内容")
-    new_content: str = Field(default="", description="新内容")
-    change_type: str = Field(default="modify", description="变更类型: add/modify/delete")
+    repo_url: str = Field(default="", description="仓库地址")
+    base_branch: str = Field(default="", description="来源分支名")
+    head_commit_id: str = Field(default="", description="特性分支初始CommitId")
+    code_changes: list[CodeChange] = Field(default_factory=list, description="文件级代码变更详情")
 
 
 class CodeReview(BaseModel):
