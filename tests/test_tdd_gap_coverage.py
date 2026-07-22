@@ -119,97 +119,65 @@ class TestAnalyzeDiffEdgeCases:
 # P0: get_commits() 并发获取 + 部分失败
 # ---------------------------------------------------------------------------
 class TestGetCommitsConcurrency:
-    """get_commits 并发获取 diff 的行为规格。"""
+    """get_commits 调用研发云 task-branch changes/content API 的行为规格。"""
 
     @pytest.fixture
     def client(self) -> APIClient:
         return APIClient(base_url="http://test", api_key="key", timeout=5, retry=1)
 
     @pytest.mark.asyncio
-    async def test_multiple_commits_all_get_diff(self, client: APIClient) -> None:
-        """多个 commit 都成功获取 diff。"""
-        commits_response = [
-            {"commitId": "aaa", "message": "first", "author": "dev", "time": "2026-01-01T00:00:00", "changes": []},
-            {"commitId": "bbb", "message": "second", "author": "dev", "time": "2026-01-01T01:00:00", "changes": []},
-        ]
+    async def test_multiple_files_all_parsed(self, client: APIClient) -> None:
+        """多个变更文件都成功解析。"""
+        api_response = {
+            "data": {
+                "branchInfo": {
+                    "branchName": "feature-123",
+                    "repoName": "my-repo",
+                    "headCommitId": "abc123",
+                    "lastCommitId": "def456",
+                },
+                "changeFileDetailList": [
+                    {
+                        "filePath": "src/main.java",
+                        "operType": "modified",
+                        "diffContent": "--- a/src/main.java (head)\n+++ b/src/main.java (latest)\n@@ -1,3 +1,4 @@\n-old\n+new",
+                        "headContent": "old content",
+                        "latestContent": "new content",
+                    },
+                    {
+                        "filePath": "src/util.java",
+                        "operType": "added",
+                        "diffContent": "--- /dev/null\n+++ b/src/util.java (latest)\n@@ -0,0 +1,2 @@\n+new file",
+                        "headContent": "",
+                        "latestContent": "new file content",
+                    },
+                ],
+            }
+        }
 
         async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            if "/commits" in endpoint and "/diff" not in endpoint:
-                return commits_response
-            return {"diff": f"diff for {endpoint}"}
-
-        with patch.object(client, "_request", side_effect=mock_request):
-            commits = await client.get_commits(12345)
-
-        assert len(commits) == 2
-        # 两个 commit 都应该有 diff 数据
-        assert all(c.diff for c in commits)
-
-    @pytest.mark.asyncio
-    async def test_partial_diff_failure(self, client: APIClient) -> None:
-        """部分 commit 获取 diff 失败时，其余 commit 不受影响。"""
-        commits_response = [
-            {"commitId": "ok1", "message": "good", "author": "dev", "time": "2026-01-01T00:00:00", "changes": []},
-            {"commitId": "fail1", "message": "bad", "author": "dev", "time": "2026-01-01T01:00:00", "changes": []},
-            {"commitId": "ok2", "message": "also good", "author": "dev", "time": "2026-01-01T02:00:00", "changes": []},
-        ]
-
-        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            if "/commits" in endpoint and "/diff" not in endpoint:
-                return commits_response
-            if "fail1" in endpoint:
-                raise NotFoundError("diff not found")
-            return {"diff": "some diff content"}
-
-        with patch.object(client, "_request", side_effect=mock_request):
-            commits = await client.get_commits(12345)
-
-        assert len(commits) == 3
-        # 失败的 commit diff 为空，但不影响其他 commit
-        ok_commits = [c for c in commits if c.commit_id != "fail1"]
-        fail_commit = [c for c in commits if c.commit_id == "fail1"][0]
-        assert all(c.diff for c in ok_commits)
-        assert fail_commit.diff == ""
-
-    @pytest.mark.asyncio
-    async def test_auth_error_propagates(self, client: APIClient) -> None:
-        """AuthenticationError 应向上传播，不被静默吞没。"""
-        commits_response = [
-            {"commitId": "aaa", "message": "test", "author": "dev", "time": "2026-01-01T00:00:00", "changes": []},
-        ]
-
-        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            if "/commits" in endpoint and "/diff" not in endpoint:
-                return commits_response
-            raise AuthenticationError("token expired")
-
-        with patch.object(client, "_request", side_effect=mock_request):
-            with pytest.raises(AuthenticationError):
-                await client.get_commits(12345)
-
-    @pytest.mark.asyncio
-    async def test_connection_error_swallowed(self, client: APIClient) -> None:
-        """APIConnectionError 被捕获，commit 仍返回。"""
-        commits_response = [
-            {"commitId": "aaa", "message": "test", "author": "dev", "time": "2026-01-01T00:00:00", "changes": []},
-        ]
-
-        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            if "/commits" in endpoint and "/diff" not in endpoint:
-                return commits_response
-            raise APIConnectionError("connection refused")
+            return api_response
 
         with patch.object(client, "_request", side_effect=mock_request):
             commits = await client.get_commits(12345)
 
         assert len(commits) == 1
-        assert commits[0].diff == ""  # 获取失败但不应崩溃
+        commit = commits[0]
+        assert commit.commit_id == "def456"
+        assert commit.branch == "feature-123"
+        assert commit.repository == "my-repo"
+        assert len(commit.changes) == 2
+        assert "src/main.java" in commit.changes
+        assert "src/util.java" in commit.changes
+        assert commit.diff  # 合并的 diff 不为空
 
     @pytest.mark.asyncio
-    async def test_empty_commits_list(self, client: APIClient) -> None:
-        """空 commit 列表不触发 diff 获取。"""
+    async def test_no_branch_returns_empty(self, client: APIClient) -> None:
+        """任务没有关联代码分支时返回空列表。"""
+        api_response = {"data": None, "code": "ZCM-AGILE-TASK-BRANCH-00004"}
+
         async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            return []
+            return api_response
 
         with patch.object(client, "_request", side_effect=mock_request):
             commits = await client.get_commits(12345)
@@ -217,110 +185,92 @@ class TestGetCommitsConcurrency:
         assert commits == []
 
     @pytest.mark.asyncio
-    async def test_commit_with_existing_diff_not_refetched(self, client: APIClient) -> None:
-        """已有 diff 的 commit 不重复获取。"""
-        commits_response = [
-            {
-                "commitId": "aaa",
-                "message": "test",
-                "author": "dev",
-                "time": "2026-01-01T00:00:00",
-                "changes": [],
-                "diff": "already have diff",
-            },
-        ]
-        diff_fetch_count = 0
+    async def test_api_error_propagates(self, client: APIClient) -> None:
+        """API 认证错误向上传播。"""
+        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
+            raise AuthenticationError("token expired")
+
+        with patch.object(client, "_request", side_effect=mock_request):
+            with pytest.raises(AuthenticationError):
+                await client.get_commits(12345)
+
+    @pytest.mark.asyncio
+    async def test_connection_error_propagates(self, client: APIClient) -> None:
+        """API 连接错误向上传播。"""
+        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
+            raise APIConnectionError("connection refused")
+
+        with patch.object(client, "_request", side_effect=mock_request):
+            with pytest.raises(APIConnectionError):
+                await client.get_commits(12345)
+
+    @pytest.mark.asyncio
+    async def test_empty_file_list(self, client: APIClient) -> None:
+        """有分支信息但无文件变更时仍返回 commit。"""
+        api_response = {
+            "data": {
+                "branchInfo": {
+                    "branchName": "feature-456",
+                    "repoName": "repo",
+                    "headCommitId": "aaa",
+                    "lastCommitId": "bbb",
+                },
+                "changeFileDetailList": [],
+            }
+        }
 
         async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            nonlocal diff_fetch_count
-            if "/commits" in endpoint and "/diff" not in endpoint:
-                return commits_response
-            diff_fetch_count += 1
-            return {"diff": "new diff"}
+            return api_response
 
         with patch.object(client, "_request", side_effect=mock_request):
             commits = await client.get_commits(12345)
 
-        # 已有 diff 不应再请求
-        assert diff_fetch_count == 0
-        assert commits[0].diff == "already have diff"
+        assert len(commits) == 1
+        assert commits[0].changes == []
+        assert commits[0].diff == ""
+
+    @pytest.mark.asyncio
+    async def test_code_changes_attached(self, client: APIClient) -> None:
+        """code_changes 被正确附加到 commit 对象。"""
+        api_response = {
+            "data": {
+                "branchInfo": {"branchName": "b", "repoName": "r", "headCommitId": "h", "lastCommitId": "l"},
+                "changeFileDetailList": [
+                    {"filePath": "f.java", "operType": "modified", "diffContent": "diff", "headContent": "old", "latestContent": "new"},
+                ],
+            }
+        }
+
+        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
+            return api_response
+
+        with patch.object(client, "_request", side_effect=mock_request):
+            commits = await client.get_commits(12345)
+
+        assert hasattr(commits[0], "_code_changes")
+        code_changes = commits[0]._code_changes  # type: ignore[attr-defined]
+        assert len(code_changes) == 1
+        assert code_changes[0].file_path == "f.java"
+        assert code_changes[0].old_content == "old"
+        assert code_changes[0].new_content == "new"
+        assert code_changes[0].change_type == "modify"
 
 
 # ---------------------------------------------------------------------------
-# P1: get_commit_diff() 多端点降级
+# P1: get_commit_diff() 已废弃，始终返回空字符串
 # ---------------------------------------------------------------------------
-class TestGetCommitDiffFallback:
-    """get_commit_diff 多端点降级行为。"""
+class TestGetCommitDiffDeprecated:
+    """get_commit_diff 已废弃，diff 通过 get_commits() 一次性获取。"""
 
     @pytest.fixture
     def client(self) -> APIClient:
         return APIClient(base_url="http://test", api_key="key", timeout=5, retry=1)
 
     @pytest.mark.asyncio
-    async def test_first_endpoint_succeeds(self, client: APIClient) -> None:
-        """第一个端点成功时直接返回。"""
-        call_order: list[str] = []
-
-        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            call_order.append(endpoint)
-            return {"diff": "diff content"}
-
-        with patch.object(client, "_request", side_effect=mock_request):
-            result = await client.get_commit_diff(123, "abc")
-
-        assert result == "diff content"
-        assert len(call_order) == 1  # 只调用了一次
-
-    @pytest.mark.asyncio
-    async def test_fallback_to_second_endpoint(self, client: APIClient) -> None:
-        """第一个端点 404，降级到第二个。"""
-        call_order: list[str] = []
-
-        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            call_order.append(endpoint)
-            if len(call_order) == 1:
-                raise NotFoundError("not found")
-            return {"diff": "fallback diff"}
-
-        with patch.object(client, "_request", side_effect=mock_request):
-            result = await client.get_commit_diff(123, "abc")
-
-        assert result == "fallback diff"
-        assert len(call_order) == 2
-
-    @pytest.mark.asyncio
-    async def test_all_endpoints_fail_returns_empty(self, client: APIClient) -> None:
-        """所有端点都失败时返回空字符串。"""
-        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            raise NotFoundError("not found")
-
-        with patch.object(client, "_request", side_effect=mock_request):
-            result = await client.get_commit_diff(123, "abc")
-
+    async def test_returns_empty_string(self, client: APIClient) -> None:
+        """get_commit_diff 始终返回空字符串。"""
+        result = await client.get_commit_diff(123, "abc")
         assert result == ""
-
-    @pytest.mark.asyncio
-    async def test_empty_diff_field_returns_empty(self, client: APIClient) -> None:
-        """API 返回空 diff 字段时继续尝试下一个端点。"""
-        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            return {"diff": ""}
-
-        with patch.object(client, "_request", side_effect=mock_request):
-            result = await client.get_commit_diff(123, "abc")
-
-        # 所有端点返回空，最终结果为空
-        assert result == ""
-
-    @pytest.mark.asyncio
-    async def test_content_field_fallback(self, client: APIClient) -> None:
-        """diff 字段不存在时尝试 content 字段。"""
-        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
-            return {"content": "content field diff"}
-
-        with patch.object(client, "_request", side_effect=mock_request):
-            result = await client.get_commit_diff(123, "abc")
-
-        assert result == "content field diff"
 
 
 # ---------------------------------------------------------------------------
