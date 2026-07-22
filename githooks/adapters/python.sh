@@ -152,7 +152,12 @@ run_mutation() {
   local MUTATION_OUTPUT
   MUTATION_OUTPUT=$(mktemp)
 
-  timeout "${timeout_s}s" mutmut run --paths-to-mutate $file_list > "$MUTATION_OUTPUT" 2>&1
+  local MUTMUT_CMD="mutmut"
+  if ! command -v mutmut >/dev/null 2>&1; then
+    MUTMUT_CMD="python3 -m mutmut"
+  fi
+
+  timeout "${timeout_s}s" $MUTMUT_CMD run --paths-to-mutate $file_list > "$MUTATION_OUTPUT" 2>&1
   local EXIT_CODE=$?
 
   cat "$MUTATION_OUTPUT"

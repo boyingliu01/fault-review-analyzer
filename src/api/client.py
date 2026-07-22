@@ -383,7 +383,7 @@ class APIClient:
                 )
         return result
 
-    async def get_commit_diff(self, task_id: int, commit_id: str) -> str:
+    async def get_commit_diff(self, task_id: int, commit_id: str) -> str:  # noqa: ARG002
         """获取单个commit的diff内容（已废弃，diff通过get_commits一次性获取）。
 
         保留此方法以兼容旧接口，实际diff数据已通过 get_commits() 获取。
