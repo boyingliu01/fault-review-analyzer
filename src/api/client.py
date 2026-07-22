@@ -32,6 +32,7 @@ class APIClient:
         timeout: int = 30,
         retry: int = 3,
         api_path_prefix: str = "/portal/ai-gateway/devspace/rpc/v3/work-item",
+        code_api_prefix: str = "/portal/ai-gateway/devspace/rpc/v3",
         circuit_breaker: CircuitBreaker | None = None,
     ):
         self.base_url = base_url.rstrip("/")
@@ -39,6 +40,7 @@ class APIClient:
         self.timeout = timeout
         self.retry = retry
         self.api_path_prefix = api_path_prefix
+        self.code_api_prefix = code_api_prefix
         self._client: httpx.AsyncClient | None = None
         self._owns_client: bool = False
         self._circuit_breaker = circuit_breaker or CircuitBreaker(
@@ -255,55 +257,90 @@ class APIClient:
         }
 
     async def get_commits(self, task_id: int) -> list[CommitInfo]:
-        """获取任务的commit列表（含diff数据）"""
-        response = await self._request("GET", f"/task/{task_id}/commits")
-        commits_data: list[Any] = response if isinstance(response, list) else []
-        commits = [self._parse_commit(item) for item in commits_data]
+        """获取任务的代码变更数据（含diff）
 
-        # 尝试为每个commit获取diff数据（并发控制）
-        import asyncio
+        调用研发云 task-branch changes/content API，获取特性分支上的文件变动详情。
+        返回一个合成的 CommitInfo 列表（通常只有一个元素，代表整个分支的变更）。
 
-        sem = asyncio.Semaphore(5)  # 限制并发，避免触发API限流
+        API: POST {api_path_prefix}/task-branch/{taskNo}/changes/content
+        返回: {
+            "branchInfo": {branchName, repoName, headCommitId, lastCommitId, ...},
+            "changeFileDetailList": [{filePath, operType, diffContent, headContent, latestContent}]
+        }
+        """
+        from datetime import datetime as dt
 
-        async def _fetch_diff(commit: CommitInfo) -> None:
-            if not commit.diff and commit.commit_id:
-                async with sem:
-                    try:
-                        diff_data = await self.get_commit_diff(task_id, commit.commit_id)
-                        commit.diff = diff_data
-                    except (NotFoundError, APIConnectionError) as e:
-                        logger.debug(f"无法获取commit {commit.commit_id} 的diff数据: {e}")
-                    except AuthenticationError:
-                        raise  # 认证错误应向上传播
-                    except Exception as e:
-                        logger.warning(f"获取commit {commit.commit_id} diff时发生未预期错误: {e}")
+        endpoint = f"{self.code_api_prefix}/task-branch/{task_id}/changes/content"
+        response = await self._request("POST", endpoint, json={"withContent": True})
 
-        await asyncio.gather(*[_fetch_diff(c) for c in commits])
+        data = response.get("data") if isinstance(response, dict) else None
+        if not data:
+            return []
 
-        return commits
+        branch_info = data.get("branchInfo") or {}
+        file_details = data.get("changeFileDetailList") or []
+
+        if not file_details and not branch_info.get("branchName"):
+            return []
+
+        # 合成一个 CommitInfo，代表整个分支的变更
+        all_diffs: list[str] = []
+        file_paths: list[str] = []
+        code_changes: list[CodeChange] = []
+
+        for fd in file_details:
+            file_path = fd.get("filePath", "")
+            oper_type = fd.get("operType", "modified")
+            diff_content = fd.get("diffContent", "")
+            head_content = fd.get("headContent", "")
+            latest_content = fd.get("latestContent", "")
+
+            file_paths.append(file_path)
+            if diff_content:
+                all_diffs.append(diff_content)
+
+            # 映射 operType 到 CodeChange.change_type
+            change_type_map = {"added": "add", "modified": "modify", "removed": "delete"}
+            code_changes.append(
+                CodeChange(
+                    file_path=file_path,
+                    old_content=head_content,
+                    new_content=latest_content,
+                    change_type=change_type_map.get(oper_type, "modify"),
+                )
+            )
+
+        # 合成 commit
+        branch_name = branch_info.get("branchName", "")
+        repo_name = branch_info.get("repoName", "")
+        last_commit_id = branch_info.get("lastCommitId", "")
+        head_commit_id = branch_info.get("headCommitId", "")
+
+        combined_diff = "\n".join(all_diffs)
+        commit_message = f"[{branch_name}] {head_commit_id[:8]}..{last_commit_id[:8]}" if last_commit_id else branch_name
+
+        commit = CommitInfo(
+            commit_id=last_commit_id or head_commit_id or "unknown",
+            message=commit_message,
+            author="",
+            time=dt.now(),
+            changes=file_paths,
+            diff=combined_diff,
+            branch=branch_name,
+            repository=repo_name,
+        )
+
+        # 将 code_changes 附加到 commit 对象（供后续使用）
+        # CommitInfo 没有 code_changes 字段，但 get_full_task 会单独处理
+        commit._code_changes = code_changes  # type: ignore[attr-defined]
+
+        return [commit]
 
     async def get_commit_diff(self, task_id: int, commit_id: str) -> str:
-        """获取单个commit的diff内容
+        """获取单个commit的diff内容（已废弃，diff通过get_commits一次性获取）
 
-        尝试多个可能的API端点来获取diff数据，支持降级。
+        保留此方法以兼容旧接口，实际diff数据已通过 get_commits() 获取。
         """
-        # 尝试端点1: 标准diff端点
-        endpoints = [
-            f"/task/{task_id}/commit/{commit_id}/diff",
-            f"/task/{task_id}/commits/{commit_id}/diff",
-            f"{self.api_path_prefix}/{task_id}/commit/{commit_id}/diff",
-        ]
-
-        for endpoint in endpoints:
-            try:
-                response = await self._request("GET", endpoint)
-                # _request() 返回 dict，从 diff/content 字段提取文本
-                diff_text = response.get("diff", response.get("content", ""))
-                if isinstance(diff_text, str) and diff_text:
-                    return diff_text
-            except (NotFoundError, APIConnectionError):
-                continue
-
         return ""
 
     async def get_production_info(self, task_id: int) -> ProductionInfo:
@@ -316,17 +353,22 @@ class APIClient:
         try:
             commits = await self.get_commits(task_id)
             if commits:
-                # 从commits中提取code_changes
-                code_changes = [
-                    CodeChange(
-                        file_path=f,
-                        old_content="",
-                        new_content="",
-                        change_type="modify",
-                    )
-                    for c in commits
-                    for f in c.changes
-                ]
+                # 从 commit 中提取 code_changes（由 get_commits 附加）
+                code_changes: list[CodeChange] = []
+                for c in commits:
+                    if hasattr(c, "_code_changes"):
+                        code_changes.extend(c._code_changes)  # type: ignore[attr-defined]
+                    else:
+                        # fallback: 从 changes 字段生成
+                        for f in c.changes:
+                            code_changes.append(
+                                CodeChange(
+                                    file_path=f,
+                                    old_content="",
+                                    new_content="",
+                                    change_type="modify",
+                                )
+                            )
                 task.development = DevelopmentInfo(
                     commits=commits,
                     code_changes=code_changes,

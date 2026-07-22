@@ -103,15 +103,25 @@ class TestAPIClient:
 
     @pytest.mark.asyncio
     async def test_get_commits(self, api_client):
-        mock_response = [
-            {
-                "commitId": "abc123",
-                "message": "添加查询功能",
-                "author": "developer",
-                "time": "2024-01-15T09:00:00",
-                "changes": ["src/query.py", "src/db.py"],
+        mock_response = {
+            "data": {
+                "branchInfo": {
+                    "branchName": "feature-123",
+                    "repoName": "my-repo",
+                    "headCommitId": "abc123",
+                    "lastCommitId": "def456",
+                },
+                "changeFileDetailList": [
+                    {
+                        "filePath": "src/query.py",
+                        "operType": "modified",
+                        "diffContent": "--- a/src/query.py (head)\n+++ b/src/query.py (latest)\n@@ -1 +1 @@\n-old\n+new",
+                        "headContent": "old",
+                        "latestContent": "new",
+                    }
+                ],
             }
-        ]
+        }
 
         with patch.object(api_client, "_request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
@@ -119,7 +129,8 @@ class TestAPIClient:
             commits = await api_client.get_commits(12345)
 
             assert len(commits) == 1
-            assert commits[0].commit_id == "abc123"
+            assert commits[0].commit_id == "def456"
+            assert commits[0].branch == "feature-123"
 
     @pytest.mark.asyncio
     async def test_get_production_info(self, api_client):
@@ -325,15 +336,25 @@ class TestAPIClientExtended:
             "taskPriId": 10,
             "createdDate": "2024-01-15T10:00:00",
         }
-        mock_commits_response = [
-            {
-                "commitId": "abc123",
-                "message": "Add feature",
-                "author": "dev",
-                "time": "2024-01-15T09:00:00",
-                "changes": ["file.py"],
+        mock_commits_response = {
+            "data": {
+                "branchInfo": {
+                    "branchName": "feature-123",
+                    "repoName": "repo",
+                    "headCommitId": "abc",
+                    "lastCommitId": "def",
+                },
+                "changeFileDetailList": [
+                    {
+                        "filePath": "file.py",
+                        "operType": "modified",
+                        "diffContent": "diff",
+                        "headContent": "old",
+                        "latestContent": "new",
+                    }
+                ],
             }
-        ]
+        }
         mock_production_response = {
             "incidentTime": "2024-01-15T11:00:00",
             "symptoms": "Error occurred",
@@ -343,7 +364,7 @@ class TestAPIClientExtended:
         }
 
         async def mock_request(method, url, **kwargs):
-            if "commits" in url:
+            if "changes/content" in url:
                 return mock_commits_response
             elif "production" in url:
                 return mock_production_response

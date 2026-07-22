@@ -134,10 +134,28 @@ class CodeChangeAnalyzer:
         added_lines = len(re.findall(r"^\+[^+]", diff, re.MULTILINE))
         removed_lines = len(re.findall(r"^-[^-]", diff, re.MULTILINE))
 
-        file_changes = set(re.findall(r"^\+\+\+ b/(.*)$", diff, re.MULTILINE))
-        removed_files = set(re.findall(r"^--- a/(.*)$", diff, re.MULTILINE))
+        # 支持多种 diff 格式:
+        # git标准格式: +++ b/path/to/file
+        # 研发云格式: +++ path/to/file (latest)
+        file_changes = set(
+            re.findall(r"^\+\+\+ (?:b/)?(.*?)(?:\s+\(latest\))?$", diff, re.MULTILINE)
+        )
+        removed_files = set(
+            re.findall(r"^--- (?:a/)?(.*?)(?:\s+\(head\))?$", diff, re.MULTILINE)
+        )
+        # 排除 /dev/null（新增文件的旧端点）
+        removed_files.discard("/dev/null")
+        file_changes.discard("/dev/null")
         files_added = len(file_changes - removed_files)
         files_removed = len(removed_files - file_changes)
+        files_modified = len(file_changes & removed_files)
+
+        # 如果没有通过文件名匹配到，至少统计有变更的文件数
+        if files_added + files_removed + files_modified == 0:
+            # 通过 @@ hunk 头来估算文件数
+            hunk_files = len(set(re.findall(r"^@@ .* @@", diff, re.MULTILINE)))
+            if hunk_files > 0:
+                files_modified = hunk_files
 
         return {
             "added_lines": added_lines,
@@ -145,7 +163,7 @@ class CodeChangeAnalyzer:
             "modified_lines": added_lines + removed_lines,
             "files_added": files_added,
             "files_removed": files_removed,
-            "files_modified": len(file_changes & removed_files),
+            "files_modified": files_modified,
         }
 
     def detect_file_types(self, files: list[str]) -> dict[str, str]:
