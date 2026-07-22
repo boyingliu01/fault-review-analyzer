@@ -231,12 +231,14 @@ class TestGetCommitsConcurrency:
 
     @pytest.mark.asyncio
     async def test_code_changes_attached(self, client: APIClient) -> None:
-        """code_changes 被正确附加到 commit 对象。"""
+        """code_changes 被正确设置到 commit 对象。"""
         api_response = {
             "data": {
                 "branchInfo": {"branchName": "b", "repoName": "r", "headCommitId": "h", "lastCommitId": "l"},
                 "changeFileDetailList": [
-                    {"filePath": "f.java", "operType": "modified", "diffContent": "diff", "headContent": "old", "latestContent": "new"},
+                    {"filePath": "f.java", "operType": "modified", "diffContent": "diff",
+                     "headContent": "old", "latestContent": "new",
+                     "headCommitId": "c1", "latestCommitId": "c2"},
                 ],
             }
         }
@@ -247,13 +249,69 @@ class TestGetCommitsConcurrency:
         with patch.object(client, "_request", side_effect=mock_request):
             commits = await client.get_commits(12345)
 
-        assert hasattr(commits[0], "_code_changes")
-        code_changes = commits[0]._code_changes  # type: ignore[attr-defined]
+        code_changes = commits[0].code_changes
         assert len(code_changes) == 1
         assert code_changes[0].file_path == "f.java"
         assert code_changes[0].old_content == "old"
         assert code_changes[0].new_content == "new"
         assert code_changes[0].change_type == "modify"
+        assert code_changes[0].head_commit_id == "c1"
+        assert code_changes[0].latest_commit_id == "c2"
+
+    @pytest.mark.asyncio
+    async def test_branch_extra_fields(self, client: APIClient) -> None:
+        """分支级额外字段（repoUrl, baseBranchName）被正确提取。"""
+        api_response = {
+            "data": {
+                "branchInfo": {
+                    "branchName": "feature-x",
+                    "repoName": "my-repo",
+                    "repoUrl": "https://git.example.com/my-repo",
+                    "baseBranchName": "develop",
+                    "headCommitId": "aaa",
+                    "lastCommitId": "bbb",
+                },
+                "changeFileDetailList": [],
+            }
+        }
+
+        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
+            return api_response
+
+        with patch.object(client, "_request", side_effect=mock_request):
+            commits = await client.get_commits(12345)
+
+        assert commits[0].repo_url == "https://git.example.com/my-repo"
+        assert commits[0].base_branch == "develop"
+        assert commits[0].head_commit_id == "aaa"
+
+    @pytest.mark.asyncio
+    async def test_with_content_false(self, client: APIClient) -> None:
+        """with_content=False 时不返回文件内容和 diff。"""
+        api_response = {
+            "data": {
+                "branchInfo": {"branchName": "b", "repoName": "r", "headCommitId": "h", "lastCommitId": "l"},
+                "changeFileDetailList": [
+                    {"filePath": "f.java", "operType": "modified",
+                     "diffContent": "some-diff", "headContent": "old", "latestContent": "new"},
+                ],
+            }
+        }
+
+        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
+            # 验证请求参数中 withContent=False
+            return api_response
+
+        with patch.object(client, "_request", side_effect=mock_request) as mock_req:
+            commits = await client.get_commits(12345, with_content=False)
+            # 验证请求参数
+            mock_req.assert_called_once()
+            call_kwargs = mock_req.call_args
+            assert call_kwargs[1].get("json") == {"withContent": False}
+
+        assert commits[0].code_changes[0].old_content == ""
+        assert commits[0].code_changes[0].new_content == ""
+        assert commits[0].diff == ""
 
 
 # ---------------------------------------------------------------------------
@@ -271,6 +329,72 @@ class TestGetCommitDiffDeprecated:
         """get_commit_diff 始终返回空字符串。"""
         result = await client.get_commit_diff(123, "abc")
         assert result == ""
+
+
+# ---------------------------------------------------------------------------
+# P1: get_change_files() 轻量级获取变动文件列表
+# ---------------------------------------------------------------------------
+class TestGetChangeFiles:
+    """get_change_files 调用 change-file API 获取变动文件列表（不含 diff）。"""
+
+    @pytest.fixture
+    def client(self) -> APIClient:
+        return APIClient(base_url="http://test", api_key="key", timeout=5, retry=1)
+
+    @pytest.mark.asyncio
+    async def test_returns_flat_file_list(self, client: APIClient) -> None:
+        """按仓库分组的响应被展平为统一列表。"""
+        api_response = {
+            "data": [
+                {
+                    "repoName": "repo-a",
+                    "changeFileDtoList": [
+                        {"filePath": "src/Main.java", "operType": "modified"},
+                        {"filePath": "src/Util.java", "operType": "added"},
+                    ],
+                },
+                {
+                    "repoName": "repo-b",
+                    "changeFileDtoList": [
+                        {"filePath": "lib/helper.py", "operType": "removed"},
+                    ],
+                },
+            ]
+        }
+
+        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
+            return api_response
+
+        with patch.object(client, "_request", side_effect=mock_request):
+            files = await client.get_change_files(12345)
+
+        assert len(files) == 3
+        assert files[0] == {"filePath": "src/Main.java", "operType": "modified", "repoName": "repo-a"}
+        assert files[2] == {"filePath": "lib/helper.py", "operType": "removed", "repoName": "repo-b"}
+
+    @pytest.mark.asyncio
+    async def test_no_branch_returns_empty(self, client: APIClient) -> None:
+        """任务无关联代码时返回空列表。"""
+        api_response: dict[str, object] = {"data": None}
+
+        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
+            return api_response
+
+        with patch.object(client, "_request", side_effect=mock_request):
+            files = await client.get_change_files(12345)
+
+        assert files == []
+
+    @pytest.mark.asyncio
+    async def test_uses_correct_endpoint(self, client: APIClient) -> None:
+        """调用正确的 change-file GET 端点。"""
+        async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
+            assert method == "GET"
+            assert "change-file" in endpoint
+            return {"data": []}
+
+        with patch.object(client, "_request", side_effect=mock_request):
+            await client.get_change_files(99999)
 
 
 # ---------------------------------------------------------------------------
