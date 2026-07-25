@@ -1,5 +1,7 @@
 """Tests for the configuration validator."""
 
+from typing import Any
+
 import pytest
 
 from src.config.validator import ConfigValidator
@@ -55,7 +57,7 @@ class TestConfigValidator:
 
     def test_validate_empty_api_config(self, validator):
         """Test validating with empty API config."""
-        config = {
+        config: dict[str, Any] = {
             "api": {},
             "llm": {},
             "embedding": {},
@@ -118,21 +120,22 @@ class TestConfigValidator:
         assert is_valid is False
         assert any("API path prefix must start with" in err for err in errors)
 
-    def test_validate_invalid_llm_provider(self, validator):
-        """Test validating LLM config with invalid provider."""
+    def test_validate_llm_missing_fields(self, validator):
+        """Test validating LLM config with missing required fields (provider name is free-form)."""
         config = {
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
                 "api_path_prefix": "/api/v1"
             },
-            "llm": {"provider": "invalid-provider"},
+            "llm": {"provider": "any-custom-name"},
             "embedding": {},
             "cache": {}
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
-        assert any("LLM provider must be one of" in err for err in errors)
+        assert any("LLM model is required" in err for err in errors)
+        assert any("LLM API key is required" in err for err in errors)
 
     def test_validate_invalid_llm_temperature(self, validator):
         """Test validating LLM config with invalid temperature."""

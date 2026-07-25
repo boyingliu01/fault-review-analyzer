@@ -5,7 +5,7 @@ from src.rules.categories import FAULT_CATEGORIES
 
 from ..labeling.models import Label, LabelGenerationResult, LLMProvider
 
-_MAX_SEGMENT_CHARS = 500
+_MAX_SEGMENT_CHARS = 2000
 _MAX_DESCRIPTION_CHARS = 200
 _MAX_PARSE_DISPLAY_CHARS = 200
 
@@ -14,11 +14,17 @@ SYSTEM_PROMPT = """你是一个专业的故障分析专家，擅长对软件故�
 
 你需要根据故障单的详细信息，为其生成合适的分类标签。
 
+**核心分析原则**：
+- 代码变更（commit diff）是第一优先级证据，故障描述仅为参考背景
+- 如果代码变更与描述内容矛盾，以代码变更为准
+- 区分"新增逻辑""删除逻辑""移动/重组逻辑"是不同的变更类型
+- 不要根据故障描述做代码层面不存在的推测
+
 故障分类标签：
 {categories}
 
 请从以下维度分析：
-1. 故障类型：根据故障的性质分类
+1. 故障类型：根据代码变更的性质分类（而非描述中的业务叙述）
 2. 影响范围：故障影响的系统模块
 3. 严重程度：故障对业务的影响程度
 4. 根因类型：导致故障的根本原因类型
@@ -37,6 +43,8 @@ USER_PROMPT_TEMPLATE = """故障单信息：
 - 优先级：{priority}
 
 {segment_details}
+
+**注意**：如果上面的“commit”部分包含代码变更(diff)，请以代码变更作为分析的第一依据，故障描述仅作为背景参考。
 
 请分析并生成标签。"""
 
@@ -141,7 +149,23 @@ class LabelGenerator:
     def _parse_response(self, task_id: int, response: str) -> LabelGenerationResult:
         """Parse LLM response into structured result."""
         try:
-            data = json.loads(response)
+            # 提取 JSON 内容（支持 markdown code block）
+            json_content = response.strip()
+            if json_content.startswith("```"):
+                # 移除 markdown 代码块标记
+                lines = json_content.split("\n")
+                # 找到第一个 { 和最后一个 }
+                start = -1
+                end = -1
+                for i, line in enumerate(lines):
+                    if "{" in line and start == -1:
+                        start = i
+                    if "}" in line:
+                        end = i
+                if start >= 0 and end > start:
+                    json_content = "\n".join(lines[start : end + 1])
+
+            data = json.loads(json_content)
             labels = [
                 Label(
                     name=label_data.get("name", ""),
@@ -157,7 +181,10 @@ class LabelGenerator:
                 summary=data.get("summary", ""),
                 reasoning=data.get("reasoning", ""),
             )
-        except (json.JSONDecodeError, KeyError, ValueError):
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            import sys
+            print(f"[DEBUG] LLM 响应解析失败: {e}", file=sys.stderr)
+            print(f"[DEBUG] 原始响应: {response[:500]}", file=sys.stderr)
             return LabelGenerationResult(
                 cluster_id=task_id,
                 labels=[],

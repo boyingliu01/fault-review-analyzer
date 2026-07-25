@@ -97,13 +97,6 @@ class ConfigValidator:
         """
         errors: list[str] = []
 
-        provider = llm_config.get("provider", "openai")
-        allowed_providers = ["openai", "qwen", "wenxin", "zhipu", "custom", "volcengine"]
-        if provider not in allowed_providers:
-            errors.append(
-                f"LLM provider must be one of {', '.join(allowed_providers)}, got {provider}"
-            )
-
         if not llm_config.get("model", ""):
             errors.append("LLM model is required")
 

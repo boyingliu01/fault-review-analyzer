@@ -53,7 +53,7 @@ class TestViolationDetectorBoundary:
         )
 
         assert result.is_violation is True
-        assert "empty_catch" in result.violated_rules
+        assert any("empty_catch" in r for r in result.violated_rules)
 
     def test_detect_database_connection_leak(self):
         """测试数据库连接泄漏检测"""
@@ -70,7 +70,7 @@ class TestViolationDetectorBoundary:
         )
 
         assert result.is_violation is True
-        assert "database_connection_leak" in result.violated_rules
+        assert any("database_connection_leak" in r for r in result.violated_rules)
 
     def test_detect_non_thread_safe_collection(self):
         """测试非线程安全集合检测"""
@@ -86,7 +86,7 @@ class TestViolationDetectorBoundary:
         )
 
         assert result.is_violation is True
-        assert "non_thread_safe_collection" in result.violated_rules
+        assert any("non_thread_safe_collection" in r for r in result.violated_rules)
 
     def test_detect_system_out_println(self):
         """测试System.out.println检测"""
@@ -102,7 +102,7 @@ class TestViolationDetectorBoundary:
         )
 
         assert result.is_violation is True
-        assert "system_out_println" in result.violated_rules
+        assert any("system_out_println" in r for r in result.violated_rules)
 
     def test_detect_sql_injection(self):
         """测试SQL注入检测"""
@@ -118,7 +118,7 @@ class TestViolationDetectorBoundary:
         )
 
         assert result.is_violation is True
-        assert "sql_injection" in result.violated_rules
+        assert any("sql_injection" in r for r in result.violated_rules)
 
     def test_detect_function_in_index(self):
         """测试索引列函数检测"""

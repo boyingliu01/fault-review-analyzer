@@ -20,7 +20,12 @@ class StandardsManager:
         self._load_all()
 
     def _get_default_data_dir(self) -> Path:
-        return Path(__file__).parent.parent.parent / "data" / "standards" / "mock"
+        # 优先加载 production 目录（真实规范库），若不存在则回退到 mock 目录
+        base = Path(__file__).parent.parent.parent / "data" / "standards"
+        production_dir = base / "production"
+        if production_dir.exists() and any(production_dir.glob("*_standards.json")):
+            return production_dir
+        return base / "mock"
 
     def _load_all(self) -> None:
         if not self._data_dir.exists():

@@ -190,7 +190,19 @@ class ConfigManager:
         return self._app_config
 
     def _apply_env_overrides(self, config_dict: dict[str, Any]) -> None:
-        """Apply environment variable overrides to config dict."""
+        """Apply environment variable overrides to config dict.
+
+        Automatically loads .env file from project root if python-dotenv is available.
+        """
+        # 尝试加载 .env 文件
+        try:
+            from dotenv import load_dotenv
+            env_file = Path.cwd() / ".env"
+            if env_file.exists():
+                load_dotenv(env_file, override=True)
+        except ImportError:
+            pass  # python-dotenv 未安装，跳过
+
         env_prefix_map = {
             "API_BASE_URL": ("api", "base_url"),
             "API_TIMEOUT": ("api", "timeout"),

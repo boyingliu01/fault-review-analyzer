@@ -155,6 +155,12 @@ class EmbeddingGenerator:
                     api_key=self.api_key,
                     base_url=self.base_url,
                 )
+            elif self.provider == "whalecloud":
+                # 浩鲸内部代理（OpenAI兼容协议）
+                self._client = AsyncOpenAI(
+                    api_key=self.api_key,
+                    base_url=self.base_url,
+                )
             elif self.provider == "local":
                 pass
         return self._client

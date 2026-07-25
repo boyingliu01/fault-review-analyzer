@@ -348,14 +348,8 @@ class CodeChangeAnalyzer:
                 pattern_types = [p["type"] for p in patterns]
                 parts.append(f"涉及代码模式: {', '.join(set(pattern_types))}")
 
-        # 如果有LLM，生成更深层的语义分析
-        if self._llm_provider and any(c.get("diff", "") for c in commits):
-            try:
-                llm_analysis = self._llm_analyze_changes(commits)
-                if llm_analysis:
-                    parts.append(f"LLM分析: {llm_analysis}")
-            except Exception as e:
-                logger.debug(f"LLM代码分析失败: {e}")
+        # 注: LLM语义分析已移至pipeline._llm_analyze_code_diff()异步执行
+        # 这里不再调用_llm_analyze_changes()，避免同步方法中无法await的问题
 
         return "; ".join(parts) if parts else ""
 
@@ -389,7 +383,8 @@ class CodeChangeAnalyzer:
 
         combined = "\n---\n".join(diffs_summary[:5])  # 限制输入量
 
-        prompt = f"""你是一个代码审查专家。请分析以下代码变更，用简短的中文总结：
+        system_prompt = "你是一个代码审查专家，擅长分析代码变更并识别风险。请用简短的中文回答。"
+        user_prompt = f"""请分析以下代码变更，用简短的中文总结：
 1. 这些变更的主要目的和功能
 2. 涉及的技术领域（如数据库、API、并发、安全等）
 3. 潜在的风险点
@@ -403,15 +398,26 @@ class CodeChangeAnalyzer:
             import asyncio
 
             if hasattr(self._llm_provider, "generate"):
-                result = self._llm_provider.generate(prompt)
+                # 支持两种签名: generate(system, user) 和 generate(prompt)
+                import inspect
+                sig = inspect.signature(self._llm_provider.generate)
+                params = list(sig.parameters.keys())
+
+                if "system" in params and "user" in params:
+                    # 标准签名: generate(system, user)
+                    result = self._llm_provider.generate(system=system_prompt, user=user_prompt)
+                else:
+                    # 简单签名: generate(prompt)
+                    result = self._llm_provider.generate(user_prompt)
+
                 if asyncio.iscoroutine(result):
                     try:
                         loop = asyncio.get_running_loop()
                     except RuntimeError:
                         loop = None
                     if loop and loop.is_running():
-                        # 已在异步事件循环中，无法同步等待，跳过 LLM 分析
-                        logger.warning("LLM分析跳过: 已在异步事件循环中")
+                        # 已在异步事件循环中，创建任务稍后执行
+                        logger.warning("LLM分析跳过: 已在异步事件循环中，无法同步等待")
                         return ""
                     result = asyncio.run(result)
                 return str(result)[:500]

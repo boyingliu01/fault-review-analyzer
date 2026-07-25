@@ -301,13 +301,13 @@ class APIClient:
         code_changes: list[CodeChange] = []
 
         for fd in file_details:
-            file_path = fd.get("filePath", "")
-            oper_type = fd.get("operType", "modified")
-            diff_content = fd.get("diffContent", "")
-            head_content = fd.get("headContent", "") if with_content else ""
-            latest_content = fd.get("latestContent", "") if with_content else ""
-            fd_head_commit = fd.get("headCommitId", "")
-            fd_latest_commit = fd.get("latestCommitId", "")
+            file_path = fd.get("filePath", "") or ""
+            oper_type = fd.get("operType", "modified") or "modified"
+            diff_content = fd.get("diffContent") or ""
+            head_content = (fd.get("headContent") or "") if with_content else ""
+            latest_content = (fd.get("latestContent") or "") if with_content else ""
+            fd_head_commit = fd.get("headCommitId") or ""
+            fd_latest_commit = fd.get("latestCommitId") or ""
 
             file_paths.append(file_path)
             if with_content and diff_content:

@@ -156,6 +156,18 @@ DEFAULT_TEMPLATE = """# 故障复盘分析报告
 {% endfor %}
 {% endif %}
 
+{% if standard_matches %}
+## 规范匹配
+
+故障分析结论与研发规范库的语义匹配结果：
+
+{% for match in standard_matches %}
+- **{{ match.rule_id }} {{ match.rule_title }}** [{{ '违反' if match.relation == 'violated' else '相关' }}] ({{ match.level }}) - 置信度: {{ "%.0f%%"|format(match.confidence * 100) }} - 相似度: {{ "%.2f"|format(match.similarity) }}
+  {% if match.evidence %}证据: {{ match.evidence }}{% endif %}
+
+{% endfor %}
+{% endif %}
+
 {% if labels %}
 ## 分类标签
 
@@ -306,6 +318,7 @@ class ReportGenerator:
         format: ReportFormat = ReportFormat.MARKDOWN,
         violations: list[dict] | None = None,
         code_change_analysis: dict[str, Any] | None = None,
+        standard_matches: list[dict] | None = None,
     ) -> str:
         """Generate a single task analysis report."""
         if format == ReportFormat.MARKDOWN:
@@ -322,6 +335,7 @@ class ReportGenerator:
                         suggestions=suggestions or [],
                         violations=violations or [],
                         code_change_analysis=code_change_analysis,
+                        standard_matches=standard_matches or [],
                         metadata={
                             "generated_at": self._get_timestamp(),
                         },
@@ -334,6 +348,7 @@ class ReportGenerator:
                 task_data, segments, labels, root_causes, suggestions,
                 violations=violations,
                 code_change_analysis=code_change_analysis,
+                standard_matches=standard_matches,
             )
         elif format == ReportFormat.HTML:
             return self._generate_single_html(task_data, segments, labels, root_causes, suggestions)
@@ -801,6 +816,7 @@ class ReportGenerator:
         suggestions: list[str] | None,
         violations: list[dict] | None = None,
         code_change_analysis: dict[str, Any] | None = None,
+        standard_matches: list[dict] | None = None,
     ) -> str:
         """Render single task report with default template."""
         template = Template(DEFAULT_TEMPLATE)
@@ -814,6 +830,7 @@ class ReportGenerator:
             suggestions=suggestions or [],
             violations=violations or [],
             code_change_analysis=code_change_analysis,
+            standard_matches=standard_matches or [],
             metadata={
                 "generated_at": self._get_timestamp(),
             },

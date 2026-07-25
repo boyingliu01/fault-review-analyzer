@@ -1,0 +1,1439 @@
+{
+  "version": "2.0",
+  "category": "java_coding",
+  "name": "Java编码规范（浩鲸科技）",
+  "description": "浩鲸科技Java语言编码规范，涵盖集合处理、并发编程、控制语句、异常处理、资源管理、日志规约等方面",
+  "source": "浩鲸在线规范库",
+  "rules": [
+    {
+      "id": "J000000",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "关于 hashCode 和 equals 的处理，只要覆写 equals，就必",
+      "content": "须覆写 hashCode 关于 hashCode 和 equals 的处理，应该遵循如下规则： 浩鲸云计算科技股份有限公司 版权所有",
+      "level": "强制",
+      "code": "J000000",
+      "examples": []
+    },
+    {
+      "id": "J000001",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "ArrayList 的 subList 结果不可强转成 ArrayList",
+      "content": "否则会抛出ClassCastException 异 常，即 java.util.ArrayList$SubList cannot be cast to java.util.ArrayList。 说明 ：subList 返回的是 ArrayList 的内部类 SubList，并不是 ArrayList ⽽是 ArrayList 的⼀个视图，对于 SubList ⼦列表的所有操作最终会反映到原列表上。",
+      "level": "强制",
+      "code": "J000001",
+      "examples": []
+    },
+    {
+      "id": "J000002",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "使⽤ Map 的⽅法 keySet()/values()/entrySet()返回集合对象",
+      "content": "时，不可以对其进行添加元素操作 说明： 接口提供了三个⽅法：",
+      "level": "强制",
+      "code": "J000002",
+      "examples": []
+    },
+    {
+      "id": "J000003",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "不可对 Collections 类返回的不可变列表进行添加或删除元素",
+      "content": "操作 说明： 类提供了⼀系列实⽤⽅法，⽤于操作集合，其中像",
+      "level": "强制",
+      "code": "J000003",
+      "examples": []
+    },
+    {
+      "id": "J000004",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "在 subList 场景中，⾼度注意对原集合元素的增加或删除，均",
+      "content": "会导致⼦列表的遍历、增加、删除产⽣ ConcurrentModificationException 异常 说明： 等集合的",
+      "level": "强制",
+      "code": "J000004",
+      "examples": []
+    },
+    {
+      "id": "J000005",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "使⽤集合转数组的⽅法，必须使⽤集合的 toArray(T[] array)，传⼊的是类型完全⼀致、⻓度为 0 的空数组",
+      "content": "使⽤集合转数组的⽅法，必须使⽤集合的 toArray(T[] array)，传⼊的是类型完全⼀致、⻓度为 0 的空数组",
+      "level": "强制",
+      "code": "J000005",
+      "examples": []
+    },
+    {
+      "id": "J000006",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "在使⽤ Collection 接口任何实现类的 addAll()⽅法时，都要对",
+      "content": "输⼊的集合参数进行NPE 判断 说明： 接口的实现类（如",
+      "level": "强制",
+      "code": "J000006",
+      "examples": []
+    },
+    {
+      "id": "J000007",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "使⽤⼯具类 Arrays.asList()把数组转换成集合时，不能使⽤其",
+      "content": "修改集合相关的⽅法，它的 add/remove/clear ⽅法会抛出 UnsupportedOperationException 异常 说明：asList 的返回对象是⼀个 Arrays 内部类，并没有实现集合的修改⽅法。Arrays.asList 体现的是适配器",
+      "level": "强制",
+      "code": "J000007",
+      "examples": []
+    },
+    {
+      "id": "J000008",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "在⽆泛型限制定义的集合赋值给泛型限制的集合时，在使⽤",
+      "content": "集合元素时，需要进行instanceof 判断，避免抛出 ClassCastException 异常 说明：泛型是在 JDK5 后才出现，考虑到向前兼容，编译器是允许⾮泛型集合与泛型集合互相赋值。",
+      "level": "强制",
+      "code": "J000008",
+      "examples": []
+    },
+    {
+      "id": "J000009",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "不要在列表遍历的循环⾥进行元素的 remove/add 操作。",
+      "content": "remove 元素请使⽤ iterator ⽅式，如果并发操作，需要对 iterator 对象加锁 说明 ：在 Java 中，当使⽤增强 循环（",
+      "level": "强制",
+      "code": "J000009",
+      "examples": []
+    },
+    {
+      "id": "J000010",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "在 JDK7 版本及以上，Comparator 实现类要满⾜如下三个",
+      "content": "条件，不然 Arrays.sort，Collections.sort ⽅法在排序过程中可能会出现混乱 说明 ：三个条件如下 1）",
+      "level": "强制",
+      "code": "J000010",
+      "examples": []
+    },
+    {
+      "id": "J000011",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "⾼度注意 Map 类集合 K/V 能不能存储 null 值的情况",
+      "content": "如下表格： 集合类 Key",
+      "level": "强制",
+      "code": "J000011",
+      "examples": []
+    },
+    {
+      "id": "J000012",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "合理利⽤好集合的有序性(sort)和稳定性(order)，避免集合的",
+      "content": "⽆序性(unsort)和不稳定性(unorder)带来的负⾯影响 浩鲸云计算科技股份有限公司 版权所有 第 14/121 ⻚",
+      "level": "推荐",
+      "code": "J000012",
+      "examples": []
+    },
+    {
+      "id": "J000013",
+      "category": "Java编码规范",
+      "subcategory": "集合处理",
+      "title": "在JDK9以上，推荐使⽤List.of()、Set.of()、Map.of()和Map.",
+      "content": "ofEntries()等⼯⼚⽅法创建不可变集合。这种⽅式可以使代码更加简洁，并且提⾼性 能。 说明：不可变集合意味着程序不能向集合中添加元素，也不能从集合中删除元素。",
+      "level": "推荐",
+      "code": "J000013",
+      "examples": []
+    },
+    {
+      "id": "J000014",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "获取单例对象需要保证线程安全，其中的⽅法也要保证线程",
+      "content": "安全 此规范有必考题。 说明：资源驱动类、⼯具类、单例⼯⼚类都需要注意。",
+      "level": "强制",
+      "code": "J000014",
+      "examples": []
+    },
+    {
+      "id": "J000015",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "线程资源必须通过线程池提供，不允许在应⽤中⾃⾏显式创",
+      "content": "建线程 说明：使⽤线程池的好处是减少在创建和销毁线程上所花的时间以及系统资源的开销，解决资源不⾜的问题。 如果不使⽤线程池，有可能造成系统创建⼤量同类线程⽽导致消耗完内存或者“过度切换”的问题。",
+      "level": "强制",
+      "code": "J000015",
+      "examples": []
+    },
+    {
+      "id": "J000016",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "线程池不允许使⽤Executors去创建，⽽是通过",
+      "content": "ThreadPoolExecutor的⽅式 说明 ：在使⽤线程池时，不建议使⽤ ⼯具类来创建线程池，⽽应直接使⽤",
+      "level": "强制",
+      "code": "J000016",
+      "examples": []
+    },
+    {
+      "id": "J00001601",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "合理配置线程池的拒绝策略，核⼼业务线程提交可能发⽣",
+      "content": "阻塞的异步任务时，禁⽌使⽤ CallerRunsPolicy 作为线程池拒绝策略 故障警示! 本规范制定源自严重生产故障（单号：3796201）。 在3796201故障案例中，业务侧启⽤线程池异步写⽂件（拉取OSS配置并记录⽇志）。当底层存储",
+      "level": "强制",
+      "code": "J00001601",
+      "examples": []
+    },
+    {
+      "id": "J000017",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "SimpleDateFormat 是线程不安全的类，⼀般不要定义为",
+      "content": "static变量，如果定义为static，必须加锁，或者使⽤DateUtils⼯具类 说明 ： 类在多线程环境下存在线程安全问题。这是因为它内部维护了⼀个⽤于格式化和解",
+      "level": "强制",
+      "code": "J000017",
+      "examples": []
+    },
+    {
+      "id": "J000018",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "⾼并发时，同步调用应该去考量锁的性能损耗",
+      "content": "说明 ：在⾼并发场景下，同步调用涉及到锁的使⽤，⽽锁的使⽤会带来⼀定的性能损耗。因为当⼀个线程获 取到锁后，其他需要该锁的线程就会被阻塞，等待锁的释放，这会导致线程上下⽂切换，增加系统的开销。因 此，在设计同步代码时，需要仔细考量锁的性能影响，采取合适的策略来减少锁带来的性能损耗。",
+      "level": "强制",
+      "code": "J000018",
+      "examples": []
+    },
+    {
+      "id": "J000019",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "对多个资源、数据库表、对象同时加锁时，需要保持⼀致的",
+      "content": "加锁顺序，否则可能会造成死锁 说明：线程⼀需要对表A、B、C依次全部加锁后才可以进行更新操作，那么线程⼆的加锁顺序也必须是A、 B、C，否则可能出现死锁。",
+      "level": "强制",
+      "code": "J000019",
+      "examples": []
+    },
+    {
+      "id": "J000020",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "并发修改同⼀记录时，避免更新丢失，需要加锁。要么在应",
+      "content": "⽤层加锁，要么在缓存加锁，要么在数据库层使⽤乐观锁，使⽤version作为更新依据 浩鲸云计算科技股份有限公司 版权所有 第 25/121 ⻚",
+      "level": "强制",
+      "code": "J000020",
+      "examples": []
+    },
+    {
+      "id": "J000021",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "禁⽌使⽤ Timer 和 TimerTask 调度多任务，避免因未捕获单",
+      "content": "个任务异常⽽导致所有任务终⽌ 此规范有必考题。 故障警示! 本规范制定源自严重生产故障（单号：3787793）。",
+      "level": "强制",
+      "code": "J000021",
+      "examples": []
+    },
+    {
+      "id": "J000022",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "使⽤Lock类加锁时，必须确保锁范围内的所有代码都受到",
+      "content": "try-finally 的保护，以确保在必要时释放锁 建议在try代码块之前调用lock⽅法，避免由于加锁失败导致finally调用unlock抛出异常。",
+      "level": "强制",
+      "code": "J000022",
+      "examples": []
+    },
+    {
+      "id": "J000023",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "HashMap在容量不够进行resize时由于⾼并发可能出现死循",
+      "content": "环，导致CPU飙升，在多线程访问Map的场景下可以使⽤其它数据结构或加锁来规避此 ⻛险 说明：此问题在JDK8之前⼀直存在，在多线程访问Map的场景下，应使⽤ConcurrentHashMap。",
+      "level": "强制",
+      "code": "J000023",
+      "examples": []
+    },
+    {
+      "id": "J000024",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "使⽤CountDownLatch进行异步转同步操作，每个线程退出",
+      "content": "前必须调用countDown⽅法 说明：线程执⾏代码注意catch异常，确保countDown⽅法被执⾏到，避免主线程⽆法执⾏⾄await⽅法，直到 超时才返回结果。注意，⼦线程抛出异常堆栈，不能在主线程try-catch到。",
+      "level": "推荐",
+      "code": "J000024",
+      "examples": []
+    },
+    {
+      "id": "J000025",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "避免Random实例被多线程使⽤",
+      "content": "说明：虽然共享该实例是线程安全的，但会因竞争同⼀seed 导致的性能下降。其中Random实例包括java.util. Random 的实例或者 Math.random()的⽅式。 在JDK7之后，可以直接使⽤API ThreadLocalRandom，⽽在 JDK7之前，需要编码保证每个线程持有⼀",
+      "level": "推荐",
+      "code": "J000025",
+      "examples": []
+    },
+    {
+      "id": "J000026",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "在并发场景下，双重检查锁（double-checked locking）实",
+      "content": "现延迟初始化的隐患可以通过将⽬标属性声明为volatile型来解决 在并发编程⾥，有时我们希望实现延迟初始化，也就是在对象真正被使⽤时才进行初始化，以此来提升性能和 节省资源。双重检查锁（Double - Checked Locking）就是为了实现延迟初始化，同时确保在多线程环境下只",
+      "level": "强制",
+      "code": "J000026",
+      "examples": []
+    },
+    {
+      "id": "J000027",
+      "category": "Java编码规范",
+      "subcategory": "并发处理",
+      "title": "volatile 可以解决多线程内存不可⻅问题，但⽆法解决线程",
+      "content": "安全问题 在多线程编程⾥， 关键字能解决内存可⻅性的问题。当程序处于 “⼀写多读” 的情况时，也就是只有",
+      "level": "推荐",
+      "code": "J000027",
+      "examples": []
+    },
+    {
+      "id": "J000028",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "在⼀个 switch 块内，每个 case 要么通过 continue/break",
+      "content": "/return 等来终⽌，要么注释说明程序将继续执⾏到哪⼀个 case 为⽌；在⼀个 switch 块 内，都必须包含⼀个default 语句并且放在最后，即使它什么代码也没有 说明：注意 break 是退出 switch 语句块，⽽ return 是退出⽅法体。",
+      "level": "强制",
+      "code": "J000028",
+      "examples": []
+    },
+    {
+      "id": "J000029",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "当 switch 括号内的变量类型为 String 并且此变量为外部参数",
+      "content": "时，必须先进行 null判断",
+      "level": "强制",
+      "code": "J000029",
+      "examples": []
+    },
+    {
+      "id": "J000030",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "在 if/else/for/while/do 语句中必须使⽤⼤括号",
+      "content": "说明：即使只有⼀⾏代码，避免采⽤单⾏的编码⽅式：if (condition) statements;",
+      "level": "强制",
+      "code": "J000030",
+      "examples": []
+    },
+    {
+      "id": "J000031",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "在⾼并发场景中，避免使⽤\"等于\"判断作为中断或退出的条",
+      "content": "件 说明：如果并发控制没有处理好，容易产⽣等值判断被“击穿”的情况，使⽤⼤于或⼩于的区间判断条件来代 替。",
+      "level": "强制",
+      "code": "J000031",
+      "examples": []
+    },
+    {
+      "id": "J000032",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "如果⼀个包含⼆元运算符的表达式出现在三元运算符\" ? :",
+      "content": "\"的\"?\"之前，那么应该给表达式添上⼀对圆括号",
+      "level": "强制",
+      "code": "J000032",
+      "examples": []
+    },
+    {
+      "id": "J000033",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "若⼀个查询⽅法查询的记录数为0时，不要返回null，⽽是返",
+      "content": "回⼀个空的List",
+      "level": "推荐",
+      "code": "J000033",
+      "examples": []
+    },
+    {
+      "id": "J000034",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "表达异常的分⽀时，少⽤ if-else ⽅式，如果⾮要使⽤，请勿",
+      "content": "超过3层 if-else 的这种⽅式可以改写成： if (condition) {",
+      "level": "推荐",
+      "code": "J000034",
+      "examples": []
+    },
+    {
+      "id": "J000035",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "不要在条件判断中执⾏复杂语句，将复杂逻辑判断的结果赋",
+      "content": "值给⼀个有意义的布尔变量名，以提⾼可读性 说明：很多 if 语句内的逻辑表达式相当复杂，与、或、取反混合运算，甚⾄各种⽅法纵深调用，理解成本⾮ 常⾼。如果赋值⼀个⾮常好理解的布尔变量名字，则是件令⼈爽⼼悦⽬的事情。",
+      "level": "推荐",
+      "code": "J000035",
+      "examples": []
+    },
+    {
+      "id": "J000036",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "不要在其它表达式中插⼊赋值语句，赋值语句要清晰地单独 为⼀⾏",
+      "content": "说明：赋值点类似于⼈体的⽳位，对于代码的理解⾄关重要，所以赋值语句需要清晰地单独成为⼀⾏。",
+      "level": "推荐",
+      "code": "J000036",
+      "examples": []
+    },
+    {
+      "id": "J000037",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "循环体中的语句要考量性能",
+      "content": "以下操作尽量移⾄循环体外处理，如定义对象、变量、获取数据库连接，以及不必要的 try-catch 操作。",
+      "level": "推荐",
+      "code": "J000037",
+      "examples": []
+    },
+    {
+      "id": "J000038",
+      "category": "Java编码规范",
+      "subcategory": "控制语句",
+      "title": "避免采⽤取反逻辑运算符",
+      "content": "说明：取反逻辑不利于快速理解，并且取反逻辑写法必然存在对应的正向逻辑写法。",
+      "level": "推荐",
+      "code": "J000038",
+      "examples": []
+    },
+    {
+      "id": "J000039",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "Java 类库中定义的可以通过预检查⽅式规避的",
+      "content": "RuntimeException 异常不应该通过 catch 的⽅式来处理，⽐如： NullPointerException，IndexOutOfBoundsException 等 说明：⽆法通过预检查的异常除外，⽐如，在解析字符串形式的数字时，可能存在数字格式错误，不得不通",
+      "level": "强制",
+      "code": "J000039",
+      "examples": []
+    },
+    {
+      "id": "J000040",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "异常不要⽤来做流程控制和条件控制",
+      "content": "说明：异常设计的初衷是解决程序运⾏中的各种意外情况。异常处理涉及到创建异常对象、栈回溯等操作，这 些操作会消耗⼤量的系统资源和时间。⽽条件判断只是简单地对条件进行评估，根据评估结果执⾏相应的代码 块，执⾏效率更⾼。",
+      "level": "强制",
+      "code": "J000040",
+      "examples": []
+    },
+    {
+      "id": "J000041",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "catch 时请分清稳定代码和⾮稳定代码，稳定代码指的是⽆论",
+      "content": "如何不会出错的代码。对于⾮稳定代码的 catch 尽可能进行区分异常类型，再做对应的 异常处理 说明：对⼤段代码进行 try-catch，使程序⽆法根据不同的异常做出正确的应激反应，也不利于定位问题，这",
+      "level": "强制",
+      "code": "J000041",
+      "examples": []
+    },
+    {
+      "id": "J000042",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "捕获异常是为了处理它，不要捕获了却什么都不处理⽽抛弃",
+      "content": "之，如果不想处理它，请将该异常抛给它的调用者。最外层的业务使⽤者，必须处理异 常，将其转化为⽤户可以理解的内容",
+      "level": "强制",
+      "code": "J000042",
+      "examples": []
+    },
+    {
+      "id": "J000043",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "finally 块必须对资源对象、流对象进行关闭，有异常也要做",
+      "content": "try-catch 此规范有必考题。 故障警示! 严重生产故障：",
+      "level": "强制",
+      "code": "J000043",
+      "examples": []
+    },
+    {
+      "id": "J000044",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "不要在 finally 块中使⽤ return",
+      "content": "说明：try 块中的 return 语句执⾏成功后，并不⻢上返回，⽽是继续执⾏ finally 块中的语句，如果此处存在 return 语句，则在此直接返回，⽆情丢弃掉 try 块中的返回点。",
+      "level": "强制",
+      "code": "J000044",
+      "examples": []
+    },
+    {
+      "id": "J000045",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "在JDK9以上，使⽤try-with-resources语句时，⽆需在try语句",
+      "content": "中声明新变量，直接使⽤已有资源变量即可",
+      "level": "推荐",
+      "code": "J000045",
+      "examples": []
+    },
+    {
+      "id": "J000046",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "抛异常与捕获异常，必须是完全匹配，或者捕获异常是抛异",
+      "content": "常的⽗类",
+      "level": "强制",
+      "code": "J000046",
+      "examples": []
+    },
+    {
+      "id": "J000047",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "防⽌ NPE ，是程序员的基本修养，注意 NPE 产⽣的场景",
+      "content": "1） 返回类型为基本数据类型，return 包装数据类型的对象时，⾃动拆箱有可能产⽣ NPE。 public int f() { return Integer 对象}， 如果为 null，⾃动解箱抛 NPE。",
+      "level": "推荐",
+      "code": "J000047",
+      "examples": []
+    },
+    {
+      "id": "J000048",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "定义时区分 unchecked / checked 异常，避免直接抛出",
+      "content": "new RuntimeException() ，更不允许抛出 Exception 或者 Throwable，应使⽤有业务含 义的⾃定义异常 说明 ：异常可分为受检查异常（checked exception）和不受检查异常（unchecked exception）。受检查异",
+      "level": "推荐",
+      "code": "J000048",
+      "examples": []
+    },
+    {
+      "id": "J000049",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "对于公司外的 http/api 开放接口必须使⽤“错误码”；⽽应⽤",
+      "content": "内部推荐异常抛出；跨应⽤间 RPC 调用优先考虑使⽤ Result ⽅式，封装 isSuccess()⽅ 法、“错误码”、“错误简短信息” 说明：关于 RPC ⽅法返回⽅式使⽤ Result ⽅式的理由：",
+      "level": "推荐",
+      "code": "J000049",
+      "examples": []
+    },
+    {
+      "id": "J000050",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "遵循 DRY（Don't Repeat Yourself）原则，避免出现重复的",
+      "content": "代码 说明：随意复制和粘贴代码，必然会导致代码的重复，在以后需要修改时，需要修改所有的副本，容易遗漏。 必要时抽取共性⽅法，或者抽象公共类，甚⾄是组件化。",
+      "level": "推荐",
+      "code": "J000050",
+      "examples": []
+    },
+    {
+      "id": "J000051",
+      "category": "Java编码规范",
+      "subcategory": "异常处理",
+      "title": "应避免在静态块（static block）中执⾏复杂逻辑，并妥善处",
+      "content": "理静态块内代码在执⾏时可能出现的异常，避免因未捕获的异常导致类加载失败，产⽣ NoClassDefFoundError 错误。例如：静态块中打开资源（如⽂件、网络连接等），确 保即使在发⽣异常时也能正确进行异常处理和资源关闭",
+      "level": "强制",
+      "code": "J000051",
+      "examples": []
+    },
+    {
+      "id": "J000052",
+      "category": "Java编码规范",
+      "subcategory": "资源管理",
+      "title": "使⽤ HttpClient 时必须显式关闭响应资源，确保连接归还⾄",
+      "content": "连接池 此规范有必考题。 故障警示! 本规范制定源自严重生产故障（单号：3787588）。",
+      "level": "强制",
+      "code": "J000052",
+      "examples": []
+    },
+    {
+      "id": "J000053",
+      "category": "Java编码规范",
+      "subcategory": "日志规约",
+      "title": "在⽇志输出时，字符串变量之间的拼接使⽤占位符的⽅式",
+      "content": "浩鲸云计算科技股份有限公司 版权所有 第 46/121 ⻚ 浩鲸云计算科技股份有限公司",
+      "level": "强制",
+      "code": "J000053",
+      "examples": []
+    },
+    {
+      "id": "J000054",
+      "category": "Java编码规范",
+      "subcategory": "日志规约",
+      "title": "对于 trace / debug / info / warn 级别的⽇志输出，如果⽇志",
+      "content": "输出⽅法的⼊参存在⽅法调用，外部必须进行⽇志级别的开关判断 # 故障警示! 严重生产故障：3794409。某项⽬在打印⽇志时，使⽤ logger.debug(\"getOfferById2 offerDto = [{}]\", offerDto.toString()); 的⽅式打印⽇志，这种情况即便⽇志级别不是DEBUG，也会执⾏",
+      "level": "强制",
+      "code": "J000054",
+      "examples": []
+    },
+    {
+      "id": "J000055",
+      "category": "Java编码规范",
+      "subcategory": "日志规约",
+      "title": "避免重复打印⽇志，浪费磁盘空间，务必在 log4j.xml或者",
+      "content": "logback.xml 中设置 additivity = false 说明 ：在使⽤ 或",
+      "level": "强制",
+      "code": "J000055",
+      "examples": []
+    },
+    {
+      "id": "J000056",
+      "category": "Java编码规范",
+      "subcategory": "日志规约",
+      "title": "异常信息应该包括两类信息：案发现场信息和异常堆栈信",
+      "content": "息。如果不处理，那么通过关键字 throws 往上抛出",
+      "level": "强制",
+      "code": "J000056",
+      "examples": []
+    },
+    {
+      "id": "J000057",
+      "category": "Java编码规范",
+      "subcategory": "日志规约",
+      "title": "国际化团队或海外部署的服务器由于字符集问题，使⽤全英",
+      "content": "⽂来注释和描述⽇志错误信息",
+      "level": "强制",
+      "code": "J000057",
+      "examples": []
+    },
+    {
+      "id": "J000058",
+      "category": "Java编码规范",
+      "subcategory": "日志规约",
+      "title": "谨慎地记录⽇志。⽣产环境禁⽌输出 debug ⽇志 ； 有选择",
+      "content": "地输出 info ⽇志 ； 如果使⽤ warn 来记录刚上线时的业务⾏为信息，⼀定要注意⽇志 输出量的问题，避免把服务器磁盘撑爆，并记得及时删除这些观察⽇志 说明：⼤量地输出⽆效⽇志，不利于系统性能提升，也不利于快速定位错误点。记录⽇志时请思考：这些⽇志",
+      "level": "强制",
+      "code": "J000058",
+      "examples": []
+    },
+    {
+      "id": "J000059",
+      "category": "Java编码规范",
+      "subcategory": "日志规约",
+      "title": "可以使⽤ warn ⽇志级别来记录⽤户输⼊参数错误的情况，避",
+      "content": "免⽤户投诉时，⽆所适从。如⾮必要，请不要在此场景打出 error 级别，避免频繁报警 说明：注意⽇志输出的级别，error 级别只记录系统逻辑出错、异常或者重要的错误信息。",
+      "level": "推荐",
+      "code": "J000059",
+      "examples": []
+    },
+    {
+      "id": "J000060",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "Long 或 long 类型变量赋值时，数值后使⽤⼤写 L，不能是",
+      "content": "⼩写 l ，⼩写容易跟数字混淆，造成误解",
+      "level": "推荐",
+      "code": "J000060",
+      "examples": []
+    },
+    {
+      "id": "J000061",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "注意 Math.random() 这个⽅法返回是 double 类型，取值范",
+      "content": "围 0≤ x <1 （ 能够取到零值，注意除零异常 ） ，如果想获取整数类型的随机数，不要 将 x 放⼤ 10 的若⼲倍然后取整，直接使⽤ Random 对象的 nextInt 值 或者nextLong⽅ 法",
+      "level": "强制",
+      "code": "J000061",
+      "examples": []
+    },
+    {
+      "id": "J000062",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "获取当前毫秒数⽤System.currentTimeMillis(); ⽽不是 new",
+      "content": "Date().getTime() 说明：查看 的源码可知，",
+      "level": "推荐",
+      "code": "J000062",
+      "examples": []
+    },
+    {
+      "id": "J000063",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "⽇期格式化时，传⼊ pattern 中表示年份统⼀使⽤⼩写的 y",
+      "content": "说明：⽇期格式化时， yyyy 表示当天所在的年，⽽⼤写的 YYYY 代表是 week in which year（JDK7 之后引 ⼊的概念），意思是当天所在的周属于的年份，⼀周从周⽇开始，周六结束，只要本周跨年，返回的 YYYY 就是下⼀年。另外需要注意：",
+      "level": "强制",
+      "code": "J000063",
+      "examples": []
+    },
+    {
+      "id": "J000064",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "严格把控类成员变量和⽅法的访问控制",
+      "content": "类成员与⽅法访问控制从严，若没有⾜够理由，不要把实例或类变量声明为公有。通常，实例变量⽆需显式的 设置(set)或获取(gotten)，通常这作为⽅法调用的边缘效应(side effect)⽽产⽣。 ⼀个具有公有实例变量的恰当例⼦，是类仅作为数据结构，没有⾏为。",
+      "level": "强制",
+      "code": "J000064",
+      "examples": []
+    },
+    {
+      "id": "J000065",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "规范 for 循环中计数器常量的使⽤ 在",
+      "content": "循环中充当计数器值的数字常量，除了 -1、0 和 1 这三个特殊数字之外，禁⽌直接写在代码⾥。这是 for 因为直接将常量硬编码在代码中，会使代码变得难以理解和维护。⼀旦需求发⽣变化，需要修改这个常量值",
+      "level": "强制",
+      "code": "J000065",
+      "examples": []
+    },
+    {
+      "id": "J000066",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免在⼀个语句中给多个变量赋值",
+      "content": "因为这样很难读懂。例如： fooBar.fChar = barFoo.Ichar = 'c'; //避免这样！ 不要使⽤内嵌(embedded)赋值运算符试图提⾼运⾏时的效率，这是编译器的⼯作。例如：",
+      "level": "强制",
+      "code": "J000066",
+      "examples": []
+    },
+    {
+      "id": "J000067",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "在含有多种运算符的表达式中使⽤圆括号来明确逻辑边界",
+      "content": "⼀般⽽⾔，在含有多种运算符的表达式中使⽤圆括号来避免运算符优先级问题，是个好⽅法。即使运算符的优 先级对你⽽⾔可能很清楚，但对其他⼈未必如此。你不能假设别的程序员和你⼀样清楚运算符的优先级。 if (a == b && c == d) //避免这样！",
+      "level": "推荐",
+      "code": "J000067",
+      "examples": []
+    },
+    {
+      "id": "J000068",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "将反复使⽤的字符串、数字等定义成常量 对于⼀些所有模块都共⽤的字符串，定义到公共常量类中去。 对于模块内共⽤的⼀些字符串，定义到模块内部常量类⾥⾯去。",
+      "content": "不要使⽤⼀个常量类维护所有常量，要按常量功能进行归类，分开维护。 浩鲸云计算科技股份有限公司 版权所有 第 54/121 ⻚",
+      "level": "推荐",
+      "code": "J000068",
+      "examples": []
+    },
+    {
+      "id": "J000069",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "尽量通过接口引⽤对象",
+      "content": "优先使⽤接口⽽不是类来引⽤对象。如果有合适的接口类型存在，那么对于参数、返回值、变量和域来说，都 应该使⽤接口类型进行声明。 例如：",
+      "level": "强制",
+      "code": "J000069",
+      "examples": []
+    },
+    {
+      "id": "J000070",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "不使⽤float和double进行精确数值计算",
+      "content": "float和double只能进行 的 的计算，并不能提供",
+      "level": "强制",
+      "code": "J000070",
+      "examples": []
+    },
+    {
+      "id": "J000071",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "尽量避免在循环体内进行try/catch",
+      "content": "说明 ： 块⽤于捕获和处理异常。然⽽，将 块放置在循环体内可能会带来⼀些性能和代码",
+      "level": "推荐",
+      "code": "J000071",
+      "examples": []
+    },
+    {
+      "id": "J000072",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "Object的equals⽅法容易抛空指针异常，应使⽤常量或确定",
+      "content": "有值的对象来调用equals",
+      "level": "强制",
+      "code": "J000072",
+      "examples": []
+    },
+    {
+      "id": "J000073",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "调用String.subString()时先进行⻓度判断 为了避免在调用",
+      "content": "⽅法时因传⼊的索引参数超出字符串⻓度范围⽽引发 String.substring() IndexOutOfBoundsExc",
+      "level": "强制",
+      "code": "J000073",
+      "examples": []
+    },
+    {
+      "id": "J000074",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "将数据库表数值类型对应的属性定义成Long类型",
+      "content": "浩鲸云计算科技股份有限公司 版权所有 第 58/121 ⻚ 浩鲸云计算科技股份有限公司",
+      "level": "强制",
+      "code": "J000074",
+      "examples": []
+    },
+    {
+      "id": "J000075",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "不要使⽤MD2、MD4、MD5算法来加密敏感数据",
+      "content": "由于MD2、MD4、MD5已被认为是不安全的hash算法，因此应禁⽌使⽤它们。建议使⽤SHA256来对密码进 ⾏hash处理。 对于⾮加密的场景，例如仅⽤于后台使⽤、构造hash环，可以例外处理。",
+      "level": "强制",
+      "code": "J000075",
+      "examples": []
+    },
+    {
+      "id": "J000076",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "优先使⽤ Spring 封装的 RestTemplate 进行 HTTP 请求",
+      "content": "说明 ：在进行 HTTP 请求时，原⽣的 HTTP 客户端 API（如 Apache HttpClient 等）虽然功能强⼤，但使⽤起 来较为复杂，需要开发者⼿动处理很多细节，例如连接管理、超时设置、异常处理等。如果处理不当，可能会 导致⼀些潜在的问题，像未设置超时时间会使线程⻓时间阻塞，在⾼并发场景下可能耗尽系统资源，影响系统",
+      "level": "强制",
+      "code": "J000076",
+      "examples": []
+    },
+    {
+      "id": "J00007601",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "RestTemplate和HttpClient等重量级网络通信对象必须作为单例复用，禁⽌在每次接口调用中新建实例",
+      "content": "故障警示! 本规范制定源自严重生产故障（单号：3797349）。 在3797349故障案例中，代码每次接口调用都创建了新的 对象和底层的",
+      "level": "强制",
+      "code": "J00007601",
+      "examples": []
+    },
+    {
+      "id": "J000077",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "内存数据库的事务应当优先提交",
+      "content": "当在⼀个全局事务中有访问多数据库的业务需要时，内存数据库的DML操作应当被放在事务的最后。同时， 在最终事务提交(commit)时内存数据库连接应当被优先处理，以此来保证避免产⽣内存数据库⻓事务。(常⻅ 内存数据库如：Timesten、QMDB等)",
+      "level": "强制",
+      "code": "J000077",
+      "examples": []
+    },
+    {
+      "id": "J000078",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "谨慎处理⽤户输⼊信息，防⽌SQL注⼊，禁⽌通过字符串拼",
+      "content": "接的⽅式⽣成SQL 说明 ：在开发过程中，若直接使⽤⽤户输⼊的数据来构造 SQL 语句，可能会遭受 SQL 注⼊攻击。攻击者可 以通过精⼼构造输⼊内容，改变 SQL 语句的原有逻辑，从⽽执⾏⾮法操作，如获取敏感数据、修改数据库内",
+      "level": "强制",
+      "code": "J000078",
+      "examples": []
+    },
+    {
+      "id": "J000079",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "不能将静态变量赋值给局部变量",
+      "content": "说明 ：静态变量是被 关键字修饰的成员变量，它属于类本身，在整个进程的⽣命周期内存在，并且在 static",
+      "level": "强制",
+      "code": "J000079",
+      "examples": []
+    },
+    {
+      "id": "J000080",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "所有的覆写⽅法，必须加@Override注解",
+      "content": "说明：getObject()与get0bject()的问题。⼀个是字⺟的O，⼀个是数字的0，加@Override可以准确判断是否覆 盖成功。另外，如果在抽象类中对⽅法签名进行修改，其实现类会⻢上编译报错。",
+      "level": "强制",
+      "code": "J000080",
+      "examples": []
+    },
+    {
+      "id": "J000081",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "相同参数类型，相同业务含义，才可以使⽤Java的可变参",
+      "content": "数，避免使⽤Object 说明：Java 的可变参数是 JDK 5 引⼊的⼀项特性，它允许⽅法接受可变数量的参数。不过，使⽤可变参数时 要遵循⼀定规则，以保证代码的可读性、可维护性和正确性。",
+      "level": "强制",
+      "code": "J000081",
+      "examples": []
+    },
+    {
+      "id": "J000082",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "外部正在调用或者作为⼆⽅库依赖的接口，不允许直接修改",
+      "content": "⽅法签名，避免对接口调用⽅产⽣影响。接口过时必须加@Deprecated注解，并清晰地 说明采⽤的新接口或者新服务是什么 说明 ：当接口被外部系统调用或者作为⼆⽅库被依赖时，接口的稳定性⾄关重要。接口的⽅法签名（包括⽅",
+      "level": "强制",
+      "code": "J000082",
+      "examples": []
+    },
+    {
+      "id": "J000083",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "不能使⽤过时的类或⽅法",
+      "content": "说明：接口提供⽅既然明确是过时接口，那么也有义务同时提供新的接口；作为调用⽅来说，有义务去考证过 时⽅法的新实现是什么。",
+      "level": "强制",
+      "code": "J000083",
+      "examples": []
+    },
+    {
+      "id": "J000084",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "浮点数之间的等值判断，基本数据类型不能⽤==来⽐较，包",
+      "content": "装数据类型不能⽤equals 来判断 说明：浮点数采⽤“尾数+阶码”的编码⽅式，类似于科学计数法的“有效数字+指数”的表示⽅式。⼆进制⽆法精 确表示⼤部分的⼗进制⼩数，具体原理参考《码出⾼效》",
+      "level": "强制",
+      "code": "J000084",
+      "examples": []
+    },
+    {
+      "id": "J000085",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "所有的相同类型的包装类对象之间值的⽐较，全部使⽤",
+      "content": "equals⽅法⽐较 (浮点数的包装类除外) 说明：对于Integer var = ? 在-128⾄127范围内的赋值，Integer对象是在IntegerCache.cache产⽣，会复用已 有对象，这个区间内的Integer值可以直接使⽤==进行判断，但是这个区间之外的所有数据，都会在堆上产",
+      "level": "强制",
+      "code": "J000085",
+      "examples": []
+    },
+    {
+      "id": "J000086",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "为了防⽌精度损失，禁⽌使⽤构造⽅法 BigDecimal(double) 的⽅式把 double 值转化为 BigDecimal 对象",
+      "content": "说明：BigDecimal(double)存在精度损失⻛险，在精确计算或值⽐较的场景中可能会导致业务逻辑异常。如： BigDecimal g = new BigDecimal(0.1f); 实际的存储值为：0.10000000149 优先推荐⼊参为 String 的构造⽅法，或使⽤ BigDecimal 的 valueOf ⽅法，此⽅法内部其实执⾏了Double 的",
+      "level": "强制",
+      "code": "J000086",
+      "examples": []
+    },
+    {
+      "id": "J000087",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "明确基本数据类型与包装数据类型的使⽤标准",
+      "content": "1） 【强制】所有的POJO类属性必须使⽤包装数据类型。 2） 【强制】RPC⽅法的返回值和参数必须使⽤包装数据类型。 3） 【推荐】所有的局部变量使⽤基本数据类型。",
+      "level": "强制",
+      "code": "J000087",
+      "examples": []
+    },
+    {
+      "id": "J000088",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "定义DO/DTO/VO等POJO类时，不要设定任何属性默认值",
+      "content": "说明 ：DO（Data Object，数据对象）、DTO（Data Transfer Object，数据传输对象）、VO（View Object，视图对象）等 POJO（Plain Old Java Object）类主要⽤于数据的存储和传输。为这些类的属性设定 默认值可能会带来潜在的⻛险和问题。当属性被赋予默认值后，在数据处理过程中，可能会掩盖数据未被正确",
+      "level": "强制",
+      "code": "J000088",
+      "examples": []
+    },
+    {
+      "id": "J000089",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "合理处理序列化类中 serialVersionUID 字段的修改",
+      "content": "说明 ：当⼀个类实现了 接口后， ⽤于确保在反序列化过程中，序列化和反序列",
+      "level": "强制",
+      "code": "J000089",
+      "examples": []
+    },
+    {
+      "id": "J000090",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "POJO类必须实现 toString ⽅法",
+      "content": "说明 ：POJO（Plain Old Java Object）类主要⽤于存储和传输数据。当程序运⾏过程中出现异常时，为了能 够快速定位问题，需要清晰了解相关对象的属性值。⽽ ⽅法可以将对象的属性信息以字符串的形式",
+      "level": "强制",
+      "code": "J000090",
+      "examples": []
+    },
+    {
+      "id": "J000091",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "禁⽌在 POJO 类中，同时存在对应属性 xxx 的 isXxx()和",
+      "content": "getXxx()⽅法 说明 ：在 POJO（Plain Old Java Object）类中，通常使⽤ getter ⽅法来获取对象属性的值。对于布尔类型 的属性，习惯上使⽤",
+      "level": "强制",
+      "code": "J000091",
+      "examples": []
+    },
+    {
+      "id": "J000092",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "final 可以声明类、成员变量、⽅法、以及本地变量，下列情",
+      "content": "况使⽤final关键字 1） 不允许被继承的类，如：String类。 2） 不允许修改引⽤的域对象，如：POJO类的域变量。",
+      "level": "推荐",
+      "code": "J000092",
+      "examples": []
+    },
+    {
+      "id": "J000093",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "在JDK17以上，使⽤封闭类（Sealed Classes）来限制类的",
+      "content": "继承，提⾼代码的安全性和可维护性",
+      "level": "推荐",
+      "code": "J000093",
+      "examples": []
+    },
+    {
+      "id": "J000094",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "谨慎使⽤ Object 的 clone ⽅法进行对象拷⻉",
+      "content": "说明 ： 类提供了 ⽅法⽤于创建对象的副本。然⽽，",
+      "level": "强制",
+      "code": "J000094",
+      "examples": []
+    },
+    {
+      "id": "J000095",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "优先使⽤封装的 Logger 输出信息，避免使⽤ System.out 和 printStackTrace",
+      "content": "说明 ： 主要⽤于将信息输出到标准输出流，通常是控制台。⽽ 是",
+      "level": "强制",
+      "code": "J000095",
+      "examples": []
+    },
+    {
+      "id": "J000096",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免空的 try/catch/finally 语句块",
+      "content": "说明：try/catch/finally 语句块是⽤于处理异常的重要机制。然⽽，空的 语句块不仅违背了异 try/catch/finally",
+      "level": "强制",
+      "code": "J000096",
+      "examples": []
+    },
+    {
+      "id": "J000097",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免定义未使⽤的局部变量、参数和私有⽅法",
+      "content": "如果不是特殊原因，不要定义从未使⽤的局部变量、参数、私有⽅法。如果以后可能会使⽤到，可以先注释 掉，并加以说明。",
+      "level": "强制",
+      "code": "J000097",
+      "examples": []
+    },
+    {
+      "id": "J000098",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免使⽤ \"==\" 或 \"!=\" 进行字符串⽐较",
+      "content": "⾮常常⻅的低级错误，特别是在同时写JavaScript和Java时，很容易犯这个错误。",
+      "level": "强制",
+      "code": "J000098",
+      "examples": []
+    },
+    {
+      "id": "J000099",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免在条件判断表达式⾥⾯使⽤ \"=\" 进行相等⽐较",
+      "content": "说明 ：在 Java 中，条件判断表达式（如 、 等语句中的条件部分）通常需要使⽤⽐较运算符（如",
+      "level": "强制",
+      "code": "J000099",
+      "examples": []
+    },
+    {
+      "id": "J000100",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "谨慎调用静态的Calendar、DateFormat",
+      "content": "以SimpleDateFormat为例，代码经常创建⼀个静态全局的SimpleDateFormat实例供所有线程使⽤它的format ⽅法，⽽实际上SimpleDataFormat的format⽅法是⾮线程安全的，这样使⽤会出现问题。除 SimpleDateFormat类外，还有不少 XXXFormat类、XXXCalendar类等对应⽅法都是⾮线程安全的。",
+      "level": "强制",
+      "code": "J000100",
+      "examples": []
+    },
+    {
+      "id": "J000101",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "在类型转换前进行数据类型检测",
+      "content": "说明： 类型转换是将⼀个数据类型转换为另⼀个数据类型的操作。当进行类型转换时，如果不事先检测⽬标 数据类型，可能会导致运⾏时异常，如 。通过使⽤",
+      "level": "强制",
+      "code": "J000101",
+      "examples": []
+    },
+    {
+      "id": "J000102",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "谨慎处理数据类型转换导致溢出或者损失精度",
+      "content": "浩鲸云计算科技股份有限公司 版权所有 第 79/121 ⻚ 浩鲸云计算科技股份有限公司",
+      "level": "强制",
+      "code": "J000102",
+      "examples": []
+    },
+    {
+      "id": "J000103",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "使⽤ System.getProperty(\"line.separator\") 写⼊换⾏符",
+      "content": "说明： 在⽂件写⼊操作时，常常需要插⼊换⾏符来格式化⽂本内容。不同的操作系统使⽤不同的换⾏符表 示：在 Linux/Unix 以及部分新版本的 Mac OS 系统中，换⾏符是 ；在旧版本的 Mac OS 系统中，换⾏符",
+      "level": "强制",
+      "code": "J000103",
+      "examples": []
+    },
+    {
+      "id": "J000104",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "禁⽌内外层循环使⽤相同的遍历变量",
+      "content": "说明： 为了确保代码的正确性和可读性，在编写嵌套循环时，每个循环都应该使⽤独⽴的遍历变量，使得各 个循环的逻辑清晰独⽴，互不⼲扰。",
+      "level": "强制",
+      "code": "J000104",
+      "examples": []
+    },
+    {
+      "id": "J000105",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免变量在使⽤前被另⼀个赋值覆盖",
+      "content": "此项检查指出了变量值在赋值后从不使⽤的情况，即： 变量在赋值后从不被读取 值总是在下⼀个变量读取前被另⼀个赋值覆盖",
+      "level": "强制",
+      "code": "J000105",
+      "examples": []
+    },
+    {
+      "id": "J000106",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "禁⽌使⽤字符串或者数字运算的⽅式处理⽇期 对⽇期的处理应当使⽤成熟的⼯具包，例如 java.util.Calendar ,org.apache.commons.lang3.time.DateUtils , 禁⽌使⽤⾃定义算法，避免由于没有充分考虑夏令时或者闰年因素导致的问题。",
+      "content": "例如：因为2000年是闰年，所以2000/02/29是⼀个合法的⽇期，如果增加⼀年，通过年份增加再拼接的⽅式 会得到 2001/02/29，这是⼀个⾮法的⽇期，在某些场景下会导致解析失败。",
+      "level": "强制",
+      "code": "J000106",
+      "examples": []
+    },
+    {
+      "id": "J001061",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免使⽤已经过时的技术或者组件",
+      "content": "故障警示! 严重生产故障： 某项⽬为实现图像缩放功能，引⼊已过时的 AWT（Abstract 3790344",
+      "level": "推荐",
+      "code": "J001061",
+      "examples": []
+    },
+    {
+      "id": "J000107",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "尽早释放⽆⽤对象的引⽤",
+      "content": "⼀般情况下都是让对象在退出活动域（scope）后⾃动设置成null被回收，但对⼀些复杂的对象，例如数组、 队列、树等，可能存在较为复杂的引⽤关系，GC回收效率⼀般较低，尽早将其赋值为null可以加速内存回收。",
+      "level": "推荐",
+      "code": "J000107",
+      "examples": []
+    },
+    {
+      "id": "J000108",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免使⽤ System.gc() 强制进行内存回收",
+      "content": "说明 ： ⽅法的作⽤是建议 JVM 进行⼀次垃圾回收操作，但这仅仅是⼀个建议，JVM 并不⼀定会 System.gc()",
+      "level": "强制",
+      "code": "J000108",
+      "examples": []
+    },
+    {
+      "id": "J000109",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "尽量避免在类的构造器中创建、初始化⼤量对象",
+      "content": "主要是为了避免在调用其⼦类的构造器时造成不必要的内存消耗。应尽量将对象的创建和初始化操作推迟到真 正需要使⽤这些对象的时候进行，遵循 “延迟初始化” 的原则，这样可以有效减少内存的浪费，提⾼系统的性 能。",
+      "level": "强制",
+      "code": "J000109",
+      "examples": []
+    },
+    {
+      "id": "J000110",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "JDBC结果集⼤⼩应当加以限制",
+      "content": "此规范有必考题。 故障警示! 严重生产故障： 。某项⽬应⽤⼀次性加载了超400万的结果集，引发了OOM，导",
+      "level": "强制",
+      "code": "J000110",
+      "examples": []
+    },
+    {
+      "id": "J000111",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免将过⼤的⽂件⼀次性加载到内存中",
+      "content": "此规范有必考题。 故障警示! 严重生产故障： 。某项⽬应⽤因为处理⼤⽂件时，将整个⽂件读取到内存中的",
+      "level": "强制",
+      "code": "J000111",
+      "examples": []
+    },
+    {
+      "id": "J000112",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "确保 SQL 拼装时查询条件有效性，避免⼤表扫描",
+      "content": "此规范有必考题。 故障警示! 严重生产故障：3544304、31154605。国际与国内项⽬均出现过因 SQL 拼装时查询条件 处理不当，致使全表扫描、慢 SQL，甚⾄内存溢出的严重生产故障，虽实现机制有所差异，但故障现象",
+      "level": "强制",
+      "code": "J000112",
+      "examples": []
+    },
+    {
+      "id": "J000113",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "任何数据结构的构造或初始化，都应指定⼤⼩，避免数据结",
+      "content": "构⽆限增⻓吃光内存 说明：许多数据结构（如 、",
+      "level": "推荐",
+      "code": "J000113",
+      "examples": []
+    },
+    {
+      "id": "J100114",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "涉及多线程并发读写的场景，必须选⽤线程安全的集合类 在多线程环境（存在并发读写）的场景下，必须使⽤线程安全的集合类或基础组件，以确保数据的原⼦性、可",
+      "content": "⻅性和正确性。 线程安全的集合类： 早期同步类",
+      "level": "强制",
+      "code": "J100114",
+      "examples": []
+    },
+    {
+      "id": "J200114",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "不涉及多线程同步问题时，尽量选⽤⾮线程安全的集合类",
+      "content": "不涉及多线程同步问题时，使⽤⾮线程安全的集合类，可以规避不必要的加锁开销，具有更好的性能。 ⾮线程安全的集合类： List ：",
+      "level": "推荐",
+      "code": "J200114",
+      "examples": []
+    },
+    {
+      "id": "J000115",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "合理选择 ArrayList 和 LinkedList 在列表中进行随机查找，使⽤ArrayList速度更快；在列表任意位置进行插⼊、删除，使⽤LinkedList速度更",
+      "content": "快。 优先使⽤ArrayList，然后再考虑使⽤LinkedList。但如果预先可以知道数据⼤⼩，则尽量使⽤数组。",
+      "level": "推荐",
+      "code": "J000115",
+      "examples": []
+    },
+    {
+      "id": "J000116",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "为 ArrayList 设置初始化容量",
+      "content": "说明 ： 是⼀个动态数组，它可以根据需要⾃动调整⼤⼩。当向 中添加元素时，如果当前",
+      "level": "推荐",
+      "code": "J000116",
+      "examples": []
+    },
+    {
+      "id": "J000117",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "集合初始化时，指定集合初始值⼤⼩",
+      "content": "说明 ：HashMap 使⽤ HashMap(int initialCapacity) 初始化, Arraylist使⽤ensureCapacity()⽅法设置ArrayList 的容量,在处理已知容量的较⼤数组时可以避免ArrayList⾃动扩容带来的性能消耗。 浩鲸云计算科技股份有限公司 版权所有",
+      "level": "推荐",
+      "code": "J000117",
+      "examples": []
+    },
+    {
+      "id": "J000118",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "使⽤ entrySet 遍历 Map 类集合 KV，⽽不是 keySet ⽅式进",
+      "content": "⾏遍历 说明 ：keySet 其实是遍历了 2 次，⼀次是转为 iterator 对象，另⼀次是从 hashMap 中取出 key 所对应的 value。⽽ entrySet 只是遍历了⼀次就把 key 和 value 都放到了 entry 中，效率更⾼。如果是 JDK8，使⽤",
+      "level": "推荐",
+      "code": "J000118",
+      "examples": []
+    },
+    {
+      "id": "J000119",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "利⽤ Set 元素唯⼀的特性，可以快速对集合进行去重操作，避免使⽤ List 的contains ⽅法进行遍历、对⽐、去重操作",
+      "content": "说明： 当需要对集合中的元素进行去重操作时，我们可以采⽤不同的⽅法。 是⼀种有序的集合，它允许 List",
+      "level": "推荐",
+      "code": "J000119",
+      "examples": []
+    },
+    {
+      "id": "J000120",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "合理使⽤字符串连接⽅式 对于⼀次性初始化且后⾯不需要修改的较⻓字符串",
+      "content": "+操作符连接。例如： 直接使⽤ String tag = \"a\" + \"b\" + \"c\"; //这样是OK的",
+      "level": "强制",
+      "code": "J000120",
+      "examples": []
+    },
+    {
+      "id": "J000121",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "在JDK15以上，推荐使⽤字符串⽂本块（Text Blocks）来编",
+      "content": "写多⾏字符串，提⾼代码的可读性和维护性 【说明】字符串⽂本块通过三个双引号（\"\"\"）包围，允许字符串跨多⾏⽽⽆需转义。",
+      "level": "推荐",
+      "code": "J000121",
+      "examples": []
+    },
+    {
+      "id": "J000122",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "优先使⽤toCharArray()遍历字符",
+      "content": "可以使⽤charAt()⽅法取得某个特定位置的字符。但若想遍历所有字符，通过toCharArray()⽅法先取得字符数 组，在对数组进行遍历会有更好的性能。这是因为 ⽅法在每次调用时都会进行边界检查，以确保指",
+      "level": "强制",
+      "code": "J000122",
+      "examples": []
+    },
+    {
+      "id": "J000123",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免重复创建字符串对象",
+      "content": "说明： 类是不可变对象，即⼀旦创建，其值不能被修改。当我们创建字符串对象时，有两种常⻅的⽅ String",
+      "level": "强制",
+      "code": "J000123",
+      "examples": []
+    },
+    {
+      "id": "J000124",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "在使⽤正则表达式时，利⽤好其预编译功能，可以有效加快",
+      "content": "正则匹配速度 **说明：**正则表达式的使⽤常常借助 和",
+      "level": "强制",
+      "code": "J000124",
+      "examples": []
+    },
+    {
+      "id": "J000125",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免⽤⼀个对象访问⼀个类的静态变量和⽅法",
+      "content": "这会⽆谓增加编译器解析成本，直接⽤ 来访问即可。 类名",
+      "level": "强制",
+      "code": "J000125",
+      "examples": []
+    },
+    {
+      "id": "J000126",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "尽量减少不必要的synchronized",
+      "content": "说明： 关键字⽤于实现线程同步，确保在同⼀时刻只有⼀个线程能够访问被同步的代码块或⽅ synchronized",
+      "level": "强制",
+      "code": "J000126",
+      "examples": []
+    },
+    {
+      "id": "J001127",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "避免⾼并发场景下或在循环中直接调用 System.getProperty",
+      "content": "说明： 底层基于 实现，所有读取操作均受全局同步锁保护，在⾼并发或循环中",
+      "level": "推荐",
+      "code": "J001127",
+      "examples": []
+    },
+    {
+      "id": "J000127",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "利⽤缓冲流类提⾼I/O操作效率",
+      "content": "说明： I/O 操作是常⻅的操作，涉及到从⽂件、网络等数据源读取数据，或者将数据写⼊到相应的⽬标中。然 ⽽，直接进行数据的读取和写⼊（即默认的数据 I/O ⽅式）会导致系统性能下降。这是因为直接 I/O 操作每次 与外部设备（如磁盘、网络）进行交互时，都会产⽣⼀定的开销，例如系统调用、磁盘寻道等。频繁的这种交",
+      "level": "强制",
+      "code": "J000127",
+      "examples": []
+    },
+    {
+      "id": "J000128",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "遵循“三段式叠加模型”的配置分层",
+      "content": "说明：应⽤配置不应是单⼀⽂件，应根据 和 分为三层，遵循**“⾼优先级覆盖低优先级”**的",
+      "level": "推荐",
+      "code": "J000128",
+      "examples": []
+    },
+    {
+      "id": "J000129",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "外部配置遵循增量原则",
+      "content": "说明： 全量拷⻉内部配置⽂件到外部。外部配置（Properties/YAML）仅允许包含“不得不改”的配置项 严禁",
+      "level": "推荐",
+      "code": "J000129",
+      "examples": []
+    },
+    {
+      "id": "J000130",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "敏感信息隔离",
+      "content": "说明： 在任何配置⽂件（YAML/Properties）中明⽂写⼊数据库密码、API Key、数字证书路径等。此类 严禁",
+      "level": "强制",
+      "code": "J000130",
+      "examples": []
+    },
+    {
+      "id": "J000131",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "遵循 Spring Boot 配置优先级与命名规范",
+      "content": "说明：Spring Boot 启动时将严格遵循以下优先级（由⾼到低）： 命令⾏参数 ( )",
+      "level": "推荐",
+      "code": "J000131",
+      "examples": []
+    },
+    {
+      "id": "J000132",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "根据部署场景选择合适的外部配置载体",
+      "content": "说明：根据部署环境及⼯具链的不同，推荐使⽤以下两种标准模式： 模式 A：公司ZCM平台部署（⾃动化⼯具链） 适⽤场景：使⽤公司ZCM云平台、⼀键升级/发布⼯具的项⽬。",
+      "level": "推荐",
+      "code": "J000132",
+      "examples": []
+    },
+    {
+      "id": "J000133",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "所有 AI ⽣成的代码必须经过开发⼈员的逐⾏审查与理解",
+      "content": "AI ⽣成的代码不得在未经理解和⼈⼯⾛查的情况下直接提交⼊库。开发⼈员必须对代码的逻辑、边界条件和 异常处理承担最终责任。 逻辑正确性：验证 AI ⽣成的逻辑是否完全符合业务需求。",
+      "level": "强制",
+      "code": "J000133",
+      "examples": []
+    },
+    {
+      "id": "J000134",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "建⽴针对 AI ⽣成代码的 Code Review 机制 在提交 Merge Request (MR) 时，建议对⼤量依赖 AI ⽣成的模块进行重点标注，并在团队内进行交叉",
+      "content": "Review，重点审查算法复杂度、资源释放及并发安全。",
+      "level": "推荐",
+      "code": "J000134",
+      "examples": []
+    },
+    {
+      "id": "J000135",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "严禁将包含公司核⼼机密、客户隐私或敏感数据的代码与配",
+      "content": "置输⼊到公共 AI 模型中 包括但不限于： 真实的数据库密码、API Key、Token、私钥等凭据。",
+      "level": "强制",
+      "code": "J000135",
+      "examples": []
+    },
+    {
+      "id": "J000136",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "AI ⽣成的代码必须通过常规的安全漏洞扫描",
+      "content": "AI ⼯具可能会⽣成带有已知漏洞（如 SQL 注⼊、XSS、反序列化漏洞等）的代码。 任何涉及数据库操作的代码，必须使⽤预编译语句（PreparedStatement）或 ORM 框架的安全⽅法，禁 ⽌直接拼接 SQL。",
+      "level": "强制",
+      "code": "J000136",
+      "examples": []
+    },
+    {
+      "id": "J000114",
+      "category": "Java编码规范",
+      "subcategory": "其他",
+      "title": "不涉及多线程同步问题时，尽量选⽤",
+      "content": "⾮线程安全的集合类”，将规范拆分成多线程和⾮多线程两种场景，分场景明 确是否启⽤线程安全的集合类。调整后的规范：",
+      "level": "强制",
+      "code": "J000114",
+      "examples": []
+    }
+  ]
+}

@@ -9,18 +9,24 @@ from .models import (
     RootCauseAnalysisResult,
 )
 
-_MAX_SEGMENT_CHARS = 800
+_MAX_SEGMENT_CHARS = 2000
 
 
 SYSTEM_PROMPT = """你是一个专业的故障根因分析专家，擅长分析软件故障的根本原因。
 
 你需要分析故障处理的完整流程，从需求、设计、开发、测试、部署等各个阶段找出导致故障的根本原因。
 
+**核心分析原则**：
+- 代码变更（commit diff）是第一优先级证据，故障描述仅为参考背景
+- 如果代码变更与描述内容矛盾，以代码变更为准
+- 根因分析应聚焦于代码变更暴露的缺陷，而非描述中的业务叙述
+- 不要根据故障描述做代码层面不存在的推测
+
 根因类型：
 {cause_types}
 
 请从以下维度分析：
-1. 技术因素：代码、架构、配置等技术层面的问题
+1. 技术因素：代码、架构、配置等技术层面的问题（基于代码变更分析）
 2. 过程因素：需求、设计、开发、测试等流程中的问题
 3. 管理因素：沟通、变更、资源等管理层面的问题
 
@@ -41,6 +47,8 @@ USER_PROMPT_TEMPLATE = """故障单信息：
 
 故障处理详情：
 {segment_details}
+
+**注意**：如果上面的详情中包含“commit”代码变更(diff)，请以代码变更作为根因分析的第一依据，故障描述仅作为背景参考。
 
 请进行根因分析，找出导致该故障的根本原因。"""
 
@@ -146,7 +154,23 @@ class RootCauseAnalyzer:
     ) -> RootCauseAnalysisResult:
         """Parse LLM response into structured result."""
         try:
-            data = json.loads(response)
+            # 提取 JSON 内容（支持 markdown code block）
+            json_content = response.strip()
+            if json_content.startswith("```"):
+                # 移除 markdown 代码块标记
+                lines = json_content.split("\n")
+                # 找到第一个 { 和最后一个 }
+                start = -1
+                end = -1
+                for i, line in enumerate(lines):
+                    if "{" in line and start == -1:
+                        start = i
+                    if "}" in line:
+                        end = i
+                if start >= 0 and end > start:
+                    json_content = "\n".join(lines[start : end + 1])
+
+            data = json.loads(json_content)
             root_causes = [
                 RootCause(
                     cause_type=rc.get("cause_type", ""),
@@ -164,7 +188,10 @@ class RootCauseAnalyzer:
                 process_factors=data.get("process_factors", []),
                 management_factors=data.get("management_factors", []),
             )
-        except (json.JSONDecodeError, KeyError, ValueError):
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            import sys
+            print(f"[DEBUG] 根因分析响应解析失败: {e}", file=sys.stderr)
+            print(f"[DEBUG] 原始响应: {response[:500]}", file=sys.stderr)
             return RootCauseAnalysisResult(
                 task_id=task_id,
                 root_causes=[],
