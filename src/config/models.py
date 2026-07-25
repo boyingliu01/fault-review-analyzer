@@ -33,13 +33,6 @@ class LLMConfig(BaseModel):
     max_tokens: int = Field(default=4096, ge=1, le=128000, description="最大token数")
     base_url: str = Field(default="", description="API基础URL(可选)")
 
-    @field_validator("provider")
-    @classmethod
-    def validate_provider(cls, v: str) -> str:
-        allowed = ["openai", "qwen", "wenxin", "zhipu", "custom", "volcengine"]
-        if v not in allowed:
-            raise ValueError(f"provider must be one of {allowed}")
-        return v
 
 
 class EmbeddingConfig(BaseModel):
@@ -52,7 +45,7 @@ class EmbeddingConfig(BaseModel):
     @field_validator("provider")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        allowed = ["openai", "bge", "m3e", "codebert", "zhipu", "local", "volcengine", "custom"]
+        allowed = ["openai", "bge", "m3e", "codebert", "zhipu", "local", "volcengine", "custom", "whalecloud"]
         if v not in allowed:
             raise ValueError(f"provider must be one of {allowed}")
         return v

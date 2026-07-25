@@ -13,41 +13,126 @@ if TYPE_CHECKING:
     from src.knowledge.manager import StandardsManager
 
 VIOLATION_PATTERNS: dict[str, dict[str, str]] = {
+    # === Java编码规范 ===
     "empty_catch": {
         "pattern": r"catch\s*\([^)]+\)\s*\{\s*\}",
         "category": "java_coding",
         "subcategory": "异常处理",
-        "description": "捕获异常后不做任何处理",
+        "description": "捕获异常后不做任何处理（J000066）",
+        "rule_id": "J000066",
+    },
+    "print_stack_trace": {
+        "pattern": r"\.printStackTrace\s*\(\)",
+        "category": "java_coding",
+        "subcategory": "异常处理",
+        "description": "使用printStackTrace输出异常（应使用Logger）",
+        "rule_id": "J000066",
     },
     "database_connection_leak": {
         "pattern": r"(Connection|Statement|ResultSet|PreparedStatement).*getConnection\(\)",
         "category": "java_coding",
         "subcategory": "资源管理",
-        "description": "数据库连接未关闭",
+        "description": "数据库连接未关闭（J000076）",
+        "rule_id": "J000076",
     },
     "non_thread_safe_collection": {
         "pattern": r"(new\s+)?(HashMap|ArrayList|HashSet)<",
         "category": "java_coding",
-        "subcategory": "并发编程",
-        "description": "多线程环境下使用非线程安全集合",
+        "subcategory": "并发处理",
+        "description": "多线程环境下使用非线程安全集合（J000025）",
+        "rule_id": "J000025",
     },
     "system_out_println": {
         "pattern": r"System\.(out|err)\.(print|println)",
         "category": "java_coding",
-        "subcategory": "日志规范",
-        "description": "使用System.out输出日志",
+        "subcategory": "日志规约",
+        "description": "使用System.out输出日志（J000080）",
+        "rule_id": "J000080",
     },
+    "static_simple_date_format": {
+        "pattern": r"static\s+.*SimpleDateFormat\s+",
+        "category": "java_coding",
+        "subcategory": "并发处理",
+        "description": "SimpleDateFormat定义为静态变量（线程不安全）",
+        "rule_id": "J000025",
+    },
+    "string_concat_in_loop": {
+        "pattern": r"(for|while)\s*\(.*\{[\s\S]*?\w+\s*\+=\s*[\"']",
+        "category": "java_coding",
+        "subcategory": "集合处理",
+        "description": "循环中使用字符串拼接（应使用StringBuilder）",
+        "rule_id": "J000010",
+    },
+    # === 安全编码规范 ===
     "sql_injection": {
         "pattern": r"(executeQuery|execute|exec)\s*\(\s*[\"'].*\+",
         "category": "security",
-        "subcategory": "SQL安全",
-        "description": "存在SQL注入风险",
+        "subcategory": "数据校验",
+        "description": "存在SQL注入风险（SEC-J00002）",
+        "rule_id": "SEC-J00002",
+    },
+    "sql_string_concat": {
+        "pattern": r"[\"']\s*(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE)\s.*[\"']\s*\+\s*\w+",
+        "category": "security",
+        "subcategory": "数据校验",
+        "description": "SQL语句拼接用户输入（SEC-J00002）",
+        "rule_id": "SEC-J00002",
+    },
+    "command_injection": {
+        "pattern": r"Runtime\.getRuntime\(\)\.exec\s*\(\s*\w+",
+        "category": "security",
+        "subcategory": "数据校验",
+        "description": "Runtime.exec使用变量参数（命令注入风险 SEC-J00006）",
+        "rule_id": "SEC-J00006",
+    },
+    "path_traversal": {
+        "pattern": r"new\s+File\s*\(\s*(request\.|getParameter|\w+Input|userInput)",
+        "category": "security",
+        "subcategory": "数据校验",
+        "description": "文件路径使用不可信输入（目录遍历风险 SEC-J00007）",
+        "rule_id": "SEC-J00007",
+    },
+    "sensitive_info_in_log": {
+        "pattern": r"(log|logger|LOG|LOGGER)\.\w+\([^)]*(password|secret|token|credential|key|密码|口令)",
+        "category": "security",
+        "subcategory": "其他安全规则",
+        "description": "日志中输出敏感信息（SEC-J00033）",
+        "rule_id": "SEC-J00033",
+    },
+    "hardcoded_secret": {
+        "pattern": r"(password|passwd|secret|api_?key|token)\s*=\s*[\"'][^\"']{3,}[\"']",
+        "category": "security",
+        "subcategory": "其他安全规则",
+        "description": "硬编码敏感信息（SEC-J00036）",
+        "rule_id": "SEC-J00036",
+    },
+    "weak_encryption": {
+        "pattern": r"(DES|MD5|SHA-?1|RC4)\b",
+        "category": "security",
+        "subcategory": "其他安全规则",
+        "description": "使用弱加密算法（SEC-J00034）",
+        "rule_id": "SEC-J00034",
+    },
+    "xml_injection": {
+        "pattern": r"(DocumentBuilder|SAXParser|XMLReader).*\+.*request",
+        "category": "security",
+        "subcategory": "数据校验",
+        "description": "XML拼接不可信数据（SEC-J00003）",
+        "rule_id": "SEC-J00003",
     },
     "function_in_index": {
         "pattern": r"WHERE\s+\w+\s*\([^)]+\)\s*(=|>|<|LIKE)",
         "category": "database_design",
         "subcategory": "索引设计",
         "description": "在索引列上使用函数",
+        "rule_id": "",
+    },
+    "exception_info_leak": {
+        "pattern": r"(catch\s*\([^)]+\)\s*\{[\s\S]*?)(e\.getMessage\(\)|e\.toString\(\)).*?(response|result|return)",
+        "category": "security",
+        "subcategory": "异常行为",
+        "description": "异常信息泄露给外部（SEC-J00010）",
+        "rule_id": "SEC-J00010",
     },
 }
 
@@ -82,7 +167,9 @@ class ViolationDetector:
         for violation_name, pattern_info in self._violation_patterns.items():
             pattern = pattern_info["pattern"]
             if re.search(pattern, code_snippet, re.IGNORECASE | re.MULTILINE):
-                violated_rules.append(violation_name)
+                rule_id = pattern_info.get("rule_id", "")
+                rule_label = f"{rule_id}:{violation_name}" if rule_id else violation_name
+                violated_rules.append(rule_label)
                 violation_types.append(pattern_info["description"])
                 violation_categories.append(pattern_info["category"])
                 evidences.append(f"代码中检测到违规模式: {pattern_info['description']}")

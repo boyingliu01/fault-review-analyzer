@@ -3,10 +3,13 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from loguru import logger
 
 from src.analysis.code_change_analyzer import CodeChangeAnalyzer
 from src.analysis.root_cause import ExistingFaultAnalysis, FaultAnalysisInput
 from src.analysis.root_cause import RootCauseAnalyzer as DeepRootCauseAnalyzer
+from src.analysis.standards_matcher import StandardsMatcher
+from src.analysis.violation_detector import ViolationDetector
 from src.analyzer.labeling import LabelGenerator
 from src.analyzer.llm_provider import create_llm_provider
 from src.analyzer.reasoning import RootCauseAnalyzer
@@ -16,6 +19,7 @@ from src.cache.manager import CacheManager
 from src.clustering.analyzer import ClusterAnalyzer
 from src.config.manager import ConfigManager
 from src.embedding.generator import EmbeddingGenerator
+from src.knowledge.manager import StandardsManager
 from src.preprocessor.models import ProcessedTask
 from src.preprocessor.processor import DataPreprocessor
 from src.report.generator import ReportGenerator
@@ -43,6 +47,7 @@ class PipelineConfig:
     analyze_root_cause: bool = True
     analyze_root_cause_deep: bool = False  # Enhanced 5-layer root cause analysis
     check_rules: bool = True
+    match_standards: bool = True  # 故障结论与研发规范语义匹配
     generate_report: bool = True
     output_path: Path = field(default_factory=lambda: Path("./output"))
 
@@ -60,6 +65,7 @@ class PipelineResult:
     deep_root_causes: dict[str, Any] | None = None  # Enhanced root cause analysis result
     violations: list[dict] | None = None
     code_change_analysis: dict[str, Any] | None = None  # 代码变更分析结果
+    standard_matches: list[dict] | None = None  # 规范匹配结果（violated/related）
     cluster_id: int | None = None
     report: str = ""
     error: str = ""
@@ -86,6 +92,8 @@ class AnalysisPipeline:
         self._deep_root_cause_analyzer: DeepRootCauseAnalyzer | None = None
         self._rules_engine = RulesEngine()
         self._code_change_analyzer: CodeChangeAnalyzer | None = None
+        self._violation_detector: ViolationDetector | None = None
+        self._standards_matcher: StandardsMatcher | None = None
         self._report_generator: ReportGenerator | None = None
 
     async def __aenter__(self) -> "AnalysisPipeline":
@@ -121,6 +129,7 @@ class AnalysisPipeline:
             await self._analyze_code_changes(task_data, result)
 
             await self._analyze_with_llm(task_data, preprocessed, result)
+            await self._match_standards(task_data, result)
             self._check_and_generate_report(task_data, preprocessed, result)
 
         except Exception as e:
@@ -166,12 +175,13 @@ class AnalysisPipeline:
     async def _analyze_code_changes(
         self, task_data: TaskInfo, result: PipelineResult
     ) -> None:
-        """分析代码变更（diff分析、模式检测、规范检查）"""
+        """分析代码变更（diff分析、模式检测、规范检查、LLM语义分析）"""
         if not task_data.development or not task_data.development.commits:
             return
 
         # 构建commit字典列表供CodeChangeAnalyzer使用
         commits_data = []
+        all_diff_content = ""
         for commit in task_data.development.commits:
             commit_dict = {
                 "commit_id": commit.commit_id,
@@ -184,17 +194,38 @@ class AnalysisPipeline:
                 "timestamp": commit.time.isoformat() if commit.time else "",
             }
             commits_data.append(commit_dict)
+            if commit.diff:
+                all_diff_content += commit.diff + "\n"
 
-        # 使用CodeChangeAnalyzer进行分析
+        # 使用CodeChangeAnalyzer进行diff分析和模式检测
         analyzer = self._get_code_change_analyzer()
         analysis_result = analyzer.analyze_code_changes(commits_data)
+
+        # 生成分析文本（不含LLM，后面单独处理LLM）
+        analysis_text = analyzer.generate_analysis_text(commits_data)
+
+        # 异步LLM代码分析（解决同步方法中无法await的问题）
+        llm_analysis = ""
+        if self._pipeline_config.use_llm and all_diff_content:
+            llm_analysis = await self._llm_analyze_code_diff(commits_data)
+            if llm_analysis:
+                analysis_text = f"{analysis_text}; LLM分析: {llm_analysis}"
 
         result.code_change_analysis = {
             "summary": analysis_result["summary"],
             "diff_stats": analysis_result["diff_stats"],
             "detected_patterns": analysis_result["detected_patterns"],
-            "analysis_text": analyzer.generate_analysis_text(commits_data),
+            "analysis_text": analysis_text,
+            "llm_analysis": llm_analysis,
         }
+
+        # 使用ViolationDetector进行Java规范违规检测
+        if all_diff_content:
+            violation_violations = self._detect_violations(all_diff_content, task_data)
+            if violation_violations:
+                # 合并到result.violations
+                existing = result.violations or []
+                result.violations = existing + violation_violations
 
     def _check_and_generate_report(
         self, task_data: TaskInfo, _preprocessed: Any, result: PipelineResult
@@ -211,7 +242,75 @@ class AnalysisPipeline:
                 result.root_causes,
                 violations=result.violations,
                 code_change_analysis=result.code_change_analysis,
+                standard_matches=result.standard_matches,
             )
+
+    async def _match_standards(self, task_data: TaskInfo, result: PipelineResult) -> None:
+        """将故障分析结论与研发规范库做语义匹配（embedding召回+LLM精排）。
+
+        查询文本由分析结论构成：故障标题 + 标签 + 根因 + 代码变更分析，
+        确保匹配由"结论"驱动而非仅由原始故障描述驱动。
+        """
+        if not self._pipeline_config.match_standards:
+            return
+
+        query_text = self._build_standards_query(task_data, result)
+        if not query_text:
+            return
+
+        matcher = self._get_standards_matcher()
+        match_result = await matcher.match(query_text)
+
+        if match_result.matches:
+            result.standard_matches = [m.to_dict() for m in match_result.matches]
+            violated = [m.rule_id for m in match_result.violated]
+            if violated:
+                logger.info(f"规范匹配命中违规条款: {violated}")
+
+    def _build_standards_query(self, task_data: TaskInfo, result: PipelineResult) -> str:
+        """构造规范匹配查询文本（分析结论驱动）。"""
+        parts: list[str] = [task_data.title or ""]
+
+        for label in result.labels or []:
+            parts.append(f"{label.get('name', '')} {label.get('description', '')}")
+
+        for rc in result.root_causes or []:
+            parts.append(f"{rc.get('cause_type', '')} {rc.get('description', '')}")
+
+        if result.code_change_analysis:
+            analysis_text = result.code_change_analysis.get("analysis_text", "")
+            if analysis_text:
+                parts.append(analysis_text[:1000])
+
+        # 结论不足时补充故障描述，保证召回效果
+        if sum(len(p) for p in parts) < 100 and task_data.description:
+            parts.append(task_data.description[:1000])
+
+        return "\n".join(p for p in parts if p).strip()
+
+    def _get_standards_matcher(self) -> StandardsMatcher:
+        """Get or create StandardsMatcher（复用embedding与LLM配置）。"""
+        if self._standards_matcher is None:
+            standards_manager = StandardsManager()
+
+            embedding_generator = None
+            llm_provider = None
+
+            emb_config = self._config.get_config().embedding
+            if emb_config.api_key:
+                embedding_generator = self._get_embedding_generator()
+
+            if self._pipeline_config.use_llm:
+                llm_config = self._config.get_config().llm
+                if llm_config.api_key:
+                    llm_provider = create_llm_provider(llm_config)
+
+            self._standards_matcher = StandardsMatcher(
+                standards_manager=standards_manager,
+                embedding_generator=embedding_generator,
+                llm_provider=llm_provider,
+            )
+        return self._standards_matcher
 
     async def run_batch(
         self,
@@ -322,7 +421,10 @@ class AnalysisPipeline:
         return any(c.diff for c in dev.commits)
 
     async def _fetch_task(self, task_id: int) -> TaskInfo | None:
-        """Fetch task from API or cache."""
+        """Fetch task from API or cache.
+
+        使用 get_full_task 以同时获取代码变更（development）和生产信息（production）。
+        """
         if self._pipeline_config.use_cache:
             cache = self._get_cache_manager()
             cached = cache.load_task(task_id)
@@ -330,7 +432,7 @@ class AnalysisPipeline:
                 return TaskInfo(**cached)
 
         api = self._get_api_client()
-        task = await api.get_task(task_id)
+        task = await api.get_full_task(task_id)
 
         if self._pipeline_config.use_cache:
             cache = self._get_cache_manager()
@@ -547,6 +649,121 @@ class AnalysisPipeline:
             for v in violations
         ]
 
+    def _get_violation_detector(self) -> ViolationDetector:
+        """Get or create ViolationDetector with real standards."""
+        if self._violation_detector is None:
+            standards_manager = StandardsManager()
+            self._violation_detector = ViolationDetector(standards_manager)
+        return self._violation_detector
+
+    def _detect_violations(
+        self, diff_content: str, task_data: TaskInfo
+    ) -> list[dict]:
+        """使用ViolationDetector检测Java代码规范违规。
+
+        Args:
+            diff_content: 所有commit的diff内容合并
+            task_data: 任务信息
+
+        Returns:
+            违规列表，每项包含rule_id/rule_name/severity/message/evidence
+        """
+        detector = self._get_violation_detector()
+        fault_info = {
+            "task_id": task_data.task_id if hasattr(task_data, "task_id") else 0,
+            "title": task_data.title if hasattr(task_data, "title") else "",
+            "description": task_data.description if hasattr(task_data, "description") else "",
+            "code_snippet": diff_content,
+        }
+
+        detection = detector.detect(fault_info)
+        if not detection.is_violation:
+            return []
+
+        # 将ViolationDetection转换为统一的violation字典格式
+        violations = []
+        for rule_label in detection.violated_rules:
+            # rule_label 格式: "J000066:empty_catch" 或 "empty_catch"
+            parts = rule_label.split(":", 1) if ":" in rule_label else ["", rule_label]
+            rule_id = parts[0] if len(parts) > 1 else ""
+            rule_name = parts[1] if len(parts) > 1 else parts[0]
+
+            violations.append(
+                {
+                    "rule_id": rule_id,
+                    "rule_name": rule_name,
+                    "severity": "warning",
+                    "message": detection.violation_type or "",
+                    "evidence": [detection.evidence] if detection.evidence else [],
+                }
+            )
+
+        return violations
+
+    async def _llm_analyze_code_diff(self, commits: list[dict[str, Any]]) -> str:
+        """异步调用LLM分析代码变更diff。
+
+        解决了CodeChangeAnalyzer._llm_analyze_changes()在同步方法中
+        无法await异步LLM调用的问题。
+
+        Args:
+            commits: commit信息列表（含diff）
+
+        Returns:
+            LLM分析结果摘要（最多500字符）
+        """
+        llm_config = self._config.get_config().llm
+        if not llm_config.api_key:
+            return ""
+
+        provider = create_llm_provider(llm_config)
+        if provider is None:
+            return ""
+
+        # 构建diff内容
+        diffs_summary = []
+        for c in commits:
+            diff = c.get("diff", "")
+            if diff:
+                diff_preview = diff[:3000]
+                diffs_summary.append(
+                    f"Commit: {c.get('message', '')}\n"
+                    f"Files: {', '.join(c.get('files_changed', []))}\n"
+                    f"Diff preview:\n{diff_preview}"
+                )
+
+        if not diffs_summary:
+            return ""
+
+        combined = "\n---\n".join(diffs_summary[:5])
+
+        system_prompt = (
+            "你是一个资深代码审查专家。请**仅基于代码变更（diff）本身**进行分析。\n"
+            "重要原则：\n"
+            "- 代码变更是唯一可信的证据，不要根据故障描述做推测\n"
+            "- 区分'删除代码'和'将代码移入条件分支'是完全不同的操作\n"
+            "- 如果diff中删除的行和新增的行内容相似，通常是代码移动/重组，而非删除\n"
+            "- 只描述代码实际做了什么，不要臆测业务背景\n"
+            "请用简短的中文回答。"
+        )
+        user_prompt = (
+            "请分析以下代码变更，仅基于diff内容：\n"
+            "1. 代码实际做了什么改动（区分新增/删除/移动）\n"
+            "2. 修改前后的行为差异\n"
+            "3. 这个改动的核心目的\n"
+            "4. 潜在风险（包括可能的副作用）\n\n"
+            f"代码变更：\n{combined}\n\n"
+            "请用3-5句话总结。"
+        )
+
+        try:
+            result = await provider.generate(system=system_prompt, user=user_prompt)
+            return str(result)[:500]
+        except Exception as e:
+            from loguru import logger
+            logger.warning(f"LLM代码分析失败: {e}")
+            return ""
+
     def _generate_report(
         self,
         task_data: dict[str, Any],
@@ -555,6 +772,7 @@ class AnalysisPipeline:
         root_causes: list[dict] | None,
         violations: list[dict] | None = None,
         code_change_analysis: dict[str, Any] | None = None,
+        standard_matches: list[dict] | None = None,
     ) -> str:
         """Generate report for task."""
         if self._report_generator is None:
@@ -582,4 +800,5 @@ class AnalysisPipeline:
             suggestions=suggestions,
             violations=violations,
             code_change_analysis=code_change_analysis,
+            standard_matches=standard_matches,
         )
