@@ -41,6 +41,7 @@ class ConfigKeyError(Exception):
 
 class ConfigManager:
     DEFAULT_CONFIG_PATH = Path("config/config.yaml")
+    LOAD_ENV_FILE: bool = True  # Tests set False to skip .env loading
     config_path: Path | None
 
     def __init__(
@@ -193,15 +194,17 @@ class ConfigManager:
         """Apply environment variable overrides to config dict.
 
         Automatically loads .env file from project root if python-dotenv is available.
+        Set ConfigManager.LOAD_ENV_FILE = False to skip this (e.g. in tests).
         """
         # 尝试加载 .env 文件
-        try:
-            from dotenv import load_dotenv
-            env_file = Path.cwd() / ".env"
-            if env_file.exists():
-                load_dotenv(env_file, override=True)
-        except ImportError:
-            pass  # python-dotenv 未安装，跳过
+        if self.LOAD_ENV_FILE:
+            try:
+                from dotenv import load_dotenv
+                env_file = Path.cwd() / ".env"
+                if env_file.exists():
+                    load_dotenv(env_file, override=True)
+            except ImportError:
+                pass  # python-dotenv 未安装，跳过
 
         env_prefix_map = {
             "API_BASE_URL": ("api", "base_url"),

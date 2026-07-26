@@ -15,6 +15,21 @@ PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 SPRINT_STATE_FILE="$PROJECT_ROOT/.sprint-state/sprint-state.json"
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
+# Cross-platform Python: actually run --version to detect Windows Store stubs
+# `command -v python3` succeeds on Windows but points to a Store stub (exit 49)
+PYTHON=""
+for candidate in python3 python; do
+  if "$candidate" --version >/dev/null 2>&1; then
+    PYTHON="$candidate"
+    break
+  fi
+done
+
+if [ -z "$PYTHON" ]; then
+  echo "❌ Gate MS: working python/python3 not found in PATH."
+  exit 1
+fi
+
 # ── Parse arguments ──
 MODE=""
 for arg in "$@"; do
@@ -35,31 +50,31 @@ if [ ! -f "$SPRINT_STATE_FILE" ]; then
 fi
 
 # ── Validate JSON is parseable ──
-if ! python3 -c "import json, sys; json.load(open(sys.argv[1]))" "$SPRINT_STATE_FILE" 2>/dev/null; then
+if ! "$PYTHON" -c "import json, sys; json.load(open(sys.argv[1]))" "$SPRINT_STATE_FILE" 2>/dev/null; then
   echo "❌ Gate MS: sprint-state.json is invalid JSON."
   exit 1
 fi
 
 # ── Extract sprint state fields ──
-SPRINT_BRANCH=$(python3 -c "
+SPRINT_BRANCH=$("$PYTHON" -c "
 import json, sys
 d = json.load(open(sys.argv[1]))
 print(d.get('isolation', {}).get('branch', ''))
 " "$SPRINT_STATE_FILE")
 
-SPRINT_STATUS=$(python3 -c "
+SPRINT_STATUS=$("$PYTHON" -c "
 import json, sys
 d = json.load(open(sys.argv[1]))
 print(d.get('status', ''))
 " "$SPRINT_STATE_FILE")
 
-SPRINT_PHASE=$(python3 -c "
+SPRINT_PHASE=$("$PYTHON" -c "
 import json, sys
 d = json.load(open(sys.argv[1]))
 print(d.get('phase', 0))
 " "$SPRINT_STATE_FILE")
 
-PHASE_HISTORY_COUNT=$(python3 -c "
+PHASE_HISTORY_COUNT=$("$PYTHON" -c "
 import json, sys
 d = json.load(open(sys.argv[1]))
 phases = d.get('phase_history', [])
