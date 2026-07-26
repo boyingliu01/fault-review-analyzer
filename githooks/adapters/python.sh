@@ -45,7 +45,8 @@ run_tests() {
   require_tool pytest "pytest" || return 1
 
   echo "Running Python tests..."
-  PYTEST_OUTPUT=$(pytest --exitfirst --tb=short 2>&1)
+  # Skip e2e tests by default in pre-commit (require live API + network)
+  PYTEST_OUTPUT=$(pytest --exitfirst --tb=short -m "not e2e" 2>&1)
   PYTEST_EXIT=$?
 
   # Show the short summary tail — this is where FAILED/assert diagnostics live.
@@ -85,7 +86,7 @@ run_coverage() {
   require_tool pytest "pytest" || return 1
 
   echo "Running Python coverage..."
-  PYTEST_OUTPUT=$(pytest --exitfirst --tb=short --cov=. --cov-fail-under=80 2>&1)
+  PYTEST_OUTPUT=$(pytest --exitfirst --tb=short --cov=. --cov-fail-under=80 -m "not e2e" 2>&1)
   PYTEST_EXIT=$?
   echo "$PYTEST_OUTPUT" | grep -E "(FAILED|PASSED|passed|failed|error|ERROR|TOTAL|assert)" | tail -10
   echo "$PYTEST_OUTPUT" | tail -5

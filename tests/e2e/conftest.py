@@ -11,6 +11,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def pytest_collection_modifyitems(
+    session: pytest.Session, config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """自动给 e2e 目录下所有测试打上 e2e marker，方便 hook 用 -m 'not e2e' 排除。"""
+    e2e_marker = pytest.mark.e2e
+    e2e_root = Path(__file__).parent
+    for item in items:
+        if e2e_root in item.path.parents:
+            item.add_marker(e2e_marker)
+
+
 @pytest.fixture(scope="session")
 def api_key() -> str:
     """获取 API 密钥"""

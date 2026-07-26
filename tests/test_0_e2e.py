@@ -30,10 +30,11 @@ def test_task_ids() -> list[int]:
 
     df = pd.read_excel(TEST_DATA_FILE)
     # 取前5个任务ID用于测试
-    return df["故障单号"].head(5).tolist()
+    return [int(x) for x in df["故障单号"].head(5).tolist()]
 
 
 @pytest.mark.asyncio
+@pytest.mark.e2e
 async def test_e2e_fetch_and_preprocess(test_task_ids: list[int]) -> None:
     """端到端测试：从API获取数据并预处理"""
     if not DEVCLOUD_TOKEN:
