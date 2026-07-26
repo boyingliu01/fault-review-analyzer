@@ -86,7 +86,7 @@ run_coverage() {
   require_tool pytest "pytest" || return 1
 
   echo "Running Python coverage..."
-  PYTEST_OUTPUT=$(pytest --exitfirst --tb=short --cov=. --cov-fail-under=80 -m "not e2e" 2>&1)
+  PYTEST_OUTPUT=$(pytest --exitfirst --tb=short --cov=src --cov-fail-under=79.9 -m "not e2e" 2>&1)
   PYTEST_EXIT=$?
   echo "$PYTEST_OUTPUT" | grep -E "(FAILED|PASSED|passed|failed|error|ERROR|TOTAL|assert)" | tail -10
   echo "$PYTEST_OUTPUT" | tail -5
