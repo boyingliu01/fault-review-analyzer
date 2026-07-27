@@ -430,7 +430,7 @@ class APIClient:
             "apiMgrTaskAnalysis": {...}     # 管理环节分析
         }
         """
-        url = f"{self.api_path_prefix}/{task_no}/inter-analysis"
+        url = f"{self.code_api_prefix}/{task_no}/inter-analysis"
         return await self._request("POST", url, json={})
 
     def _parse_task(self, data: dict[str, Any]) -> TaskInfo:
