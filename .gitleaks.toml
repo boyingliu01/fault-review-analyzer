@@ -35,6 +35,12 @@ paths = [
     '''CLAUDE\.md$''',
     '''\.gitleaks\.toml$''',
     '''replacements\.txt$''',
+    '''\.mypy_cache/.*''',
+    '''\.pytest_cache/.*''',
+    '''\.tox/.*''',
+    '''\.venv/.*''',
+    '''node_modules/.*''',
+    '''__pycache__/.*''',
 ]
 regexes = [
     '''REDACTED_''',

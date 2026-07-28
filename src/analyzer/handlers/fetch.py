@@ -5,11 +5,13 @@ Issue: #13 — Pipeline 拆分重构
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
-from src.api.client import APIClient
+if TYPE_CHECKING:
+    from src.api.client import APIClient
+    from src.cache.manager import CacheManager
+
 from src.api.models import TaskInfo
-from src.cache.manager import CacheManager
 
 
 class FetchHandler:

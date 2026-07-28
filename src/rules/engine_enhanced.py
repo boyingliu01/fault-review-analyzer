@@ -239,18 +239,16 @@ class EnhancedRulesEngine(BaseRulesEngine):
             违规记录
         """
         try:
-            if rule.conditions:
-                if not self._evaluate_advanced_conditions(rule, task_data, context):
-                    return None
+            if rule.conditions and not self._evaluate_advanced_conditions(rule, task_data, context):
+                return None
 
             if rule.pattern:
                 matches = re.findall(rule.pattern, code_content, re.IGNORECASE)
                 if matches:
                     return self._create_violation(rule, matches, code_content)
 
-            if rule.condition:
-                if self._evaluate_simple_condition(rule.condition, task_data):
-                    return self._create_violation(rule, [], code_content)
+            if rule.condition and self._evaluate_simple_condition(rule.condition, task_data):
+                return self._create_violation(rule, [], code_content)
 
         except Exception as e:
             logger.warning(f"Failed to check rule {rule.id}: {e}")
@@ -333,7 +331,7 @@ class EnhancedRulesEngine(BaseRulesEngine):
         return min(base_score * priority_multiplier * weight_multiplier, 100.0)
 
     def _generate_evaluation(
-        self, violations: list[EnhancedRuleViolation], task_data: dict[str, Any]
+        self, violations: list[EnhancedRuleViolation], _task_data: dict[str, Any]
     ) -> RulesEvaluation:
         """
         生成评估报告

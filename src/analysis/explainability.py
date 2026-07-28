@@ -497,8 +497,7 @@ class ExplainabilityVisualizer:
 
         content = self._generate_html_report(explanation)
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(content)
+        output_path.write_text(content, encoding="utf-8")
 
         return str(output_path)
 

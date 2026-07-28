@@ -7,12 +7,13 @@ Issue: #13 — Pipeline 拆分重构
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src.analyzer.labeling import LabelGenerator
-from src.analyzer.llm_provider import create_llm_provider
 from src.analyzer.reasoning import RootCauseAnalyzer
-from src.preprocessor.models import ProcessedTask
+
+if TYPE_CHECKING:
+    from src.preprocessor.models import ProcessedTask
 
 
 class AnalyzeHandler:
@@ -111,7 +112,7 @@ class AnalyzeHandler:
 
     async def analyze_root_cause_deep(
         self,
-        task_data: dict[str, Any],
+        task_data: dict[str, Any],  # noqa: ARG002 — reserved for future integration
     ) -> dict[str, Any]:
         """Perform enhanced 5-layer deep root cause analysis.
 

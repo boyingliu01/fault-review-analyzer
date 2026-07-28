@@ -8,11 +8,13 @@ Issue: #13 — Pipeline 拆分重构
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
-from src.analyzer.handlers.analyze import AnalyzeHandler
-from src.analyzer.handlers.fetch import FetchHandler
-from src.analyzer.handlers.report import ReportHandler
+if TYPE_CHECKING:
+    from src.analyzer.handlers.analyze import AnalyzeHandler
+    from src.analyzer.handlers.fetch import FetchHandler
+    from src.analyzer.handlers.report import ReportHandler
+
 from src.analyzer.pipeline import PipelineConfig, PipelineResult
 from src.preprocessor.processor import DataPreprocessor
 

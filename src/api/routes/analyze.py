@@ -116,7 +116,7 @@ async def analyze_task(
                 "message": str(e),
                 "detail": {},
             },
-        )
+        ) from e
 
 
 @router.post(
@@ -198,4 +198,4 @@ async def analyze_batch(
                 "message": str(e),
                 "detail": {},
             },
-        )
+        ) from e

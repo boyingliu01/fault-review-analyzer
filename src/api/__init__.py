@@ -25,8 +25,8 @@ from src.api.models import (
 
 # API 服务器相关
 try:
-    from src.api.server import create_app
-    from src.api.server_models import (
+    from src.api.server import create_app  # noqa: F401
+    from src.api.server_models import (  # noqa: F401
         AnalyzeOptions,
         BatchAnalyzeRequest,
         BatchAnalyzeResponse,
@@ -43,7 +43,7 @@ try:
         ViolationInfo,
     )
 
-    __api_server_all__ = [
+    _api_server_all = [
         "create_app",
         "HealthResponse",
         "SingleAnalyzeRequest",
@@ -62,7 +62,7 @@ try:
     ]
 except ImportError:
     # FastAPI 相关依赖可能未安装
-    __api_server_all__ = []
+    _api_server_all: list[str] = []
 
 __all__ = [
     "APIClient",
@@ -83,4 +83,4 @@ __all__ = [
     "TestingInfo",
     "TimelineEvent",
     "FetchResult",
-] + __api_server_all__
+] + _api_server_all

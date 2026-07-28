@@ -45,7 +45,7 @@ class TaskData(BaseModel):
 
     @field_validator("task_id")
     @classmethod
-    def validate_task_id(cls, v: int, info: ValidationInfo) -> int:
+    def validate_task_id(cls, v: int, _info: ValidationInfo) -> int:
         """验证任务ID必须是正整数"""
         if v <= 0:
             raise ValueError(f"task_id 必须是正整数，实际值: {v}")
@@ -53,7 +53,7 @@ class TaskData(BaseModel):
 
     @field_validator("title")
     @classmethod
-    def validate_title(cls, v: str, info: ValidationInfo) -> str:
+    def validate_title(cls, v: str, _info: ValidationInfo) -> str:
         """验证标题不能为空"""
         if not v or v.strip() == "":
             raise ValueError("任务标题不能为空")
@@ -81,7 +81,7 @@ class AnalysisResult(BaseModel):
 
     @field_validator("task_id")
     @classmethod
-    def validate_task_id(cls, v: int, info: ValidationInfo) -> int:
+    def validate_task_id(cls, v: int, _info: ValidationInfo) -> int:
         """验证任务ID必须是正整数"""
         if v <= 0:
             raise ValueError(f"task_id 必须是正整数，实际值: {v}")
@@ -101,7 +101,7 @@ class ClusterInfo(BaseModel):
 
     @field_validator("cluster_id")
     @classmethod
-    def validate_cluster_id(cls, v: int, info: ValidationInfo) -> int:
+    def validate_cluster_id(cls, v: int, _info: ValidationInfo) -> int:
         """验证聚类ID必须是非负整数"""
         if v < 0:
             raise ValueError(f"cluster_id 必须是非负整数，实际值: {v}")
@@ -109,7 +109,7 @@ class ClusterInfo(BaseModel):
 
     @field_validator("size")
     @classmethod
-    def validate_size(cls, v: int, info: ValidationInfo) -> int:
+    def validate_size(cls, v: int, _info: ValidationInfo) -> int:
         """验证聚类大小必须是非负整数"""
         if v < 0:
             raise ValueError(f"聚类大小必须是非负整数，实际值: {v}")
@@ -128,7 +128,7 @@ class EmbeddingData(BaseModel):
 
     @field_validator("task_id")
     @classmethod
-    def validate_task_id(cls, v: int, info: ValidationInfo) -> int:
+    def validate_task_id(cls, v: int, _info: ValidationInfo) -> int:
         """验证任务ID必须是正整数"""
         if v <= 0:
             raise ValueError(f"task_id 必须是正整数，实际值: {v}")
@@ -136,7 +136,7 @@ class EmbeddingData(BaseModel):
 
     @field_validator("embedding")
     @classmethod
-    def validate_embedding(cls, v: list[float], info: ValidationInfo) -> list[float]:
+    def validate_embedding(cls, v: list[float], _info: ValidationInfo) -> list[float]:
         """验证嵌入向量不能为空"""
         if not v:
             raise ValueError("嵌入向量不能为空")
@@ -144,7 +144,7 @@ class EmbeddingData(BaseModel):
 
     @field_validator("media_type")
     @classmethod
-    def validate_media_type(cls, v: str, info: ValidationInfo) -> str:
+    def validate_media_type(cls, v: str, _info: ValidationInfo) -> str:
         """验证媒体类型"""
         valid_types = ["text", "image", "mixed"]
         if v not in valid_types:
@@ -164,7 +164,7 @@ class LabelInfo(BaseModel):
 
     @field_validator("label_id")
     @classmethod
-    def validate_label_id(cls, v: str, info: ValidationInfo) -> str:
+    def validate_label_id(cls, v: str, _info: ValidationInfo) -> str:
         """验证标签ID不能为空"""
         if not v or v.strip() == "":
             raise ValueError("标签ID不能为空")
@@ -172,7 +172,7 @@ class LabelInfo(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def validate_name(cls, v: str, info: ValidationInfo) -> str:
+    def validate_name(cls, v: str, _info: ValidationInfo) -> str:
         """验证标签名称不能为空"""
         if not v or v.strip() == "":
             raise ValueError("标签名称不能为空")
@@ -192,7 +192,7 @@ class RootCauseInfo(BaseModel):
 
     @field_validator("root_cause_id")
     @classmethod
-    def validate_root_cause_id(cls, v: str, info: ValidationInfo) -> str:
+    def validate_root_cause_id(cls, v: str, _info: ValidationInfo) -> str:
         """验证根因ID不能为空"""
         if not v or v.strip() == "":
             raise ValueError("根因ID不能为空")
@@ -200,7 +200,7 @@ class RootCauseInfo(BaseModel):
 
     @field_validator("description")
     @classmethod
-    def validate_description(cls, v: str, info: ValidationInfo) -> str:
+    def validate_description(cls, v: str, _info: ValidationInfo) -> str:
         """验证根因描述不能为空"""
         if not v or v.strip() == "":
             raise ValueError("根因描述不能为空")
