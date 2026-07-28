@@ -45,7 +45,10 @@ class EmbeddingConfig(BaseModel):
     @field_validator("provider")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        allowed = ["openai", "bge", "m3e", "codebert", "zhipu", "local", "volcengine", "custom", "whalecloud"]
+        allowed = [
+            "openai", "bge", "m3e", "codebert", "zhipu", "local",
+            "volcengine", "custom", "whalecloud", "sentence-transformers",
+        ]
         if v not in allowed:
             raise ValueError(f"provider must be one of {allowed}")
         return v

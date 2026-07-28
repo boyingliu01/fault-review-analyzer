@@ -1,13 +1,19 @@
+from __future__ import annotations
+
 import asyncio
 import hashlib
 from collections import OrderedDict
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 import numpy as np
 from openai import AsyncOpenAI
 
 from src.embedding.models import BatchEmbeddingResult, EmbeddingResult
 from src.utils.circuit_breaker import CircuitBreaker, CircuitBreakerError
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
 
 
 class LRUEmbeddingCache:
@@ -125,7 +131,13 @@ class EmbeddingGenerator:
             "doubao-embedding-text-240715": 1024,
             "Doubao-embedding-240715": 1024,
             "doubao-embedding-vision-251215": 2048,
+            "all-MiniLM-L6-v2": 384,
+            "all-mpnet-base-v2": 768,
+            "bge-large-zh-v1.5": 1024,
+            "text2vec-large-chinese": 1024,
+            "qwen3-embedding-8b": 4096,
         }
+        self._local_model: SentenceTransformer | None = None
         # 缓存
         self._cache = LRUEmbeddingCache(max_size=cache_max_size, ttl=cache_ttl) if enable_cache else None
         # 速率限制器
@@ -140,27 +152,20 @@ class EmbeddingGenerator:
 
     def _get_client(self) -> AsyncOpenAI | None:
         if self._client is None:
-            if self.provider == "openai":
-                self._client = AsyncOpenAI(
-                    api_key=self.api_key,
-                    base_url=self.base_url,
-                )
-            elif self.provider == "zhipu":
-                self._client = AsyncOpenAI(
-                    api_key=self.api_key,
-                    base_url="https://open.bigmodel.cn/api/paas/v4/",
-                )
-            elif self.provider == "volcengine":
-                self._client = AsyncOpenAI(
-                    api_key=self.api_key,
-                    base_url=self.base_url,
-                )
-            elif self.provider == "whalecloud":
-                # 浩鲸内部代理（OpenAI兼容协议）
-                self._client = AsyncOpenAI(
-                    api_key=self.api_key,
-                    base_url=self.base_url,
-                )
+            if self.provider in ("openai", "zhipu", "volcengine", "whalecloud", "azure", "ollama", "vllm", "localai", "lmstudio", "custom-openai", "sentence-transformers"):
+                if self.provider == "zhipu":
+                    self._client = AsyncOpenAI(
+                        api_key=self.api_key,
+                        base_url="https://open.bigmodel.cn/api/paas/v4/",
+                    )
+                elif self.provider == "sentence-transformers":
+                    # 本地模型不需要 HTTP client，_init_local_model 初始化后直接调用
+                    pass
+                else:
+                    self._client = AsyncOpenAI(
+                        api_key=self.api_key,
+                        base_url=self.base_url,
+                    )
             elif self.provider == "local":
                 pass
         return self._client
@@ -175,7 +180,7 @@ class EmbeddingGenerator:
             if cached is not None:
                 return cached
 
-        if self.provider == "local":
+        if self.provider in ("local", "sentence-transformers"):
             result = self._local_embed_single(text)
             if self._cache is not None:
                 self._cache.set(text, result)
@@ -280,7 +285,7 @@ class EmbeddingGenerator:
             # 所有都在缓存中
             return [r for r in results if r is not None]
 
-        if self.provider == "local":
+        if self.provider in ("local", "sentence-transformers"):
             local_results = self._local_embed_batch(uncached_texts)
             for i, idx in enumerate(uncached_indices):
                 results[idx] = local_results[i]
@@ -326,7 +331,20 @@ class EmbeddingGenerator:
 
         return results
 
+    def _init_local_model(self) -> SentenceTransformer:
+        """Lazy-load the sentence-transformers model (first call only)."""
+        if self._local_model is None:
+            from sentence_transformers import SentenceTransformer as ST
+
+            self._local_model = ST(self.model)
+        return self._local_model
+
     def _local_embed_single(self, text: str) -> list[float]:
+        if self.provider == "sentence-transformers":
+            model = self._init_local_model()
+            emb = model.encode(text, normalize_embeddings=True)
+            return emb.tolist()
+
         import hashlib
 
         hash_obj = hashlib.sha256(text.encode())
@@ -344,6 +362,11 @@ class EmbeddingGenerator:
         return vector
 
     def _local_embed_batch(self, texts: list[str]) -> list[list[float]]:
+        if self.provider == "sentence-transformers":
+            model = self._init_local_model()
+            embs = model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+            return [e.tolist() for e in embs]
+
         import hashlib
 
         def text_to_vector(text: str, dim: int = 1024) -> list[float]:
@@ -411,6 +434,8 @@ class EmbeddingGenerator:
         )
 
     def get_dimension(self) -> int:
+        if self.provider == "sentence-transformers" and self._local_model is not None:
+            return self._local_model.get_sentence_embedding_dimension() or 384
         return self._dimension_map.get(self.model, 1536)
 
     @staticmethod

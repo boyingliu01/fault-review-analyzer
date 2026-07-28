@@ -138,6 +138,8 @@ class ConfigValidator:
             "local",
             "volcengine",
             "custom",
+            "whalecloud",
+            "sentence-transformers",
         ]
         if provider not in allowed_providers:
             errors.append(
