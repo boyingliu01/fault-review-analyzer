@@ -10,8 +10,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from pathlib import Path
-from typing import Any
+from pathlib import Path  # noqa: TC003 — used in public API docstring example
 
 from src.core.exceptions import DataProcessingError
 from src.rules.models import Rule
@@ -70,13 +69,13 @@ class PDFRuleParser:
                 f"Error: {e}",
                 error_code="PDF_002",
                 context={"path": str(pdf_path)},
-            )
+            ) from e
         except Exception as e:
             raise DataProcessingError(
                 f"Failed to extract text from PDF: {e}",
                 error_code="PDF_003",
                 context={"path": str(pdf_path), "error": str(e)},
-            )
+            ) from e
 
         if not text or not text.strip():
             return []

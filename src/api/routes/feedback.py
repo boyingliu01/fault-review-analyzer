@@ -64,7 +64,7 @@ async def create_feedback(
         return created
     except Exception as e:
         logger.error(f"Error creating feedback: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/{feedback_id}", response_model=FeedbackResponse)

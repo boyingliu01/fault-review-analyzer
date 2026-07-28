@@ -32,12 +32,12 @@ class TokenManager:
             f"alert: {rotation_alert_days} days"
         )
 
-    def is_token_expired(self, token: str, created_at: datetime | None = None) -> bool:
+    def is_token_expired(self, _token: str, created_at: datetime | None = None) -> bool:
         """
         Check if a token has expired.
 
         Args:
-            token: Token to check (used for logging purposes)
+            _token: Token string (reserved for future use).
             created_at: Token creation timestamp
 
         Returns:
@@ -57,12 +57,12 @@ class TokenManager:
 
         return is_expired
 
-    def needs_rotation_alert(self, token: str, created_at: datetime | None = None) -> bool:
+    def needs_rotation_alert(self, _token: str, created_at: datetime | None = None) -> bool:
         """
         Check if a token needs rotation alert.
 
         Args:
-            token: Token to check (used for logging purposes)
+            _token: Token string (reserved for future use).
             created_at: Token creation timestamp
 
         Returns:

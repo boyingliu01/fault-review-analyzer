@@ -267,7 +267,7 @@ class ConfigManager:
             app_config = self._get_app_config()
         except Exception as e:
             if validate:
-                raise ConfigValidationError("Configuration validation failed", {"errors": [str(e)]})
+                raise ConfigValidationError("Configuration validation failed", {"errors": [str(e)]}) from e
             else:
                 raise
 

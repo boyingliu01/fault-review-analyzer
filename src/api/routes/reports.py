@@ -116,7 +116,7 @@ async def get_report(
                 "message": "Invalid task ID format",
                 "detail": {},
             },
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Error fetching report for task {task_id}: {str(e)}")
         raise HTTPException(
@@ -126,4 +126,4 @@ async def get_report(
                 "message": str(e),
                 "detail": {},
             },
-        )
+        ) from e

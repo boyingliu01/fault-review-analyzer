@@ -88,7 +88,7 @@ async def get_clusters(
                 "message": str(e),
                 "detail": {},
             },
-        )
+        ) from e
 
 
 @router.get(
@@ -163,7 +163,7 @@ async def get_cluster_detail(
                 "message": str(e),
                 "detail": {},
             },
-        )
+        ) from e
 
 
 def update_cluster_cache(cluster_results: dict[str, Any]) -> None:
