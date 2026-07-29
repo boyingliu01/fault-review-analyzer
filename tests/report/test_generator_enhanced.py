@@ -107,7 +107,9 @@ class TestReportGeneratorEnhanced:
         assert ".json" in str(output_path)
 
     @patch("src.report.generator.ReportGenerator._generate_content")
-    def test_generate_with_format_json(self, mock_generate_content, temp_output_dir, sample_report_data):
+    def test_generate_with_format_json(
+        self, mock_generate_content, temp_output_dir, sample_report_data
+    ):
         """Test generating a report with JSON format."""
         mock_generate_content.return_value = '{"title": "Test Report"}'
 

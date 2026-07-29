@@ -13,8 +13,8 @@ def _preserve_event_loop_after_ui_tests():
     global event loop state on Windows during `playwright.stop()` teardown.
     Subsequent async tests get RuntimeError: Runner.run() cannot be called.
     """
+    import contextlib
+
     yield
-    try:
+    with contextlib.suppress(Exception):
         asyncio.set_event_loop(asyncio.new_event_loop())
-    except Exception:
-        pass

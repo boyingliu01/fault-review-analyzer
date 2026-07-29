@@ -1,4 +1,5 @@
 """微调触发器"""
+
 from typing import Any
 
 from loguru import logger
@@ -35,7 +36,7 @@ class RetrainingTrigger:
             return False, {
                 "reason": "insufficient_feedback",
                 "current": total_feedback,
-                "required": self.min_feedback_count
+                "required": self.min_feedback_count,
             }
 
         # 检查纠错率
@@ -44,7 +45,7 @@ class RetrainingTrigger:
             return True, {
                 "reason": "high_correction_rate",
                 "current_ratio": correction_ratio,
-                "threshold": self.max_correction_ratio
+                "threshold": self.max_correction_ratio,
             }
 
         # 检查好评率
@@ -53,7 +54,7 @@ class RetrainingTrigger:
             return True, {
                 "reason": "low_positive_rating",
                 "current_ratio": positive_ratio,
-                "threshold": self.min_positive_ratio
+                "threshold": self.min_positive_ratio,
             }
 
         return False, {"reason": "all_metrics_healthy"}
@@ -70,30 +71,36 @@ class RetrainingTrigger:
 
         # 如果标签纠正较多，建议改进标签生成模型
         if by_type.get("label_correction", 0) > 10:
-            recommendations.append({
-                "priority": "high",
-                "area": "label_generation",
-                "suggestion": "标签生成模型需要改进",
-                "evidence": f"收到 {by_type['label_correction']} 个标签纠正反馈"
-            })
+            recommendations.append(
+                {
+                    "priority": "high",
+                    "area": "label_generation",
+                    "suggestion": "标签生成模型需要改进",
+                    "evidence": f"收到 {by_type['label_correction']} 个标签纠正反馈",
+                }
+            )
 
         # 如果根因纠正较多，建议改进根因分析模型
         if by_type.get("root_cause_correction", 0) > 10:
-            recommendations.append({
-                "priority": "high",
-                "area": "root_cause_analysis",
-                "suggestion": "根因分析模型需要改进",
-                "evidence": f"收到 {by_type['root_cause_correction']} 个根因纠正反馈"
-            })
+            recommendations.append(
+                {
+                    "priority": "high",
+                    "area": "root_cause_analysis",
+                    "suggestion": "根因分析模型需要改进",
+                    "evidence": f"收到 {by_type['root_cause_correction']} 个根因纠正反馈",
+                }
+            )
 
         # 如果误报/漏报较多，建议改进聚类模型
         if by_type.get("false_positive", 0) + by_type.get("false_negative", 0) > 15:
-            recommendations.append({
-                "priority": "medium",
-                "area": "clustering_model",
-                "suggestion": "聚类模型需要改进以减少误报和漏报",
-                "evidence": f"收到 {by_type.get('false_positive', 0)} 个误报和 {by_type.get('false_negative', 0)} 个漏报反馈"
-            })
+            recommendations.append(
+                {
+                    "priority": "medium",
+                    "area": "clustering_model",
+                    "suggestion": "聚类模型需要改进以减少误报和漏报",
+                    "evidence": f"收到 {by_type.get('false_positive', 0)} 个误报和 {by_type.get('false_negative', 0)} 个漏报反馈",
+                }
+            )
 
         return recommendations
 
@@ -106,10 +113,7 @@ class RetrainingTrigger:
 
         if not should_trigger:
             logger.debug("Retraining not triggered - all metrics healthy")
-            return {
-                "triggered": False,
-                "reason": info
-            }
+            return {"triggered": False, "reason": info}
 
         logger.info("Triggering retraining pipeline based on feedback metrics")
 
@@ -117,20 +121,19 @@ class RetrainingTrigger:
         recommendations = self.get_retraining_recommendations()
 
         # 准备训练数据
-        feedback_list = self.feedback_manager.list_feedback(
-            reviewed=None,
-            limit=10000
-        )
+        feedback_list = self.feedback_manager.list_feedback(reviewed=None, limit=10000)
 
         training_data = []
         for feedback in feedback_list:
-            training_data.append({
-                "task_id": feedback.task_id,
-                "original_result": feedback.original_result,
-                "corrected_result": feedback.corrected_result,
-                "feedback_type": feedback.feedback_type,
-                "rating": feedback.rating
-            })
+            training_data.append(
+                {
+                    "task_id": feedback.task_id,
+                    "original_result": feedback.original_result,
+                    "corrected_result": feedback.corrected_result,
+                    "feedback_type": feedback.feedback_type,
+                    "rating": feedback.rating,
+                }
+            )
 
         # 返回触发结果
         return {
@@ -139,12 +142,12 @@ class RetrainingTrigger:
             "recommendations": recommendations,
             "training_data_stats": {
                 "total_samples": len(training_data),
-                "by_type": self.feedback_manager.get_statistics().get("by_type", {})
+                "by_type": self.feedback_manager.get_statistics().get("by_type", {}),
             },
             "next_steps": [
                 "1. 导出训练数据到训练管道",
                 "2. 启动模型微调任务",
                 "3. 评估新模型性能",
-                "4. 部署新模型到生产环境"
-            ]
+                "4. 部署新模型到生产环境",
+            ],
         }

@@ -1,6 +1,5 @@
 """APIClient 扩展测试 - 边界场景"""
 
-
 from src.api.client import APIClient
 from src.api.exceptions import APIError, AuthenticationError, NotFoundError
 

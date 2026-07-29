@@ -151,9 +151,7 @@ class TestPipelinePreprocessRulesReport:
             await pipeline.close()
 
     @pytest.mark.asyncio
-    async def test_pipeline_minimal_task(
-        self, real_config_manager: ConfigManager
-    ):
+    async def test_pipeline_minimal_task(self, real_config_manager: ConfigManager):
         """最小化任务也能走完全流程。"""
         minimal_task = TaskInfo(
             task_id=30002,
@@ -317,9 +315,7 @@ class TestPipelineErrorHandling:
     """测试 Pipeline 错误处理。"""
 
     @pytest.mark.asyncio
-    async def test_pipeline_api_failure_graceful(
-        self, real_config_manager: ConfigManager
-    ):
+    async def test_pipeline_api_failure_graceful(self, real_config_manager: ConfigManager):
         """API 调用失败时 Pipeline 应优雅降级。"""
         pipeline_config = PipelineConfig(
             use_cache=False,
@@ -349,9 +345,7 @@ class TestPipelineErrorHandling:
             await pipeline.close()
 
     @pytest.mark.asyncio
-    async def test_pipeline_result_has_task_id_on_error(
-        self, real_config_manager: ConfigManager
-    ):
+    async def test_pipeline_result_has_task_id_on_error(self, real_config_manager: ConfigManager):
         """即使出错，PipelineResult 也应包含 task_id。"""
         pipeline_config = PipelineConfig(use_cache=False)
 

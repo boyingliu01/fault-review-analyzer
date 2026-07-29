@@ -32,8 +32,10 @@ class TestPhase1Prepare:
     @pytest.fixture
     def phase1(self, config: MagicMock) -> Phase1Prepare:
         """创建 Phase1 实例（使用 mock）"""
-        with patch("scripts.phase1_prepare.EmbeddingGenerator") as mock_embed, \
-             patch("scripts.phase1_prepare.ChromaManager") as mock_chroma:
+        with (
+            patch("scripts.phase1_prepare.EmbeddingGenerator") as mock_embed,
+            patch("scripts.phase1_prepare.ChromaManager") as mock_chroma,
+        ):
             mock_embed.return_value = MagicMock()
             mock_chroma.return_value = MagicMock()
             phase1 = Phase1Prepare(config)
@@ -65,11 +67,13 @@ class TestPhase1Prepare:
         from src.core.models import EmbeddingResult
 
         # Mock 内部方法
-        phase1.fetch_single_task = AsyncMock(return_value=MagicMock(
-            task_no=small_test_ids[0],
-            title="测试故障",
-            description="测试描述",
-        ))
+        phase1.fetch_single_task = AsyncMock(
+            return_value=MagicMock(
+                task_no=small_test_ids[0],
+                title="测试故障",
+                description="测试描述",
+            )
+        )
         phase1.embedding_gen.embed_text = AsyncMock(return_value=[0.1] * 1536)
         phase1.chroma_manager.add_embedding = MagicMock(return_value=True)
 

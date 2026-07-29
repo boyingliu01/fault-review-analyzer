@@ -65,8 +65,7 @@ class PDFRuleParser:
             text = self._extract_text(pdf_path)
         except ImportError as e:
             raise DataProcessingError(
-                f"PDF library not available. Install PyMuPDF: pip install pymupdf. "
-                f"Error: {e}",
+                f"PDF library not available. Install PyMuPDF: pip install pymupdf. Error: {e}",
                 error_code="PDF_002",
                 context={"path": str(pdf_path)},
             ) from e

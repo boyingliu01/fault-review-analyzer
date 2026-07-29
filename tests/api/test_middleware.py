@@ -142,7 +142,7 @@ class TestMiddlewareHeaders:
 class TestMiddlewareErrorHandling:
     """中间件错误处理测试"""
 
-    def test_middleware_error_logging(self, caplog):
+    def test_middleware_error_logging(self):
         """测试中间件日志记录"""
         # 无认证的应用
         app = create_app(valid_tokens=None)

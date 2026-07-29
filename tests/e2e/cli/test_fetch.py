@@ -25,7 +25,9 @@ class TestCLIFetch:
         assert "fetch" in result.stdout.lower()
 
     @pytest.mark.asyncio
-    async def test_fetch_single_task(self, api_key: str, api_base_url: str, small_test_ids: list[str]):
+    async def test_fetch_single_task(
+        self, api_key: str, api_base_url: str, small_test_ids: list[str]
+    ):
         """测试获取单个故障单"""
         from src.api.client import APIClient
 
@@ -40,7 +42,9 @@ class TestCLIFetch:
             assert str(task.task_id) == small_test_ids[0]
 
     @pytest.mark.asyncio
-    async def test_fetch_multiple_tasks(self, api_key: str, api_base_url: str, small_test_ids: list[str]):
+    async def test_fetch_multiple_tasks(
+        self, api_key: str, api_base_url: str, small_test_ids: list[str]
+    ):
         """测试批量获取多个故障单"""
         from src.api.client import APIClient
 

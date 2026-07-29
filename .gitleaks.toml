@@ -41,6 +41,13 @@ paths = [
     '''\.venv/.*''',
     '''node_modules/.*''',
     '''__pycache__/.*''',
+    '''\.qoder/.*''',
+    '''output/.*''',
+    '''htmlcov/.*''',
+    '''\.ruff_cache/.*''',
+    '''\.sprint-state/.*''',
+    '''\.code-walkthrough-result\.json$''',
+    '''\.env$''',
 ]
 regexes = [
     '''REDACTED_''',

@@ -31,9 +31,7 @@ class RateLimiter:
         one_minute_ago = now - 60
 
         # 清理一分钟前的记录
-        self.requests[identifier] = [
-            t for t in self.requests[identifier] if t > one_minute_ago
-        ]
+        self.requests[identifier] = [t for t in self.requests[identifier] if t > one_minute_ago]
 
         # 检查是否超限
         if len(self.requests[identifier]) >= self.requests_per_minute:
@@ -86,9 +84,7 @@ def setup_middleware(
             return await call_next(request)
 
         # 从 Header 或 Query 参数获取 Token
-        token = request.headers.get("X-API-Token") or request.query_params.get(
-            "api_token"
-        )
+        token = request.headers.get("X-API-Token") or request.query_params.get("api_token")
 
         if not token:
             logger.warning(f"Missing API token for request: {request.url.path}")

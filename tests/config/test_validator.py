@@ -24,7 +24,7 @@ class TestConfigValidator:
                 "timeout": 30,
                 "retry": 3,
                 "api_key": "valid-api-key",
-                "api_path_prefix": "/portal/ai-gateway/devspace/rpc/v3/work-item"
+                "api_path_prefix": "/portal/ai-gateway/devspace/rpc/v3/work-item",
             },
             "llm": {
                 "provider": "openai",
@@ -32,21 +32,21 @@ class TestConfigValidator:
                 "api_key": "valid-llm-key",
                 "temperature": 0.7,
                 "max_tokens": 4096,
-                "base_url": "https://api.openai.com"
+                "base_url": "https://api.openai.com",
             },
             "embedding": {
                 "provider": "openai",
                 "model": "text-embedding-3-small",
                 "api_key": "valid-embedding-key",
                 "base_url": "https://api.openai.com",
-                "batch_size": 100
+                "batch_size": 100,
             },
             "cache": {
                 "enabled": True,
                 "ttl": 86400,
                 "storage": "sqlite",
-                "db_path": "./data/cache/cache.db"
-            }
+                "db_path": "./data/cache/cache.db",
+            },
         }
 
     def test_validate_valid_config(self, validator, valid_config_dict):
@@ -57,12 +57,7 @@ class TestConfigValidator:
 
     def test_validate_empty_api_config(self, validator):
         """Test validating with empty API config."""
-        config: dict[str, Any] = {
-            "api": {},
-            "llm": {},
-            "embedding": {},
-            "cache": {}
-        }
+        config: dict[str, Any] = {"api": {}, "llm": {}, "embedding": {}, "cache": {}}
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
         assert any("API base URL is required" in err for err in errors)
@@ -75,11 +70,11 @@ class TestConfigValidator:
             "api": {
                 "base_url": "not-a-valid-url",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
             "embedding": {},
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -93,11 +88,11 @@ class TestConfigValidator:
                 "timeout": -1,
                 "retry": -2,
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
             "embedding": {},
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -110,11 +105,11 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "invalid/no-leading-slash"
+                "api_path_prefix": "invalid/no-leading-slash",
             },
             "llm": {},
             "embedding": {},
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -126,11 +121,11 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {"provider": "any-custom-name"},
             "embedding": {},
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -143,16 +138,16 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {
                 "provider": "openai",
                 "model": "gpt-4",
                 "api_key": "test-key",
-                "temperature": 1.5
+                "temperature": 1.5,
             },
             "embedding": {},
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -164,16 +159,16 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {
                 "provider": "openai",
                 "model": "gpt-4",
                 "api_key": "test-key",
-                "max_tokens": -1
+                "max_tokens": -1,
             },
             "embedding": {},
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -185,16 +180,16 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {
                 "provider": "openai",
                 "model": "gpt-4",
                 "api_key": "test-key",
-                "base_url": "not-a-valid-url"
+                "base_url": "not-a-valid-url",
             },
             "embedding": {},
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -206,11 +201,11 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
             "embedding": {},
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -223,11 +218,11 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
             "embedding": {"provider": "invalid-provider"},
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -239,15 +234,11 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
-            "embedding": {
-                "provider": "local",
-                "model": "local-model",
-                "batch_size": 100
-            },
-            "cache": {}
+            "embedding": {"provider": "local", "model": "local-model", "batch_size": 100},
+            "cache": {},
         }
         # Only check embedding config specifically
         embedding_errors = validator._validate_embedding_config_dict(config["embedding"])
@@ -259,16 +250,16 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
             "embedding": {
                 "provider": "openai",
                 "model": "text-embedding-3-small",
                 "api_key": "test-key",
-                "batch_size": 0
+                "batch_size": 0,
             },
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -280,16 +271,16 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
             "embedding": {
                 "provider": "openai",
                 "model": "text-embedding-3-small",
                 "api_key": "test-key",
-                "base_url": "not-a-valid-url"
+                "base_url": "not-a-valid-url",
             },
-            "cache": {}
+            "cache": {},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -301,11 +292,11 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
             "embedding": {},
-            "cache": {"storage": "invalid-storage"}
+            "cache": {"storage": "invalid-storage"},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -317,11 +308,11 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
             "embedding": {},
-            "cache": {"ttl": -100}
+            "cache": {"ttl": -100},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -333,14 +324,11 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
             "embedding": {},
-            "cache": {
-                "storage": "sqlite",
-                "db_path": ""
-            }
+            "cache": {"storage": "sqlite", "db_path": ""},
         }
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
@@ -352,14 +340,11 @@ class TestConfigValidator:
             "api": {
                 "base_url": "https://api.example.com",
                 "api_key": "test-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {},
             "embedding": {},
-            "cache": {
-                "storage": "memory",
-                "db_path": ""
-            }
+            "cache": {"storage": "memory", "db_path": ""},
         }
         # Only check cache config specifically
         cache_errors = validator._validate_cache_config_dict(config["cache"])
@@ -367,12 +352,7 @@ class TestConfigValidator:
 
     def test_validate_multiple_errors(self, validator):
         """Test validating a config with multiple errors."""
-        config = {
-            "api": {},
-            "llm": {"provider": "invalid"},
-            "embedding": {},
-            "cache": {}
-        }
+        config = {"api": {}, "llm": {"provider": "invalid"}, "embedding": {}, "cache": {}}
         is_valid, errors = validator.validate_dict(config)
         assert is_valid is False
         assert len(errors) > 5

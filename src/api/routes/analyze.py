@@ -163,9 +163,7 @@ async def analyze_batch(
             results = await pipeline.run_batch([int(task_id) for task_id in task_ids])
 
         analysis_time = time.time() - start_time
-        logger.info(
-            f"Batch analysis completed for {len(results)} tasks in {analysis_time:.2f}s"
-        )
+        logger.info(f"Batch analysis completed for {len(results)} tasks in {analysis_time:.2f}s")
 
         # 转换结果格式
         responses = []

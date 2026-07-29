@@ -140,9 +140,7 @@ class CodeChangeAnalyzer:
         file_changes = set(
             re.findall(r"^\+\+\+ (?:b/)?(.*?)(?:\s+\(latest\))?$", diff, re.MULTILINE)
         )
-        removed_files = set(
-            re.findall(r"^--- (?:a/)?(.*?)(?:\s+\(head\))?$", diff, re.MULTILINE)
-        )
+        removed_files = set(re.findall(r"^--- (?:a/)?(.*?)(?:\s+\(head\))?$", diff, re.MULTILINE))
         # 排除 /dev/null（新增文件的旧端点）
         removed_files.discard("/dev/null")
         file_changes.discard("/dev/null")
@@ -334,9 +332,7 @@ class CodeChangeAnalyzer:
 
             # 文件类型分布
             if summary["file_types"]:
-                type_desc = ", ".join(
-                    f"{k}({v})" for k, v in summary["file_types"].items()
-                )
+                type_desc = ", ".join(f"{k}({v})" for k, v in summary["file_types"].items())
                 parts.append(f"文件类型: {type_desc}")
 
             # 变更模块
@@ -400,6 +396,7 @@ class CodeChangeAnalyzer:
             if hasattr(self._llm_provider, "generate"):
                 # 支持两种签名: generate(system, user) 和 generate(prompt)
                 import inspect
+
                 sig = inspect.signature(self._llm_provider.generate)
                 params = list(sig.parameters.keys())
 

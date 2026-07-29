@@ -21,7 +21,6 @@ class TestInputValidator:
                 ("1234567", True),  # 7 digits
                 ("1234567890", True),  # 10 digits
                 (" 11745664 ", True),  # with whitespace
-
                 # Invalid cases
                 (None, False),
                 ("", False),
@@ -49,7 +48,6 @@ class TestInputValidator:
                 ("x" * 10, True),  # minimum length
                 ("x" * 200, True),  # maximum length
                 ("  valid-token-with-whitespace  ", True),  # with whitespace
-
                 # Invalid cases
                 (None, False),
                 ("", False),

@@ -1,6 +1,5 @@
 """违规检测器测试套件"""
 
-
 from src.core.models import ViolationDetection
 
 

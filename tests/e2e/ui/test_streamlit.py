@@ -24,11 +24,17 @@ class StreamlitRunner:
     def start(self, timeout: int = 30) -> None:
         """启动 Streamlit 服务"""
         cmd = [
-            sys.executable, "-m", "streamlit", "run",
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
             str(PROJECT_ROOT / "src/ui/streamlit_app.py"),
-            "--server.port", str(self.port),
-            "--server.headless", "true",
-            "--browser.gatherUsageStats", "false",
+            "--server.port",
+            str(self.port),
+            "--server.headless",
+            "true",
+            "--browser.gatherUsageStats",
+            "false",
         ]
 
         self.process = subprocess.Popen(
@@ -40,6 +46,7 @@ class StreamlitRunner:
 
         # 等待服务启动
         import urllib.request
+
         for _ in range(timeout):
             try:
                 urllib.request.urlopen(self.url)

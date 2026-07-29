@@ -32,9 +32,7 @@ class ConditionEvaluator:
             "is_empty": lambda a, _: not a,
         }
 
-    def evaluate(
-        self, condition: Condition, context: dict[str, Any] | None = None
-    ) -> bool:
+    def evaluate(self, condition: Condition, context: dict[str, Any] | None = None) -> bool:
         """
         评估条件
 

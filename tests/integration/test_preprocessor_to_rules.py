@@ -70,9 +70,7 @@ class TestPreprocessorToRulesProtocol:
         violations = rules_engine.check(task.model_dump())
         assert isinstance(violations, list)
 
-    def test_very_long_text(
-        self, preprocessor: DataPreprocessor, rules_engine: RulesEngine
-    ):
+    def test_very_long_text(self, preprocessor: DataPreprocessor, rules_engine: RulesEngine):
         """超长文本应被预处理器截断，规则引擎也能正常处理。"""
         long_text = "A" * 50000
         task = _make_task(task_id=20003, title="超长文本测试", description=long_text)
@@ -97,9 +95,7 @@ class TestPreprocessorToRulesProtocol:
         violations = rules_engine.check(task.model_dump())
         assert isinstance(violations, list)
 
-    def test_unicode_and_emoji(
-        self, preprocessor: DataPreprocessor, rules_engine: RulesEngine
-    ):
+    def test_unicode_and_emoji(self, preprocessor: DataPreprocessor, rules_engine: RulesEngine):
         """Unicode 和 emoji 字符应能正常处理。"""
         unicode_text = "日本語テスト 한국어 中文 🚀🔥💥 error occurred"
         task = _make_task(task_id=20005, title="Unicode🌍", description=unicode_text)
@@ -108,9 +104,7 @@ class TestPreprocessorToRulesProtocol:
         violations = rules_engine.check(task.model_dump())
         assert isinstance(violations, list)
 
-    def test_security_pattern_detected_in_commit_message(
-        self, rules_engine: RulesEngine
-    ):
+    def test_security_pattern_detected_in_commit_message(self, rules_engine: RulesEngine):
         """规则引擎应能从 commit message 中检测到敏感信息模式。"""
         task = _make_task(
             task_id=20006,
@@ -148,9 +142,7 @@ class TestPreprocessorToRulesProtocol:
         assert isinstance(violations, list)
         assert len(violations) == 0  # 没有代码可检查
 
-    def test_multiple_commits_all_checked(
-        self, rules_engine: RulesEngine
-    ):
+    def test_multiple_commits_all_checked(self, rules_engine: RulesEngine):
         """多个 commit 的 message 都应被规则引擎检查。"""
         task = _make_task(
             task_id=20008,
@@ -180,9 +172,7 @@ class TestPreprocessorToRulesProtocol:
         # 第二个 commit 包含 api_key 模式
         assert "security-001" in rule_ids
 
-    def test_preprocessed_segments_metadata_preserved(
-        self, preprocessor: DataPreprocessor
-    ):
+    def test_preprocessed_segments_metadata_preserved(self, preprocessor: DataPreprocessor):
         """预处理后的 segments 应保留正确的 metadata。"""
         task = _make_task(
             task_id=20009,

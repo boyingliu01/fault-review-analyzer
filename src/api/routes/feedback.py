@@ -1,4 +1,5 @@
 """反馈 API 路由"""
+
 import sys
 from collections.abc import Generator
 from pathlib import Path
@@ -39,8 +40,7 @@ def get_feedback_manager() -> Generator[FeedbackManager, None, None]:
 
 @router.post("", response_model=FeedbackResponse)
 async def create_feedback(
-    feedback: FeedbackCreate,
-    manager: FeedbackManager = Depends(get_feedback_manager)
+    feedback: FeedbackCreate, manager: FeedbackManager = Depends(get_feedback_manager)
 ) -> Any:
     """创建反馈"""
     try:
@@ -52,7 +52,7 @@ async def create_feedback(
             corrected_result=feedback.corrected_result,
             rating=feedback.rating,
             comment=feedback.comment,
-            created_by=feedback.created_by
+            created_by=feedback.created_by,
         )
 
         feedback_id = manager.add_feedback(full_feedback)
@@ -69,8 +69,7 @@ async def create_feedback(
 
 @router.get("/{feedback_id}", response_model=FeedbackResponse)
 async def get_feedback(
-    feedback_id: str,
-    manager: FeedbackManager = Depends(get_feedback_manager)
+    feedback_id: str, manager: FeedbackManager = Depends(get_feedback_manager)
 ) -> Any:
     """获取反馈详情"""
     feedback = manager.get_feedback(feedback_id)
@@ -81,8 +80,7 @@ async def get_feedback(
 
 @router.get("/task/{task_id}", response_model=list[FeedbackResponse])
 async def get_task_feedback(
-    task_id: str,
-    manager: FeedbackManager = Depends(get_feedback_manager)
+    task_id: str, manager: FeedbackManager = Depends(get_feedback_manager)
 ) -> Any:
     """获取任务的反馈列表"""
     return manager.get_feedback_by_task(task_id)
@@ -95,7 +93,7 @@ async def list_feedback(
     reviewed: bool | None = Query(None),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    manager: FeedbackManager = Depends(get_feedback_manager)
+    manager: FeedbackManager = Depends(get_feedback_manager),
 ) -> Any:
     """列出反馈"""
     rating_enum = FeedbackRating(rating) if rating else None
@@ -105,22 +103,19 @@ async def list_feedback(
         rating=rating_enum,
         reviewed=reviewed,
         limit=limit,
-        offset=offset
+        offset=offset,
     )
 
     # 获取总数（简化版，实际项目中应该单独查询）
     all_items = manager.list_feedback(
-        feedback_type=feedback_type,
-        rating=rating_enum,
-        reviewed=reviewed,
-        limit=1000000
+        feedback_type=feedback_type, rating=rating_enum, reviewed=reviewed, limit=1000000
     )
 
     return FeedbackListResponse(
         total=len(all_items),
         items=[FeedbackResponse.model_validate(item) for item in items],
         offset=offset,
-        limit=limit
+        limit=limit,
     )
 
 
@@ -128,7 +123,7 @@ async def list_feedback(
 async def review_feedback(
     feedback_id: str,
     review: FeedbackReview,
-    manager: FeedbackManager = Depends(get_feedback_manager)
+    manager: FeedbackManager = Depends(get_feedback_manager),
 ) -> Any:
     """审核反馈"""
     success = manager.review_feedback(feedback_id, review.reviewed_by)
@@ -143,9 +138,7 @@ async def review_feedback(
 
 
 @router.get("/stats/summary", response_model=FeedbackStatsResponse)
-async def get_feedback_statistics(
-    manager: FeedbackManager = Depends(get_feedback_manager)
-) -> Any:
+async def get_feedback_statistics(manager: FeedbackManager = Depends(get_feedback_manager)) -> Any:
     """获取反馈统计"""
     stats = manager.get_statistics()
     return FeedbackStatsResponse(
@@ -154,5 +147,5 @@ async def get_feedback_statistics(
         by_rating=stats.get("by_rating", {}),
         reviewed_count=stats.get("reviewed_count", 0),
         correction_ratio=stats.get("correction_ratio", 0.0),
-        positive_ratio=stats.get("positive_ratio", 0.0)
+        positive_ratio=stats.get("positive_ratio", 0.0),
     )

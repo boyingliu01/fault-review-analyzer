@@ -34,7 +34,9 @@ class _LLMClientAdapter:
 
     async def generate(self, prompt: str) -> str:
         """Generate using the provider with combined system and user prompt."""
-        return str(await self._provider.generate(system="You are a helpful assistant.", user=prompt))
+        return str(
+            await self._provider.generate(system="You are a helpful assistant.", user=prompt)
+        )
 
 
 @dataclass
@@ -172,9 +174,7 @@ class AnalysisPipeline:
             if self._pipeline_config.analyze_root_cause_deep:
                 result.deep_root_causes = await self._analyze_root_cause_deep(task_dict)
 
-    async def _analyze_code_changes(
-        self, task_data: TaskInfo, result: PipelineResult
-    ) -> None:
+    async def _analyze_code_changes(self, task_data: TaskInfo, result: PipelineResult) -> None:
         """分析代码变更（diff分析、模式检测、规范检查、LLM语义分析）"""
         if not task_data.development or not task_data.development.commits:
             return
@@ -358,16 +358,18 @@ class AnalysisPipeline:
             if task.development and task.development.commits:
                 commits_data = []
                 for commit in task.development.commits:
-                    commits_data.append({
-                        "commit_id": commit.commit_id,
-                        "author": commit.author,
-                        "message": commit.message,
-                        "diff": commit.diff,
-                        "files_changed": commit.changes,
-                        "branch": commit.branch,
-                        "repository": commit.repository,
-                        "timestamp": commit.time.isoformat() if commit.time else "",
-                    })
+                    commits_data.append(
+                        {
+                            "commit_id": commit.commit_id,
+                            "author": commit.author,
+                            "message": commit.message,
+                            "diff": commit.diff,
+                            "files_changed": commit.changes,
+                            "branch": commit.branch,
+                            "repository": commit.repository,
+                            "timestamp": commit.time.isoformat() if commit.time else "",
+                        }
+                    )
 
                 # 只有当有diff数据时才生成代码分析文本
                 if any(c.get("diff", "") for c in commits_data):
@@ -656,9 +658,7 @@ class AnalysisPipeline:
             self._violation_detector = ViolationDetector(standards_manager)
         return self._violation_detector
 
-    def _detect_violations(
-        self, diff_content: str, task_data: TaskInfo
-    ) -> list[dict]:
+    def _detect_violations(self, diff_content: str, task_data: TaskInfo) -> list[dict]:
         """使用ViolationDetector检测Java代码规范违规。
 
         Args:
@@ -761,6 +761,7 @@ class AnalysisPipeline:
             return str(result)[:500]
         except Exception as e:
             from loguru import logger
+
             logger.warning(f"LLM代码分析失败: {e}")
             return ""
 

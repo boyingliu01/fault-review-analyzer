@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.server import create_app
 from src.analyzer.pipeline import PipelineResult
+from src.api.server import create_app
 
 
 @pytest.fixture

@@ -95,9 +95,7 @@ class SHAPExplainer:
                         self.model.predict_proba, self.background_data
                     )
                 elif hasattr(self.model, "predict"):
-                    self.explainer = shap.KernelExplainer(
-                        self.model.predict, self.background_data
-                    )
+                    self.explainer = shap.KernelExplainer(self.model.predict, self.background_data)
                 else:
                     self.explainer = shap.KernelExplainer(self.model, self.background_data)
         except Exception as e:
@@ -189,7 +187,9 @@ class SHAPExplainer:
         mean_shap = np.mean(shap_values, axis=0)
 
         features = []
-        for i, (mean_abs, std, mean) in enumerate(zip(mean_abs_shap, std_shap, mean_shap, strict=False)):
+        for i, (mean_abs, std, mean) in enumerate(
+            zip(mean_abs_shap, std_shap, mean_shap, strict=False)
+        ):
             feature_name = self.feature_names[i] if i < len(self.feature_names) else f"feature_{i}"
             direction = "positive" if mean > 0 else "negative"
             features.append(
@@ -304,9 +304,7 @@ class ClusteringExplainabilityAnalyzer:
             cluster_data = X[cluster_mask]
             other_data = X[~cluster_mask]
 
-            top_features = self._get_cluster_feature_importance(
-                cluster_data, other_data, top_n
-            )
+            top_features = self._get_cluster_feature_importance(cluster_data, other_data, top_n)
 
             rep_indices = self._find_representative_samples(cluster_data)
 
@@ -372,7 +370,7 @@ class ClusteringExplainabilityAnalyzer:
         text = "该聚类主要由以下特征驱动：\n"
         for i, feature in enumerate(top_features[:5]):
             direction_text = "正向" if feature.direction == "positive" else "负向"
-            text += f"{i+1}. {feature.feature_name} (重要性: {feature.importance:.4f}, {direction_text})\n"
+            text += f"{i + 1}. {feature.feature_name} (重要性: {feature.importance:.4f}, {direction_text})\n"
 
         return text
 
@@ -526,10 +524,14 @@ class ExplainabilityVisualizer:
         for cluster_id, cluster_exp in explanation.local_explanations.items():
             html_parts.append('<div class="cluster">')
             html_parts.append(f"<h3>Cluster {cluster_id}</h3>")
-            html_parts.append(f"<p><strong>Explanation:</strong> {cluster_exp.explanation_text}</p>")
+            html_parts.append(
+                f"<p><strong>Explanation:</strong> {cluster_exp.explanation_text}</p>"
+            )
             html_parts.append("<h4>Top Features:</h4>")
             html_parts.append(self._feature_table_to_html(cluster_exp.top_features))
-            html_parts.append(f"<p><strong>Representative samples:</strong> {cluster_exp.representative_samples}</p>")
+            html_parts.append(
+                f"<p><strong>Representative samples:</strong> {cluster_exp.representative_samples}</p>"
+            )
             html_parts.append("</div>")
 
         html_parts.extend(["</body>", "</html>"])
@@ -541,7 +543,12 @@ class ExplainabilityVisualizer:
         if not features:
             return "<p>No features available.</p>"
 
-        html = ["<table><thead><tr>", "<th>Feature</th>", "<th>Importance</th>", "<th>Direction</th>"]
+        html = [
+            "<table><thead><tr>",
+            "<th>Feature</th>",
+            "<th>Importance</th>",
+            "<th>Direction</th>",
+        ]
 
         if any(f.importance_std > 0 for f in features):
             html.append("<th>Std Dev</th>")

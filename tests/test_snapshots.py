@@ -10,8 +10,7 @@ These snapshots detect unintended changes in output format/content.
 from __future__ import annotations
 
 import re
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -48,8 +47,18 @@ class TestReportSnapshot:
             ]
         }
         labels = [
-            {"name": "空异常捕获", "confidence": 0.95, "category": "代码质量", "description": "未正确处理空值"},
-            {"name": "缺少边界检查", "confidence": 0.8, "category": "测试覆盖", "description": "边界条件未覆盖"},
+            {
+                "name": "空异常捕获",
+                "confidence": 0.95,
+                "category": "代码质量",
+                "description": "未正确处理空值",
+            },
+            {
+                "name": "缺少边界检查",
+                "confidence": 0.8,
+                "category": "测试覆盖",
+                "description": "边界条件未覆盖",
+            },
         ]
         root_causes = [
             {
@@ -100,7 +109,6 @@ class TestLabelingSnapshot:
     async def test_label_output_structure_snapshot(self, snapshot):
         """Label generator output structure matches baseline."""
         from src.analyzer.labeling.generator import LabelGenerator
-        from src.analyzer.labeling.models import Label
 
         # Create a mock LLM provider that returns predictable output
         mock_provider = MagicMock()

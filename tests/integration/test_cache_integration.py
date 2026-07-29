@@ -187,7 +187,9 @@ class TestCacheManagerRealSQLite:
             tables = [row[0] for row in cursor.fetchall()]
             assert "cache" in tables
 
-    def test_complex_data_roundtrip(self, cache_manager: CacheManager, sample_task_info: TaskInfo) -> None:
+    def test_complex_data_roundtrip(
+        self, cache_manager: CacheManager, sample_task_info: TaskInfo
+    ) -> None:
         """复杂嵌套数据应能正确保存和读取。"""
         task_dict = sample_task_info.model_dump(mode="json")
         cache_manager.save_task(10001, task_dict)

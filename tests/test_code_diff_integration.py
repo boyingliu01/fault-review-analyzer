@@ -206,10 +206,15 @@ class TestClusteringWithCodeChanges:
             api=MagicMock(base_url="http://test", api_key="key", timeout=30, retry=1),
             cache=MagicMock(db_path=":memory:", ttl=3600),
             embedding=MagicMock(
-                provider="local", model="test", api_key="", base_url=None,
+                provider="local",
+                model="test",
+                api_key="",
+                base_url=None,
                 batch_size=10,
             ),
-            clustering=MagicMock(algorithm="hdbscan", min_cluster_size=2, min_samples=1, metric="cosine"),
+            clustering=MagicMock(
+                algorithm="hdbscan", min_cluster_size=2, min_samples=1, metric="cosine"
+            ),
             llm=MagicMock(api_key=""),
         )
 

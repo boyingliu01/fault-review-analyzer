@@ -1,6 +1,8 @@
 """反馈管理器测试"""
+
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -16,12 +18,13 @@ def temp_db_path():
     yield path
     # Windows 上的文件锁定问题，尝试多次删除
     import time
+
     for _ in range(3):
         try:
-            if os.path.exists(path):
-                os.remove(path)
+            if Path(path).exists():
+                Path(path).unlink()
             break
-        except:
+        except OSError:
             time.sleep(0.1)
 
 
@@ -41,7 +44,7 @@ def sample_feedback():
         corrected_result={"label": "Corrected Label", "confidence": 0.9},
         rating=FeedbackRating.GOOD,
         comment="标签需要修正",
-        created_by="test-user"
+        created_by="test-user",
     )
 
 
@@ -71,7 +74,7 @@ class TestFeedbackManager:
         retrieved = feedback_manager.get_feedback("nonexistent-id")
         assert retrieved is None
 
-    def test_get_feedback_by_task(self, feedback_manager, sample_feedback):
+    def test_get_feedback_by_task(self, feedback_manager):
         """测试按任务获取反馈"""
         # 添加多个不同任务的反馈
         feedback1 = Feedback(
@@ -79,21 +82,21 @@ class TestFeedbackManager:
             feedback_type=FeedbackType.GENERAL,
             original_result={"data": "test1"},
             rating=FeedbackRating.GOOD,
-            created_by="user1"
+            created_by="user1",
         )
         feedback2 = Feedback(
             task_id="task-123",
             feedback_type=FeedbackType.LABEL_CORRECTION,
             original_result={"data": "test2"},
             rating=FeedbackRating.EXCELLENT,
-            created_by="user2"
+            created_by="user2",
         )
         feedback3 = Feedback(
             task_id="task-456",
             feedback_type=FeedbackType.GENERAL,
             original_result={"data": "test3"},
             rating=FeedbackRating.FAIR,
-            created_by="user3"
+            created_by="user3",
         )
 
         feedback_manager.add_feedback(feedback1)
@@ -116,14 +119,14 @@ class TestFeedbackManager:
             feedback_type=FeedbackType.LABEL_CORRECTION,
             original_result={"data": "test1"},
             rating=FeedbackRating.GOOD,
-            created_by="user1"
+            created_by="user1",
         )
         feedback2 = Feedback(
             task_id="task-2",
             feedback_type=FeedbackType.ROOT_CAUSE_CORRECTION,
             original_result={"data": "test2"},
             rating=FeedbackRating.GOOD,
-            created_by="user2"
+            created_by="user2",
         )
 
         feedback_manager.add_feedback(feedback1)
@@ -143,23 +146,21 @@ class TestFeedbackManager:
             feedback_type=FeedbackType.GENERAL,
             original_result={"data": "test1"},
             rating=FeedbackRating.EXCELLENT,
-            created_by="user1"
+            created_by="user1",
         )
         feedback2 = Feedback(
             task_id="task-2",
             feedback_type=FeedbackType.GENERAL,
             original_result={"data": "test2"},
             rating=FeedbackRating.POOR,
-            created_by="user2"
+            created_by="user2",
         )
 
         feedback_manager.add_feedback(feedback1)
         feedback_manager.add_feedback(feedback2)
 
         # 按评分筛选
-        excellent_feedbacks = feedback_manager.list_feedback(
-            rating=FeedbackRating.EXCELLENT
-        )
+        excellent_feedbacks = feedback_manager.list_feedback(rating=FeedbackRating.EXCELLENT)
         assert len(excellent_feedbacks) == 1
         assert excellent_feedbacks[0].id == feedback1.id
 
@@ -192,15 +193,17 @@ class TestFeedbackManager:
                 feedback_type=ft,
                 original_result={"data": f"test-{i}"},
                 rating=r,
-                created_by=f"user-{i}"
+                created_by=f"user-{i}",
             )
-            for i, (ft, r) in enumerate([
-                (FeedbackType.LABEL_CORRECTION, FeedbackRating.GOOD),
-                (FeedbackType.ROOT_CAUSE_CORRECTION, FeedbackRating.EXCELLENT),
-                (FeedbackType.FALSE_POSITIVE, FeedbackRating.FAIR),
-                (FeedbackType.GENERAL, FeedbackRating.POOR),
-                (FeedbackType.LABEL_CORRECTION, FeedbackRating.EXCELLENT),
-            ])
+            for i, (ft, r) in enumerate(
+                [
+                    (FeedbackType.LABEL_CORRECTION, FeedbackRating.GOOD),
+                    (FeedbackType.ROOT_CAUSE_CORRECTION, FeedbackRating.EXCELLENT),
+                    (FeedbackType.FALSE_POSITIVE, FeedbackRating.FAIR),
+                    (FeedbackType.GENERAL, FeedbackRating.POOR),
+                    (FeedbackType.LABEL_CORRECTION, FeedbackRating.EXCELLENT),
+                ]
+            )
         ]
 
         for fb in feedbacks:

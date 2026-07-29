@@ -205,7 +205,9 @@ class TestReportGenerator:
     def test_generate_html_report(self, mock_generate_html, temp_output_dir, sample_report_data):
         """Test generating an HTML report."""
         # Mock returns HTML string content
-        mock_generate_html.return_value = "<!DOCTYPE html><html><body><h1>Sample Report</h1></body></html>"
+        mock_generate_html.return_value = (
+            "<!DOCTYPE html><html><body><h1>Sample Report</h1></body></html>"
+        )
 
         generator = ReportGenerator(output_dir=temp_output_dir)
         output_path = generator.generate(

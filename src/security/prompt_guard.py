@@ -22,23 +22,19 @@ class PromptGuard:
         re.compile(r"ignore\s+previous\s+instructions", re.IGNORECASE),
         re.compile(r"disregard\s+previous\s+instructions", re.IGNORECASE),
         re.compile(r"pay\s+no\s+attention\s+to\s+previous\s+instructions", re.IGNORECASE),
-
         # 系统提示词覆盖模式
         re.compile(r"system\s+prompt", re.IGNORECASE),
         re.compile(r"override\s+system\s+prompt", re.IGNORECASE),
         re.compile(r"reset\s+system\s+prompt", re.IGNORECASE),
-
         # 模式切换模式
         re.compile(r"you\s+are\s+now", re.IGNORECASE),
         re.compile(r"you\s+are\s+to\s+act\s+as", re.IGNORECASE),
         re.compile(r"pretend\s+to\s+be", re.IGNORECASE),
-
         # 特殊模式
         re.compile(r"\bDAN\b", re.IGNORECASE),
         re.compile(r"do\s+anything\s+now", re.IGNORECASE),
         re.compile(r"developer\s+mode", re.IGNORECASE),
         re.compile(r"debug\s+mode", re.IGNORECASE),
-
         # XML 标签注入
         re.compile(r"<system>", re.IGNORECASE),
         re.compile(r"</system>", re.IGNORECASE),
@@ -110,7 +106,7 @@ class PromptGuard:
         # 检查长度限制
         if len(text) > self.max_length:
             logger.warning(f"文本长度超出限制: {len(text)} > {self.max_length}")
-            return False, text[:self.max_length], []
+            return False, text[: self.max_length], []
 
         # 检测注入模式
         injections = self.detect_injection(text)

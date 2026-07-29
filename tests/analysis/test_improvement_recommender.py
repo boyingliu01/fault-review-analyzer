@@ -1,6 +1,5 @@
 """改进措施推荐器测试套件"""
 
-
 from src.analysis.improvement_recommender import (
     ImprovementMeasure,
     ImprovementRecommender,

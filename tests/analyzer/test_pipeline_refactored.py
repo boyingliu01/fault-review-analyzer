@@ -30,37 +30,34 @@ class TestAnalysisPipelineRefactored:
                 "timeout": 30,
                 "retry": 3,
                 "api_key": "test-api-key",
-                "api_path_prefix": "/api/v1"
+                "api_path_prefix": "/api/v1",
             },
             "llm": {
                 "provider": "openai",
                 "model": "gpt-4",
                 "api_key": "test-llm-key",
                 "temperature": 0.7,
-                "max_tokens": 4096
+                "max_tokens": 4096,
             },
             "embedding": {
                 "provider": "openai",
                 "model": "text-embedding-3-small",
                 "api_key": "test-embedding-key",
-                "batch_size": 100
+                "batch_size": 100,
             },
             "clustering": {
                 "algorithm": "hdbscan",
                 "min_cluster_size": 5,
                 "min_samples": 3,
-                "metric": "cosine"
+                "metric": "cosine",
             },
             "cache": {
                 "enabled": True,
                 "ttl": 86400,
                 "storage": "sqlite",
-                "db_path": str(temp_dir / "cache.db")
+                "db_path": str(temp_dir / "cache.db"),
             },
-            "output": {
-                "format": "markdown",
-                "directory": str(temp_dir / "output")
-            }
+            "output": {"format": "markdown", "directory": str(temp_dir / "output")},
         }
         return ConfigManager(config=config_data)
 
@@ -108,7 +105,12 @@ class TestAnalysisPipelineRefactored:
     def sample_labels(self):
         """Create sample labels for testing."""
         return [
-            {"name": "系统稳定性", "category": "性能", "confidence": 0.85, "description": "系统稳定性问题"},
+            {
+                "name": "系统稳定性",
+                "category": "性能",
+                "confidence": 0.85,
+                "description": "系统稳定性问题",
+            },
             {"name": "用户交互", "category": "交互", "confidence": 0.75},
         ]
 
@@ -126,7 +128,9 @@ class TestAnalysisPipelineRefactored:
 
     @pytest.mark.asyncio
     @patch("src.analyzer.pipeline.AnalysisPipeline._fetch_task")
-    async def test_fetch_task_data(self, mock_fetch_task, config_manager, pipeline_config, sample_task_info):
+    async def test_fetch_task_data(
+        self, mock_fetch_task, config_manager, pipeline_config, sample_task_info
+    ):
         """Test _fetch_task_data method delegating to _fetch_task."""
         mock_fetch_task.return_value = sample_task_info
 
@@ -179,9 +183,14 @@ class TestAnalysisPipelineRefactored:
     @patch("src.analyzer.pipeline.AnalysisPipeline._analyze_root_cause")
     @patch("src.analyzer.pipeline.AnalysisPipeline._analyze_root_cause_deep")
     async def test_analyze_with_llm_enabled(
-        self, mock_deep_root_cause, mock_root_cause, mock_generate_labels,
-        config_manager, sample_task_info,
-        sample_labels, sample_root_causes
+        self,
+        mock_deep_root_cause,
+        mock_root_cause,
+        mock_generate_labels,
+        config_manager,
+        sample_task_info,
+        sample_labels,
+        sample_root_causes,
     ):
         """Test _analyze_with_llm when LLM is enabled."""
         mock_generate_labels.return_value = sample_labels
@@ -192,7 +201,7 @@ class TestAnalysisPipelineRefactored:
             use_llm=True,
             generate_labels=True,
             analyze_root_cause=True,
-            analyze_root_cause_deep=True
+            analyze_root_cause_deep=True,
         )
         pipeline = AnalysisPipeline(config_manager, pipeline_config)
         result = PipelineResult(task_id=12345)
@@ -207,14 +216,9 @@ class TestAnalysisPipelineRefactored:
         mock_root_cause.assert_called_once()
         mock_deep_root_cause.assert_called_once()
 
-    def test_check_and_generate_report_no_rules_no_report(
-        self, config_manager, sample_task_info
-    ):
+    def test_check_and_generate_report_no_rules_no_report(self, config_manager, sample_task_info):
         """Test _check_and_generate_report with both checks disabled."""
-        pipeline_config = PipelineConfig(
-            check_rules=False,
-            generate_report=False
-        )
+        pipeline_config = PipelineConfig(check_rules=False, generate_report=False)
         pipeline = AnalysisPipeline(config_manager, pipeline_config)
         result = PipelineResult(task_id=12345)
 
@@ -230,22 +234,23 @@ class TestAnalysisPipelineRefactored:
     @patch("src.analyzer.pipeline.AnalysisPipeline._check_rules")
     @patch("src.analyzer.pipeline.AnalysisPipeline._generate_report")
     def test_check_and_generate_report_with_rules_and_report(
-        self, mock_generate_report, mock_check_rules,
-        config_manager, sample_task_info
+        self, mock_generate_report, mock_check_rules, config_manager, sample_task_info
     ):
         """Test _check_and_generate_report with both checks enabled."""
         sample_violations = [
-            {"rule_id": "R001", "rule_name": "Test Rule", "severity": "high", "message": "Test message"}
+            {
+                "rule_id": "R001",
+                "rule_name": "Test Rule",
+                "severity": "high",
+                "message": "Test message",
+            }
         ]
         sample_report_content = "Test Report Content"
 
         mock_check_rules.return_value = sample_violations
         mock_generate_report.return_value = sample_report_content
 
-        pipeline_config = PipelineConfig(
-            check_rules=True,
-            generate_report=True
-        )
+        pipeline_config = PipelineConfig(check_rules=True, generate_report=True)
         pipeline = AnalysisPipeline(config_manager, pipeline_config)
         result = PipelineResult(task_id=12345)
 
@@ -268,8 +273,14 @@ class TestAnalysisPipelineRefactored:
     @patch("src.analyzer.pipeline.AnalysisPipeline._analyze_with_llm")
     @patch("src.analyzer.pipeline.AnalysisPipeline._check_and_generate_report")
     async def test_run_single_refactored(
-        self, mock_check_report, mock_analyze_llm, mock_prepare, mock_fetch_data,
-        config_manager, pipeline_config, sample_task_info
+        self,
+        mock_check_report,
+        mock_analyze_llm,
+        mock_prepare,
+        mock_fetch_data,
+        config_manager,
+        pipeline_config,
+        sample_task_info,
     ):
         """Test the full refactored run_single pipeline."""
         mock_fetch_data.return_value = sample_task_info
@@ -286,7 +297,9 @@ class TestAnalysisPipelineRefactored:
 
     @pytest.mark.asyncio
     @patch("src.analyzer.pipeline.AnalysisPipeline._fetch_task_data")
-    async def test_run_single_task_not_found(self, mock_fetch_data, config_manager, pipeline_config):
+    async def test_run_single_task_not_found(
+        self, mock_fetch_data, config_manager, pipeline_config
+    ):
         """Test run_single when task is not found."""
         mock_fetch_data.return_value = None
 
@@ -299,7 +312,9 @@ class TestAnalysisPipelineRefactored:
 
     @pytest.mark.asyncio
     @patch("src.analyzer.pipeline.AnalysisPipeline._fetch_task_data")
-    async def test_run_single_handles_exception(self, mock_fetch_data, config_manager, pipeline_config):
+    async def test_run_single_handles_exception(
+        self, mock_fetch_data, config_manager, pipeline_config
+    ):
         """Test run_single handles exceptions gracefully."""
         test_error = "Test error message"
         mock_fetch_data.side_effect = Exception(test_error)

@@ -1,10 +1,6 @@
 """Tests for enhanced structured logging with correlation ID (REQ-2, Issue #12)."""
 
-import json
 import uuid
-from unittest.mock import patch
-
-import pytest
 
 from src.utils.logger import (
     StructuredLogger,
@@ -67,9 +63,7 @@ class TestStructuredLogger:
     def test_logger_context_method(self) -> None:
         """context() method adds extra structured fields."""
         log = StructuredLogger("test.module")
-        bound = log.with_correlation("test-cid").context(
-            task_id=12345, phase="analyze"
-        )
+        bound = log.with_correlation("test-cid").context(task_id=12345, phase="analyze")
         assert bound is not log
 
 

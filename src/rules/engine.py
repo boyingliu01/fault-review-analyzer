@@ -19,8 +19,10 @@ if TYPE_CHECKING:
 # These wrappers adapt the old test API to the new implementation.
 # ============================================================================
 
+
 class RuleSeverity(str, Enum):
     """Backward-compatible severity enum for tests."""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
@@ -38,6 +40,7 @@ class Violation:
 
     Wraps RuleViolation but accepts old-style constructor args.
     """
+
     def __init__(
         self,
         rule_id: str,
@@ -122,8 +125,9 @@ class RuleEngine:
         # Create a RuleCheckResult and dynamically add backward compat attrs
         result = RuleCheckResult(
             task_id=0,
-            violations=[v.to_rule_violation() if hasattr(v, "to_rule_violation") else v
-                          for v in violations],
+            violations=[
+                v.to_rule_violation() if hasattr(v, "to_rule_violation") else v for v in violations
+            ],
             passed=success,
             summary=f"{len(violations)} violation(s) found",
         )
@@ -155,6 +159,7 @@ class RuleResult:
         self.execution_time_ms = execution_time_ms
         self.total_rules = total_rules
         self.total_violations = total_violations
+
 
 BUILTIN_RULES: list[dict] = [
     {
@@ -379,6 +384,7 @@ class RulesEngine:
 # ============================================================================
 # Monkey-patch Rule.execute for backward compat with old test API
 # ============================================================================
+
 
 def _rule_execute(self: Rule, code: str, context: dict[str, Any] | None = None) -> RuleResult:
     """Execute a rule check. Backward compat for old test API."""

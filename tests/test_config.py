@@ -16,17 +16,34 @@ from src.config.models import (
 )
 
 _CONFIG_ENV_VARS = [
-    "API_BASE_URL", "API_TIMEOUT", "API_RETRY", "DEVCLOUD_TOKEN",
-    "LLM_PROVIDER", "LLM_MODEL", "LLM_API_KEY", "LLM_TEMPERATURE",
-    "LLM_MAX_TOKENS", "LLM_BASE_URL",
-    "EMBEDDING_PROVIDER", "EMBEDDING_MODEL", "EMBEDDING_API_KEY",
-    "EMBEDDING_BASE_URL", "EMBEDDING_BATCH_SIZE",
-    "CLUSTERING_ALGORITHM", "CLUSTERING_MIN_CLUSTER_SIZE",
-    "CLUSTERING_MIN_SAMPLES", "CLUSTERING_METRIC",
-    "CACHE_ENABLED", "CACHE_TTL", "CACHE_STORAGE", "CACHE_DB_PATH",
+    "API_BASE_URL",
+    "API_TIMEOUT",
+    "API_RETRY",
+    "DEVCLOUD_TOKEN",
+    "LLM_PROVIDER",
+    "LLM_MODEL",
+    "LLM_API_KEY",
+    "LLM_TEMPERATURE",
+    "LLM_MAX_TOKENS",
+    "LLM_BASE_URL",
+    "EMBEDDING_PROVIDER",
+    "EMBEDDING_MODEL",
+    "EMBEDDING_API_KEY",
+    "EMBEDDING_BASE_URL",
+    "EMBEDDING_BATCH_SIZE",
+    "CLUSTERING_ALGORITHM",
+    "CLUSTERING_MIN_CLUSTER_SIZE",
+    "CLUSTERING_MIN_SAMPLES",
+    "CLUSTERING_METRIC",
+    "CACHE_ENABLED",
+    "CACHE_TTL",
+    "CACHE_STORAGE",
+    "CACHE_DB_PATH",
     "RULES_BUILTIN_ENABLED",
-    "OUTPUT_FORMAT", "OUTPUT_DIRECTORY",
-    "LOG_LEVEL", "LOG_FILE",
+    "OUTPUT_FORMAT",
+    "OUTPUT_DIRECTORY",
+    "LOG_LEVEL",
+    "LOG_FILE",
 ]
 
 
@@ -100,7 +117,6 @@ class TestConfigModels:
 
 
 class TestConfigManager:
-
     @pytest.fixture(autouse=True)
     def _isolate_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Clear all config-related env vars to prevent .env leakage into unit tests."""

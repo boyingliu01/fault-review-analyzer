@@ -185,7 +185,14 @@ class TestReportGeneratorEnhanced:
         generator = ReportGenerator()
         segments = [{"type": "开发阶段", "content": "开发内容"}]
         labels = [{"name": "bug", "category": "issue", "confidence": 0.9, "description": "Bug"}]
-        root_causes = [{"cause_type": "代码错误", "description": "描述", "evidence": ["证据"], "confidence": 0.8}]
+        root_causes = [
+            {
+                "cause_type": "代码错误",
+                "description": "描述",
+                "evidence": ["证据"],
+                "confidence": 0.8,
+            }
+        ]
         suggestions = ["建议1", "建议2"]
 
         report = generator.generate_single(

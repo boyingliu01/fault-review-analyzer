@@ -12,7 +12,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -22,10 +25,10 @@ from src.api.server import create_app
 from src.cache.manager import CacheManager
 from src.config.manager import ConfigManager
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def sample_task_data() -> dict:
@@ -134,6 +137,7 @@ def client(test_env: tuple[Path, Path]) -> TestClient:
 # 模拟: POST /analyze { task_id: 70001, options: { use_cache: true } }
 # ---------------------------------------------------------------------------
 
+
 class TestAnalyzeWorkflow:
     """POST /analyze 完整工作流。"""
 
@@ -155,7 +159,9 @@ class TestAnalyzeWorkflow:
             headers={"X-API-Token": "any"},
         )
 
-        assert response.status_code == 200, f"Unexpected status: {response.status_code}\n{response.text}"
+        assert response.status_code == 200, (
+            f"Unexpected status: {response.status_code}\n{response.text}"
+        )
         data = response.json()
         assert data["status"] == "completed"
         assert data["task_id"] == "70001"
@@ -216,6 +222,7 @@ class TestAnalyzeWorkflow:
 # 模拟: POST /analyze/batch { task_ids: [70001, 99999] }
 # ---------------------------------------------------------------------------
 
+
 class TestBatchAnalyzeWorkflow:
     """POST /analyze/batch 完整工作流。"""
 
@@ -267,6 +274,7 @@ class TestBatchAnalyzeWorkflow:
 # 模拟: GET /reports/70001
 # ---------------------------------------------------------------------------
 
+
 class TestReportWorkflow:
     """GET /reports/{task_id} 完整工作流。"""
 
@@ -278,7 +286,9 @@ class TestReportWorkflow:
             headers={"X-API-Token": "any"},
         )
 
-        assert response.status_code == 200, f"Unexpected status: {response.status_code}\n{response.text}"
+        assert response.status_code == 200, (
+            f"Unexpected status: {response.status_code}\n{response.text}"
+        )
         data = response.json()
         assert data["task_id"] == "70001"
         assert data["content"], "Report content should not be empty"

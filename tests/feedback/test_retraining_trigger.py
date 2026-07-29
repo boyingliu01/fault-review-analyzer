@@ -1,6 +1,8 @@
 """重训练触发器测试"""
+
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -17,12 +19,13 @@ def temp_db_path():
     yield path
     # Windows 上的文件锁定问题，尝试多次删除
     import time
+
     for _ in range(3):
         try:
-            if os.path.exists(path):
-                os.remove(path)
+            if Path(path).exists():
+                Path(path).unlink()
             break
-        except:
+        except OSError:
             time.sleep(0.1)
 
 
@@ -58,21 +61,24 @@ class TestRetrainingTrigger:
         """测试纠错率过高触发重训练"""
         # 添加大量纠错反馈
         for i in range(20):
-            feedback_manager.add_feedback(Feedback(
-                task_id=f"task-{i}",
-                feedback_type=FeedbackType.LABEL_CORRECTION if i % 2 == 0
-                else FeedbackType.ROOT_CAUSE_CORRECTION,
-                original_result={"data": f"test-{i}"},
-                corrected_result={"data": f"fixed-{i}"},
-                rating=FeedbackRating.POOR,
-                created_by=f"user-{i}"
-            ))
+            feedback_manager.add_feedback(
+                Feedback(
+                    task_id=f"task-{i}",
+                    feedback_type=FeedbackType.LABEL_CORRECTION
+                    if i % 2 == 0
+                    else FeedbackType.ROOT_CAUSE_CORRECTION,
+                    original_result={"data": f"test-{i}"},
+                    corrected_result={"data": f"fixed-{i}"},
+                    rating=FeedbackRating.POOR,
+                    created_by=f"user-{i}",
+                )
+            )
 
         # 配置阈值
         trigger = RetrainingTrigger(
             feedback_manager,
             min_feedback_count=10,
-            max_correction_ratio=0.6  # 60% 纠错率阈值
+            max_correction_ratio=0.6,  # 60% 纠错率阈值
         )
 
         should_trigger, info = trigger.should_trigger_retraining()
@@ -86,20 +92,21 @@ class TestRetrainingTrigger:
         """测试好评率过低触发重训练"""
         # 添加大量差评反馈
         for i in range(15):
-            feedback_manager.add_feedback(Feedback(
-                task_id=f"task-{i}",
-                feedback_type=FeedbackType.GENERAL,
-                original_result={"data": f"test-{i}"},
-                rating=FeedbackRating.POOR if i % 2 == 0
-                else FeedbackRating.VERY_POOR,
-                created_by=f"user-{i}"
-            ))
+            feedback_manager.add_feedback(
+                Feedback(
+                    task_id=f"task-{i}",
+                    feedback_type=FeedbackType.GENERAL,
+                    original_result={"data": f"test-{i}"},
+                    rating=FeedbackRating.POOR if i % 2 == 0 else FeedbackRating.VERY_POOR,
+                    created_by=f"user-{i}",
+                )
+            )
 
         # 配置阈值
         trigger = RetrainingTrigger(
             feedback_manager,
             min_feedback_count=10,
-            min_positive_ratio=0.4  # 40% 好评率阈值
+            min_positive_ratio=0.4,  # 40% 好评率阈值
         )
 
         should_trigger, info = trigger.should_trigger_retraining()
@@ -113,23 +120,28 @@ class TestRetrainingTrigger:
         """测试满足所有条件时不触发"""
         # 添加大量正面反馈，且纠错反馈比例低
         for i in range(20):
-            feedback_type = FeedbackType.GENERAL if i % 2 == 0 \
-                else FeedbackType.FALSE_POSITIVE if i % 5 != 0 \
+            feedback_type = (
+                FeedbackType.GENERAL
+                if i % 2 == 0
+                else FeedbackType.FALSE_POSITIVE
+                if i % 5 != 0
                 else FeedbackType.LABEL_CORRECTION
-            feedback_manager.add_feedback(Feedback(
-                task_id=f"task-{i}",
-                feedback_type=feedback_type,
-                original_result={"data": f"test-{i}"},
-                rating=FeedbackRating.GOOD if i % 2 == 0
-                else FeedbackRating.EXCELLENT,
-                created_by=f"user-{i}"
-            ))
+            )
+            feedback_manager.add_feedback(
+                Feedback(
+                    task_id=f"task-{i}",
+                    feedback_type=feedback_type,
+                    original_result={"data": f"test-{i}"},
+                    rating=FeedbackRating.GOOD if i % 2 == 0 else FeedbackRating.EXCELLENT,
+                    created_by=f"user-{i}",
+                )
+            )
 
         trigger = RetrainingTrigger(
             feedback_manager,
             min_feedback_count=15,
             min_positive_ratio=0.7,
-            max_correction_ratio=0.3
+            max_correction_ratio=0.3,
         )
 
         should_trigger, info = trigger.should_trigger_retraining()
@@ -141,15 +153,18 @@ class TestRetrainingTrigger:
         """测试获取重训练建议"""
         # 添加标签纠正和根因纠正反馈
         for i in range(30):
-            feedback_manager.add_feedback(Feedback(
-                task_id=f"task-{i}",
-                feedback_type=FeedbackType.LABEL_CORRECTION if i < 15
-                else FeedbackType.ROOT_CAUSE_CORRECTION,
-                original_result={"data": f"test-{i}"},
-                corrected_result={"data": f"fixed-{i}"},
-                rating=FeedbackRating.POOR,
-                created_by=f"user-{i}"
-            ))
+            feedback_manager.add_feedback(
+                Feedback(
+                    task_id=f"task-{i}",
+                    feedback_type=FeedbackType.LABEL_CORRECTION
+                    if i < 15
+                    else FeedbackType.ROOT_CAUSE_CORRECTION,
+                    original_result={"data": f"test-{i}"},
+                    corrected_result={"data": f"fixed-{i}"},
+                    rating=FeedbackRating.POOR,
+                    created_by=f"user-{i}",
+                )
+            )
 
         trigger = RetrainingTrigger(feedback_manager, min_feedback_count=10)
 
@@ -161,17 +176,15 @@ class TestRetrainingTrigger:
         assert len(label_recommendations) > 0
         assert label_recommendations[0]["priority"] == "high"
 
-        root_cause_recommendations = [r for r in recommendations if r["area"] == "root_cause_analysis"]
+        root_cause_recommendations = [
+            r for r in recommendations if r["area"] == "root_cause_analysis"
+        ]
         assert len(root_cause_recommendations) > 0
         assert root_cause_recommendations[0]["priority"] == "high"
 
     def test_trigger_retraining_pipeline_not_triggered(self, feedback_manager):
         """测试不触发重训练流程"""
-        trigger = RetrainingTrigger(
-            feedback_manager,
-            min_feedback_count=10,
-            min_positive_ratio=0.7
-        )
+        trigger = RetrainingTrigger(feedback_manager, min_feedback_count=10, min_positive_ratio=0.7)
 
         result = trigger.trigger_retraining_pipeline()
         assert result["triggered"] is False
@@ -180,19 +193,19 @@ class TestRetrainingTrigger:
     def test_trigger_retraining_pipeline_triggered(self, feedback_manager):
         """测试触发重训练流程"""
         for i in range(15):
-            feedback_manager.add_feedback(Feedback(
-                task_id=f"task-{i}",
-                feedback_type=FeedbackType.LABEL_CORRECTION,
-                original_result={"data": f"test-{i}"},
-                corrected_result={"data": f"fixed-{i}"},
-                rating=FeedbackRating.POOR,
-                created_by=f"user-{i}"
-            ))
+            feedback_manager.add_feedback(
+                Feedback(
+                    task_id=f"task-{i}",
+                    feedback_type=FeedbackType.LABEL_CORRECTION,
+                    original_result={"data": f"test-{i}"},
+                    corrected_result={"data": f"fixed-{i}"},
+                    rating=FeedbackRating.POOR,
+                    created_by=f"user-{i}",
+                )
+            )
 
         trigger = RetrainingTrigger(
-            feedback_manager,
-            min_feedback_count=10,
-            max_correction_ratio=0.5
+            feedback_manager, min_feedback_count=10, max_correction_ratio=0.5
         )
 
         result = trigger.trigger_retraining_pipeline()
