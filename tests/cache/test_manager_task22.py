@@ -15,6 +15,7 @@ class TestCacheManagerTask22:
         db_path = tmp_path / "test_cache.db"
         yield db_path
         import gc
+
         gc.collect()
 
     @pytest.fixture
@@ -23,6 +24,7 @@ class TestCacheManagerTask22:
         cache = CacheManager(db_path=temp_cache_path, ttl=3600)
         yield cache
         import gc
+
         gc.collect()
 
     def test_ttl_precise_expiration(self, tmp_path):

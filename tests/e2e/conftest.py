@@ -1,6 +1,5 @@
 """E2E 测试共享 fixtures"""
 
-import asyncio
 import os
 from pathlib import Path
 
@@ -65,5 +64,3 @@ def small_test_ids(test_data_file: Path) -> list[str]:
 def output_dir() -> Path:
     """输出目录"""
     return Path(__file__).parent.parent.parent / "output" / "e2e"
-
-

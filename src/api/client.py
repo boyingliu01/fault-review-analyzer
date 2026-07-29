@@ -205,8 +205,7 @@ class APIClient:
             return True
         elif response.status_code == 401:
             raise AuthenticationError(
-                "API token is expired or invalid. "
-                "Please refresh your DEVCLOUD_TOKEN and try again."
+                "API token is expired or invalid. Please refresh your DEVCLOUD_TOKEN and try again."
             )
         elif response.status_code >= 500:
             raise ServerError(f"Server error during token verification: {response.status_code}")
@@ -256,9 +255,7 @@ class APIClient:
             "withAllTaskType": "false",
         }
 
-    async def get_commits(
-        self, task_id: int, *, with_content: bool = True
-    ) -> list[CommitInfo]:
+    async def get_commits(self, task_id: int, *, with_content: bool = True) -> list[CommitInfo]:
         """获取任务的代码变更数据。
 
         调用研发云 POST /task-branch/{taskNo}/changes/content API，
@@ -273,9 +270,7 @@ class APIClient:
             合成的 CommitInfo 列表（通常一个元素，代表整个分支的变更）。
         """
         endpoint = f"{self.code_api_prefix}/task-branch/{task_id}/changes/content"
-        response = await self._request(
-            "POST", endpoint, json={"withContent": with_content}
-        )
+        response = await self._request("POST", endpoint, json={"withContent": with_content})
 
         data = response.get("data") if isinstance(response, dict) else None
         if not data:

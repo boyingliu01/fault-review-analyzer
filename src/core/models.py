@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 
 class TaskStatus(str, Enum):
     """任务状态枚举"""
+
     OPEN = "open"
     IN_PROGRESS = "in_progress"
     RESOLVED = "resolved"
@@ -23,10 +24,12 @@ class TaskStatus(str, Enum):
 
 class TaskPriority(str, Enum):
     """任务优先级枚举"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
 
 class TaskData(BaseModel):
     """任务数据模型"""

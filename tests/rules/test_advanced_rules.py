@@ -91,9 +91,7 @@ class TestEnhancedRulesEngine:
         engine._rules["test-low"] = low_priority_rule
 
         task_data = {
-            "development": {
-                "commits": [{"message": "password: '123456', key: 'abc123'"}]
-            },
+            "development": {"commits": [{"message": "password: '123456', key: 'abc123'"}]},
         }
 
         violations = engine._check_rules(task_data)
@@ -138,16 +136,16 @@ class TestEnhancedRulesEngine:
             pattern=r"current",
         )
 
-        engine._rules.update({
-            "future-rule": future_rule,
-            "expired-rule": expired_rule,
-            "current-rule": current_rule,
-        })
+        engine._rules.update(
+            {
+                "future-rule": future_rule,
+                "expired-rule": expired_rule,
+                "current-rule": current_rule,
+            }
+        )
 
         task_data = {
-            "development": {
-                "commits": [{"message": "future expired current"}]
-            },
+            "development": {"commits": [{"message": "future expired current"}]},
         }
 
         violations = engine._check_rules(task_data)
@@ -174,9 +172,7 @@ class TestEnhancedRulesEngine:
         engine._rules["test-conditions"] = rule
 
         task_data1 = {
-            "development": {
-                "commits": [{"message": "test\n" * 60}]
-            },
+            "development": {"commits": [{"message": "test\n" * 60}]},
         }
 
         violations1 = engine._check_rules(task_data1)
@@ -208,15 +204,15 @@ class TestEnhancedRulesEngine:
             weight=0.5,
         )
 
-        engine._rules.update({
-            "high-weight": high_weight_rule,
-            "low-weight": low_weight_rule,
-        })
+        engine._rules.update(
+            {
+                "high-weight": high_weight_rule,
+                "low-weight": low_weight_rule,
+            }
+        )
 
         task_data = {
-            "development": {
-                "commits": [{"message": "test content"}]
-            },
+            "development": {"commits": [{"message": "test content"}]},
         }
 
         violations = engine._check_rules(task_data)
@@ -230,9 +226,7 @@ class TestEnhancedRulesEngine:
         """测试评估计算"""
         engine = EnhancedRulesEngine()
         task_data = {
-            "development": {
-                "commits": [{"message": "password = 'hardcoded_secret_value'"}]
-            },
+            "development": {"commits": [{"message": "password = 'hardcoded_secret_value'"}]},
         }
 
         evaluation = engine.check_with_evaluation(task_data)
@@ -264,9 +258,7 @@ class TestEnhancedRulesEngine:
         """测试兼容旧接口"""
         engine = EnhancedRulesEngine()
         task_data = {
-            "development": {
-                "commits": [{"message": "password = 'hardcoded_secret_value'"}]
-            },
+            "development": {"commits": [{"message": "password = 'hardcoded_secret_value'"}]},
         }
 
         violations = engine.check(task_data)

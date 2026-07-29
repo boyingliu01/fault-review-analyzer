@@ -36,6 +36,7 @@ def mock_pipeline():
 # convert_pipeline_result_to_response
 # ---------------------------------------------------------------------------
 
+
 class TestConvertPipelineResultToResponse:
     """Tests for the convert_pipeline_result_to_response helper."""
 
@@ -48,12 +49,14 @@ class TestConvertPipelineResultToResponse:
             labels=[{"name": "oom", "confidence": 0.9}],
             root_causes=[{"cause_type": "logic", "description": "bad query"}],
             deep_root_causes={"layer1": "analysis"},
-            violations=[{
-                "rule_id": "R1",
-                "rule_name": "test",
-                "severity": "high",
-                "message": "violated",
-            }],
+            violations=[
+                {
+                    "rule_id": "R1",
+                    "rule_name": "test",
+                    "severity": "high",
+                    "message": "violated",
+                }
+            ],
             report="<html>report</html>",
             error="",
         )
@@ -101,6 +104,7 @@ class TestConvertPipelineResultToResponse:
 # POST /analyze
 # ---------------------------------------------------------------------------
 
+
 class TestAnalyzeTask:
     """Tests for the analyze_task endpoint."""
 
@@ -109,18 +113,22 @@ class TestAnalyzeTask:
         _, mock_instance = mock_pipeline
         mock_instance.run_single.return_value = PipelineResult(
             task_id=12345,
-            labels=[{
-                "name": "config",
-                "confidence": 0.85,
-                "category": "defect",
-                "description": "misconfiguration",
-            }],
-            root_causes=[{
-                "cause_type": "environment",
-                "description": "wrong env var",
-                "evidence": ["log"],
-                "confidence": 0.9,
-            }],
+            labels=[
+                {
+                    "name": "config",
+                    "confidence": 0.85,
+                    "category": "defect",
+                    "description": "misconfiguration",
+                }
+            ],
+            root_causes=[
+                {
+                    "cause_type": "environment",
+                    "description": "wrong env var",
+                    "evidence": ["log"],
+                    "confidence": 0.9,
+                }
+            ],
             report="<html>ok</html>",
             error="",
         )
@@ -196,6 +204,7 @@ class TestAnalyzeTask:
 # ---------------------------------------------------------------------------
 # POST /analyze/batch
 # ---------------------------------------------------------------------------
+
 
 class TestAnalyzeBatch:
     """Tests for the analyze_batch endpoint."""

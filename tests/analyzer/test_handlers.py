@@ -17,7 +17,6 @@ import pytest
 from src.api.models import TaskInfo
 from src.preprocessor.models import ProcessedTask, TextSegment
 
-
 # --- Fixtures ---
 
 
@@ -83,7 +82,7 @@ class TestFetchHandler:
 
         assert FetchHandler is not None
 
-    def test_init_with_api_client(self, mock_config):
+    def test_init_with_api_client(self):
         """FetchHandler can be initialized with API client."""
         from src.analyzer.handlers.fetch import FetchHandler
 
@@ -93,7 +92,7 @@ class TestFetchHandler:
         assert handler._api_client is mock_api
 
     @pytest.mark.asyncio
-    async def test_fetch_task_from_api(self, mock_config, sample_task):
+    async def test_fetch_task_from_api(self, sample_task):
         """FetchHandler fetches task from API when cache miss."""
         from src.analyzer.handlers.fetch import FetchHandler
 
@@ -109,7 +108,7 @@ class TestFetchHandler:
         mock_api.get_task.assert_called_once_with(12345)
 
     @pytest.mark.asyncio
-    async def test_fetch_task_from_cache(self, mock_config, sample_task):
+    async def test_fetch_task_from_cache(self, sample_task):
         """FetchHandler returns cached task when available."""
         from src.analyzer.handlers.fetch import FetchHandler
 
@@ -124,7 +123,7 @@ class TestFetchHandler:
         mock_api.get_task.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_fetch_task_no_cache(self, mock_config, sample_task):
+    async def test_fetch_task_no_cache(self, sample_task):
         """FetchHandler skips cache when use_cache=False."""
         from src.analyzer.handlers.fetch import FetchHandler
 
@@ -164,9 +163,7 @@ class TestAnalyzeHandler:
         from src.analyzer.handlers.analyze import AnalyzeHandler
 
         handler = AnalyzeHandler(llm_provider=None)
-        result = await handler.generate_labels(
-            sample_task.model_dump(), sample_preprocessed
-        )
+        result = await handler.generate_labels(sample_task.model_dump(), sample_preprocessed)
         assert result == []
 
     @pytest.mark.asyncio
@@ -175,9 +172,7 @@ class TestAnalyzeHandler:
         from src.analyzer.handlers.analyze import AnalyzeHandler
 
         handler = AnalyzeHandler(llm_provider=None)
-        result = await handler.analyze_root_cause(
-            sample_task.model_dump(), sample_preprocessed
-        )
+        result = await handler.analyze_root_cause(sample_task.model_dump(), sample_preprocessed)
         assert result == []
 
 
@@ -264,7 +259,7 @@ class TestPipelineOrchestrator:
         assert orchestrator._report_handler is report
 
     @pytest.mark.asyncio
-    async def test_orchestrate_single_task(self, sample_task, sample_preprocessed):
+    async def test_orchestrate_single_task(self, sample_task):
         """PipelineOrchestrator.run_single orchestrates all handlers."""
         from src.analyzer.handlers.analyze import AnalyzeHandler
         from src.analyzer.handlers.fetch import FetchHandler

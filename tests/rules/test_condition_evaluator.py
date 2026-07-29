@@ -347,7 +347,7 @@ class TestEvaluateCompound:
         cond = Condition(left="x == 99", right=right_cond, operator=OperatorType.OR)
         assert evaluator.evaluate(cond, ctx) is True
 
-    def test_evaluate_uses_passed_context_over_instance_context(self, evaluator):
+    def test_evaluate_uses_passed_context_over_instance_context(self):
         """When evaluate() receives a context parameter, it takes priority."""
         instance_ctx = {"key": "instance"}
         eval_ctx = {"key": "passed", "num": 42}

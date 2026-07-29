@@ -190,6 +190,7 @@ class RootCauseAnalyzer:
             )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             import sys
+
             print(f"[DEBUG] 根因分析响应解析失败: {e}", file=sys.stderr)
             print(f"[DEBUG] 原始响应: {response[:500]}", file=sys.stderr)
             return RootCauseAnalysisResult(

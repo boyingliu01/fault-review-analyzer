@@ -1,7 +1,5 @@
 """性能指标收集器测试"""
 
-
-
 from src.utils.metrics import (
     Counter,
     Gauge,

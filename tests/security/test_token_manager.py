@@ -57,23 +57,20 @@ class TestTokenManager:
             """Test needs_rotation_alert when token is near expiration."""
             manager = TokenManager()
             # Created at (expiration_days - alert_days - 1) days ago
-            created_at = (
-                datetime.now(timezone.utc)
-                - timedelta(days=manager.get_expiration_days() - manager.get_rotation_alert_days() - 1)
+            created_at = datetime.now(timezone.utc) - timedelta(
+                days=manager.get_expiration_days() - manager.get_rotation_alert_days() - 1
             )
             assert manager.needs_rotation_alert("test-token", created_at) is False
 
             # Created at exactly (expiration_days - alert_days) days ago
-            created_at = (
-                datetime.now(timezone.utc)
-                - timedelta(days=manager.get_expiration_days() - manager.get_rotation_alert_days())
+            created_at = datetime.now(timezone.utc) - timedelta(
+                days=manager.get_expiration_days() - manager.get_rotation_alert_days()
             )
             assert manager.needs_rotation_alert("test-token", created_at) is True
 
             # Created at (expiration_days - alert_days + 1) days ago
-            created_at = (
-                datetime.now(timezone.utc)
-                - timedelta(days=manager.get_expiration_days() - manager.get_rotation_alert_days() + 1)
+            created_at = datetime.now(timezone.utc) - timedelta(
+                days=manager.get_expiration_days() - manager.get_rotation_alert_days() + 1
             )
             assert manager.needs_rotation_alert("test-token", created_at) is True
 

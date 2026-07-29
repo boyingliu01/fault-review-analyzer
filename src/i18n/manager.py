@@ -47,9 +47,7 @@ class I18nManager:
         """设置默认语言"""
         self._default_language = lang.lower()
 
-    def get(
-        self, key: str, language: str | None = None, **kwargs: Any
-    ) -> str:
+    def get(self, key: str, language: str | None = None, **kwargs: Any) -> str:
         """
         获取翻译文本
 
@@ -70,15 +68,11 @@ class I18nManager:
                 return text
         return text
 
-    def t(
-        self, key: str, language: str | None = None, **kwargs: Any
-    ) -> str:
+    def t(self, key: str, language: str | None = None, **kwargs: Any) -> str:
         """获取翻译文本的简写方法"""
         return self.get(key, language, **kwargs)
 
-    def translate_dict(
-        self, data: dict[str, Any], language: str | None = None
-    ) -> dict[str, Any]:
+    def translate_dict(self, data: dict[str, Any], language: str | None = None) -> dict[str, Any]:
         """
         递归翻译字典
 
@@ -92,9 +86,7 @@ class I18nManager:
         lang = language.lower() if language else self.language
         return translate_dict(data, lang)
 
-    def load_translations(
-        self, translations: dict[str, dict[str, str]]
-    ) -> None:
+    def load_translations(self, translations: dict[str, dict[str, str]]) -> None:
         """
         加载额外的翻译词典
 

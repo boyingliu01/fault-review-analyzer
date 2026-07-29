@@ -139,7 +139,9 @@ class EmbeddingGenerator:
         }
         self._local_model: SentenceTransformer | None = None
         # 缓存
-        self._cache = LRUEmbeddingCache(max_size=cache_max_size, ttl=cache_ttl) if enable_cache else None
+        self._cache = (
+            LRUEmbeddingCache(max_size=cache_max_size, ttl=cache_ttl) if enable_cache else None
+        )
         # 速率限制器
         self._rate_limiter = AdaptiveRateLimiter()
         # 信号量用于并发控制
@@ -152,7 +154,19 @@ class EmbeddingGenerator:
 
     def _get_client(self) -> AsyncOpenAI | None:
         if self._client is None:
-            if self.provider in ("openai", "zhipu", "volcengine", "whalecloud", "azure", "ollama", "vllm", "localai", "lmstudio", "custom-openai", "sentence-transformers"):
+            if self.provider in (
+                "openai",
+                "zhipu",
+                "volcengine",
+                "whalecloud",
+                "azure",
+                "ollama",
+                "vllm",
+                "localai",
+                "lmstudio",
+                "custom-openai",
+                "sentence-transformers",
+            ):
                 if self.provider == "zhipu":
                     self._client = AsyncOpenAI(
                         api_key=self.api_key,

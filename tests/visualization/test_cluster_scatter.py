@@ -1,6 +1,5 @@
 """聚类散点图可视化测试套件"""
 
-
 import pytest
 
 from src.visualization.cluster_scatter import ClusterScatterVisualizer

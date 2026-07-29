@@ -150,9 +150,7 @@ class ConfigManager:
         self._deep_merge(self._config, config, overwrite)
         self._app_config = None
 
-    def _deep_merge(
-        self, target: dict[str, Any], source: dict[str, Any], overwrite: bool
-    ) -> None:
+    def _deep_merge(self, target: dict[str, Any], source: dict[str, Any], overwrite: bool) -> None:
         """Deep merge source into target."""
         for key, value in source.items():
             if key in target and isinstance(target[key], dict) and isinstance(value, dict):
@@ -200,6 +198,7 @@ class ConfigManager:
         if self.LOAD_ENV_FILE:
             try:
                 from dotenv import load_dotenv
+
                 env_file = Path.cwd() / ".env"
                 if env_file.exists():
                     load_dotenv(env_file, override=True)
@@ -267,7 +266,9 @@ class ConfigManager:
             app_config = self._get_app_config()
         except Exception as e:
             if validate:
-                raise ConfigValidationError("Configuration validation failed", {"errors": [str(e)]}) from e
+                raise ConfigValidationError(
+                    "Configuration validation failed", {"errors": [str(e)]}
+                ) from e
             else:
                 raise
 

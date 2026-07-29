@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -89,10 +89,12 @@ class TestPDFRuleParser:
         """If PDF library unavailable, raises DataProcessingError with hint."""
         parser = PDFRuleParser()
         pdf_path = Path("/fake/test.pdf")
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch.object(parser, "_extract_text", side_effect=ImportError("no pymupdf")):
-                with pytest.raises(DataProcessingError, match="PDF|library|install"):
-                    parser.parse(pdf_path)
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch.object(parser, "_extract_text", side_effect=ImportError("no pymupdf")),
+            pytest.raises(DataProcessingError, match="PDF|library|install"),
+        ):
+            parser.parse(pdf_path)
 
 
 class TestPDFRuleParserIntegration:

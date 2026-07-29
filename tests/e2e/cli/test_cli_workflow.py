@@ -160,7 +160,11 @@ class TestCLIReportGeneration:
     """测试 report 命令的报告生成。"""
 
     def test_report_generate_from_cache(
-        self, runner: CliRunner, cache_with_data: CacheManager, config_file: Path, tmp_path: Path  # noqa: ARG002
+        self,
+        runner: CliRunner,
+        cache_with_data: CacheManager,  # noqa: ARG002
+        config_file: Path,
+        tmp_path: Path,  # noqa: ARG002
     ):
         """report generate 应从缓存读取数据并生成报告文件。"""
         output_dir = tmp_path / "reports"

@@ -58,6 +58,7 @@ class TestLRUEmbeddingCache:
 
         # 修改内部时间，模拟过期
         from datetime import datetime, timedelta
+
         cache._cache[cache._get_key("test")] = (
             [1.0],
             datetime.now() - timedelta(seconds=2),
@@ -125,7 +126,10 @@ class TestAdaptiveRateLimiter:
             limiter.record_success()
         limiter.record_success()
         # 检查是否接近 max_qps，允许浮点误差
-        assert abs(limiter.current_qps - limiter.max_qps) < 0.0001 or limiter.current_qps <= limiter.max_qps
+        assert (
+            abs(limiter.current_qps - limiter.max_qps) < 0.0001
+            or limiter.current_qps <= limiter.max_qps
+        )
 
 
 class TestEmbeddingGeneratorTask24:
@@ -145,17 +149,13 @@ class TestEmbeddingGeneratorTask24:
 
     def test_generator_no_cache(self):
         """测试无缓存模式"""
-        generator = EmbeddingGenerator(
-            provider="local", enable_cache=False
-        )
+        generator = EmbeddingGenerator(provider="local", enable_cache=False)
         assert generator._cache is None
 
     @pytest.mark.asyncio
     async def test_embed_text_caching(self):
         """测试文本嵌入缓存"""
-        generator = EmbeddingGenerator(
-            provider="local", enable_cache=True, cache_max_size=100
-        )
+        generator = EmbeddingGenerator(provider="local", enable_cache=True, cache_max_size=100)
 
         text = "test text for caching"
 
@@ -173,9 +173,7 @@ class TestEmbeddingGeneratorTask24:
     @pytest.mark.asyncio
     async def test_embed_batch_caching(self):
         """测试批量嵌入缓存"""
-        generator = EmbeddingGenerator(
-            provider="local", enable_cache=True
-        )
+        generator = EmbeddingGenerator(provider="local", enable_cache=True)
 
         texts = ["text 1", "text 2", "text 3"]
 
@@ -190,9 +188,7 @@ class TestEmbeddingGeneratorTask24:
     @pytest.mark.asyncio
     async def test_embed_batch_mixed_cache(self):
         """测试部分缓存命中"""
-        generator = EmbeddingGenerator(
-            provider="local", enable_cache=True
-        )
+        generator = EmbeddingGenerator(provider="local", enable_cache=True)
 
         # 先缓存一个
         text1 = "cached text"
@@ -206,19 +202,13 @@ class TestEmbeddingGeneratorTask24:
 
     def test_dimension_map(self):
         """测试维度映射"""
-        generator = EmbeddingGenerator(
-            provider="openai", model="text-embedding-3-small"
-        )
+        generator = EmbeddingGenerator(provider="openai", model="text-embedding-3-small")
         assert generator.get_dimension() == 1536
 
-        generator = EmbeddingGenerator(
-            provider="openai", model="text-embedding-3-large"
-        )
+        generator = EmbeddingGenerator(provider="openai", model="text-embedding-3-large")
         assert generator.get_dimension() == 3072
 
-        generator = EmbeddingGenerator(
-            provider="unknown", model="unknown-model"
-        )
+        generator = EmbeddingGenerator(provider="unknown", model="unknown-model")
         assert generator.get_dimension() == 1536  # 默认值
 
     @pytest.mark.asyncio
@@ -233,9 +223,7 @@ class TestEmbeddingGeneratorTask24:
     @pytest.mark.asyncio
     async def test_embed_batch_empty_texts(self):
         """测试批量空文本处理"""
-        generator = EmbeddingGenerator(
-            provider="local", enable_cache=True
-        )
+        generator = EmbeddingGenerator(provider="local", enable_cache=True)
 
         # 空文本列表
         texts = ["", "valid text", "   "]
@@ -254,11 +242,13 @@ class TestEmbeddingGeneratorTask24:
 
     def test_cosine_similarity_matrix(self):
         """测试余弦相似度矩阵"""
-        embeddings = np.array([
-            [1.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-        ])
+        embeddings = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ]
+        )
 
         matrix = EmbeddingGenerator.cosine_similarity_matrix(embeddings)
 

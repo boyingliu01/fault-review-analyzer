@@ -58,11 +58,7 @@ class TestAnalyzeDiffEdgeCases:
 
     def test_binary_diff_markers(self, analyzer: CodeChangeAnalyzer) -> None:
         """二进制文件的 diff 标记。"""
-        diff = (
-            "--- a/image.png\n"
-            "+++ b/image.png\n"
-            "Binary files differ\n"
-        )
+        diff = "--- a/image.png\n+++ b/image.png\nBinary files differ\n"
         result = analyzer.analyze_diff(diff)
         # 二进制 diff 没有 +/- 行（除了 header）
         assert result["files_modified"] == 1
@@ -94,6 +90,7 @@ class TestAnalyzeDiffEdgeCases:
         lines = ["+added line content here\n"] * 10000
         diff = "--- a/big.py\n+++ b/big.py\n@@ -1,100 +1,10100 @@\n" + "".join(lines)
         import time
+
         start = time.monotonic()
         result = analyzer.analyze_diff(diff)
         elapsed = time.monotonic() - start
@@ -186,6 +183,7 @@ class TestGetCommitsConcurrency:
     @pytest.mark.asyncio
     async def test_api_error_propagates(self, client: APIClient) -> None:
         """API 认证错误向上传播。"""
+
         async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
             raise AuthenticationError("token expired")
 
@@ -198,6 +196,7 @@ class TestGetCommitsConcurrency:
     @pytest.mark.asyncio
     async def test_connection_error_propagates(self, client: APIClient) -> None:
         """API 连接错误向上传播。"""
+
         async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
             raise APIConnectionError("connection refused")
 
@@ -237,11 +236,22 @@ class TestGetCommitsConcurrency:
         """code_changes 被正确设置到 commit 对象。"""
         api_response = {
             "data": {
-                "branchInfo": {"branchName": "b", "repoName": "r", "headCommitId": "h", "lastCommitId": "l"},
+                "branchInfo": {
+                    "branchName": "b",
+                    "repoName": "r",
+                    "headCommitId": "h",
+                    "lastCommitId": "l",
+                },
                 "changeFileDetailList": [
-                    {"filePath": "f.java", "operType": "modified", "diffContent": "diff",
-                     "headContent": "old", "latestContent": "new",
-                     "headCommitId": "c1", "latestCommitId": "c2"},
+                    {
+                        "filePath": "f.java",
+                        "operType": "modified",
+                        "diffContent": "diff",
+                        "headContent": "old",
+                        "latestContent": "new",
+                        "headCommitId": "c1",
+                        "latestCommitId": "c2",
+                    },
                 ],
             }
         }
@@ -293,10 +303,20 @@ class TestGetCommitsConcurrency:
         """with_content=False 时不返回文件内容和 diff。"""
         api_response = {
             "data": {
-                "branchInfo": {"branchName": "b", "repoName": "r", "headCommitId": "h", "lastCommitId": "l"},
+                "branchInfo": {
+                    "branchName": "b",
+                    "repoName": "r",
+                    "headCommitId": "h",
+                    "lastCommitId": "l",
+                },
                 "changeFileDetailList": [
-                    {"filePath": "f.java", "operType": "modified",
-                     "diffContent": "some-diff", "headContent": "old", "latestContent": "new"},
+                    {
+                        "filePath": "f.java",
+                        "operType": "modified",
+                        "diffContent": "some-diff",
+                        "headContent": "old",
+                        "latestContent": "new",
+                    },
                 ],
             }
         }
@@ -372,8 +392,16 @@ class TestGetChangeFiles:
             files = await client.get_change_files(12345)
 
         assert len(files) == 3
-        assert files[0] == {"filePath": "src/Main.java", "operType": "modified", "repoName": "repo-a"}
-        assert files[2] == {"filePath": "lib/helper.py", "operType": "removed", "repoName": "repo-b"}
+        assert files[0] == {
+            "filePath": "src/Main.java",
+            "operType": "modified",
+            "repoName": "repo-a",
+        }
+        assert files[2] == {
+            "filePath": "lib/helper.py",
+            "operType": "removed",
+            "repoName": "repo-b",
+        }
 
     @pytest.mark.asyncio
     async def test_no_branch_returns_empty(self, client: APIClient) -> None:
@@ -391,6 +419,7 @@ class TestGetChangeFiles:
     @pytest.mark.asyncio
     async def test_uses_correct_endpoint(self, client: APIClient) -> None:
         """调用正确的 change-file GET 端点。"""
+
         async def mock_request(method: str, endpoint: str, **kwargs: object) -> object:
             assert method == "GET"
             assert "change-file" in endpoint
@@ -514,9 +543,9 @@ class TestLLMAnalyzeAsyncSafety:
         mock_provider.generate.return_value = "这是代码变更分析结果"
         analyzer = CodeChangeAnalyzer(llm_provider=mock_provider)
 
-        result = analyzer._llm_analyze_changes([
-            {"diff": "+new code\n-old code", "message": "refactor", "files_changed": ["src/a.py"]}
-        ])
+        result = analyzer._llm_analyze_changes(
+            [{"diff": "+new code\n-old code", "message": "refactor", "files_changed": ["src/a.py"]}]
+        )
 
         assert result == "这是代码变更分析结果"
         mock_provider.generate.assert_called_once()
@@ -527,9 +556,7 @@ class TestLLMAnalyzeAsyncSafety:
         mock_provider.generate.side_effect = RuntimeError("LLM timeout")
         analyzer = CodeChangeAnalyzer(llm_provider=mock_provider)
 
-        result = analyzer._llm_analyze_changes([
-            {"diff": "some diff", "message": "fix"}
-        ])
+        result = analyzer._llm_analyze_changes([{"diff": "some diff", "message": "fix"}])
 
         assert result == ""
 
@@ -539,9 +566,7 @@ class TestLLMAnalyzeAsyncSafety:
         mock_provider.generate.return_value = "x" * 1000
         analyzer = CodeChangeAnalyzer(llm_provider=mock_provider)
 
-        result = analyzer._llm_analyze_changes([
-            {"diff": "some diff", "message": "fix"}
-        ])
+        result = analyzer._llm_analyze_changes([{"diff": "some diff", "message": "fix"}])
 
         assert len(result) == 500
 
@@ -557,9 +582,7 @@ class TestLLMAnalyzeAsyncSafety:
 
         # 模拟在事件循环中调用
         async def _run() -> None:
-            result = analyzer._llm_analyze_changes([
-                {"diff": "some diff", "message": "fix"}
-            ])
+            result = analyzer._llm_analyze_changes([{"diff": "some diff", "message": "fix"}])
             # 在运行中的事件循环里应安全跳过，返回空
             assert result == ""
 
@@ -572,8 +595,7 @@ class TestLLMAnalyzeAsyncSafety:
         analyzer = CodeChangeAnalyzer(llm_provider=mock_provider)
 
         commits = [
-            {"diff": f"diff {i}", "message": f"fix {i}", "files_changed": []}
-            for i in range(10)
+            {"diff": f"diff {i}", "message": f"fix {i}", "files_changed": []} for i in range(10)
         ]
         analyzer._llm_analyze_changes(commits)
 

@@ -29,8 +29,10 @@ class TestPhase2Analyze:
     @pytest.fixture
     def phase2(self, config: MagicMock) -> Phase2Analyze:
         """创建 Phase2 实例（使用 mock）"""
-        with patch("scripts.phase2_analyze.ChromaManager") as mock_chroma, \
-             patch("scripts.phase2_analyze.ClusterAnalyzer") as mock_cluster:
+        with (
+            patch("scripts.phase2_analyze.ChromaManager") as mock_chroma,
+            patch("scripts.phase2_analyze.ClusterAnalyzer") as mock_cluster,
+        ):
             mock_chroma.return_value = MagicMock()
             mock_cluster.return_value = MagicMock()
             return Phase2Analyze(config)
@@ -76,14 +78,16 @@ class TestPhase2Analyze:
         import numpy as np
 
         # Mock load_embeddings to return numpy arrays
-        phase2.load_embeddings = MagicMock(return_value=(
-            np.array([[0.1] * 128, [0.11] * 128, [0.9] * 128]),
-            [
-                {"task_id": "TASK-001", "root_cause": "需求遗漏"},
-                {"task_id": "TASK-002", "root_cause": "需求遗漏"},
-                {"task_id": "TASK-003", "root_cause": "代码bug"},
-            ],
-        ))
+        phase2.load_embeddings = MagicMock(
+            return_value=(
+                np.array([[0.1] * 128, [0.11] * 128, [0.9] * 128]),
+                [
+                    {"task_id": "TASK-001", "root_cause": "需求遗漏"},
+                    {"task_id": "TASK-002", "root_cause": "需求遗漏"},
+                    {"task_id": "TASK-003", "root_cause": "代码bug"},
+                ],
+            )
+        )
 
         # Mock clustering - return a proper result with numpy array
         mock_cluster_result = MagicMock()
@@ -105,6 +109,7 @@ class TestPhase2Analyze:
         mock_embeddings = np.array([[0.1] * 128, [0.11] * 128, [0.9] * 128])
 
         from src.clustering.models import ClusterResult
+
         mock_result = MagicMock(spec=ClusterResult)
         mock_result.labels = [0, 0, 1]
         mock_result.n_clusters = 2
@@ -126,8 +131,10 @@ class TestPhase2GenerateReport:
     def phase2(self) -> Phase2Analyze:
         """创建带 mock config 的 Phase2Analyze"""
         config = make_mock_config()
-        with patch("scripts.phase2_analyze.ChromaManager") as mock_chroma, \
-             patch("scripts.phase2_analyze.ClusterAnalyzer") as mock_cluster:
+        with (
+            patch("scripts.phase2_analyze.ChromaManager") as mock_chroma,
+            patch("scripts.phase2_analyze.ClusterAnalyzer") as mock_cluster,
+        ):
             mock_chroma.return_value = MagicMock()
             mock_cluster.return_value = MagicMock()
             return Phase2Analyze(config)

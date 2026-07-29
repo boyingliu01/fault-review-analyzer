@@ -290,15 +290,11 @@ class TestExplainabilityVisualizer:
         explanations = {
             0: ClusteringExplanation(
                 cluster_id=0,
-                top_features=[
-                    FeatureImportance(feature_name="test_feature", importance=0.8)
-                ],
+                top_features=[FeatureImportance(feature_name="test_feature", importance=0.8)],
             ),
             1: ClusteringExplanation(
                 cluster_id=1,
-                top_features=[
-                    FeatureImportance(feature_name="test_feature", importance=0.5)
-                ],
+                top_features=[FeatureImportance(feature_name="test_feature", importance=0.5)],
             ),
         }
 
@@ -348,11 +344,13 @@ class TestWithStructuredData:
 
         X = np.zeros((n_samples, n_features))
 
-        cluster_centers = np.array([
-            [1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
-        ])
+        cluster_centers = np.array(
+            [
+                [1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
+            ]
+        )
 
         for i in range(n_samples):
             cluster_id = i // 30
@@ -376,10 +374,16 @@ class TestWithStructuredData:
     ):
         """测试结构化数据的特征重要性"""
         feature_names = [
-            "cluster0_feature1", "cluster0_feature2",
-            "cluster1_feature1", "cluster1_feature2",
-            "cluster2_feature1", "cluster2_feature2",
-            "noise1", "noise2", "noise3", "noise4",
+            "cluster0_feature1",
+            "cluster0_feature2",
+            "cluster1_feature1",
+            "cluster1_feature2",
+            "cluster2_feature1",
+            "cluster2_feature2",
+            "noise1",
+            "noise2",
+            "noise3",
+            "noise4",
         ]
 
         analyzer = ClusteringExplainabilityAnalyzer(feature_names=feature_names)

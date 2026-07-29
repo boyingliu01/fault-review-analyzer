@@ -34,7 +34,6 @@ class LLMConfig(BaseModel):
     base_url: str = Field(default="", description="API基础URL(可选)")
 
 
-
 class EmbeddingConfig(BaseModel):
     provider: str = Field(default="openai", description="Embedding服务提供商")
     model: str = Field(default="text-embedding-3-small", description="模型名称")
@@ -46,8 +45,16 @@ class EmbeddingConfig(BaseModel):
     @classmethod
     def validate_provider(cls, v: str) -> str:
         allowed = [
-            "openai", "bge", "m3e", "codebert", "zhipu", "local",
-            "volcengine", "custom", "whalecloud", "sentence-transformers",
+            "openai",
+            "bge",
+            "m3e",
+            "codebert",
+            "zhipu",
+            "local",
+            "volcengine",
+            "custom",
+            "whalecloud",
+            "sentence-transformers",
         ]
         if v not in allowed:
             raise ValueError(f"provider must be one of {allowed}")

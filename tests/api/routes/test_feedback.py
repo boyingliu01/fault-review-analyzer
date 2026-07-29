@@ -31,6 +31,7 @@ def client(mock_feedback_manager):
     app = create_app(valid_tokens={"test-token-123"})
 
     from src.api.routes.feedback import get_feedback_manager
+
     app.dependency_overrides[get_feedback_manager] = lambda: mock_feedback_manager
 
     with TestClient(app) as tc:
@@ -72,6 +73,7 @@ def _make_response(**overrides):
 # ---------------------------------------------------------------------------
 # POST /feedback
 # ---------------------------------------------------------------------------
+
 
 class TestCreateFeedback:
     """Tests for POST /feedback (create_feedback)."""
@@ -141,6 +143,7 @@ class TestCreateFeedback:
 # GET /feedback/{feedback_id}
 # ---------------------------------------------------------------------------
 
+
 class TestGetFeedback:
     """Tests for GET /feedback/{feedback_id}."""
 
@@ -162,6 +165,7 @@ class TestGetFeedback:
 # ---------------------------------------------------------------------------
 # GET /feedback/task/{task_id}
 # ---------------------------------------------------------------------------
+
 
 class TestGetTaskFeedback:
     """Tests for GET /feedback/task/{task_id}."""
@@ -189,6 +193,7 @@ class TestGetTaskFeedback:
 # ---------------------------------------------------------------------------
 # GET /feedback (list)
 # ---------------------------------------------------------------------------
+
 
 class TestListFeedback:
     """Tests for GET /feedback (list_feedback)."""
@@ -232,6 +237,7 @@ class TestListFeedback:
 # POST /feedback/{feedback_id}/review
 # ---------------------------------------------------------------------------
 
+
 class TestReviewFeedback:
     """Tests for POST /feedback/{feedback_id}/review."""
 
@@ -264,6 +270,7 @@ class TestReviewFeedback:
 # ---------------------------------------------------------------------------
 # GET /feedback/stats/summary
 # ---------------------------------------------------------------------------
+
 
 class TestGetFeedbackStatistics:
     """Tests for GET /feedback/stats/summary."""

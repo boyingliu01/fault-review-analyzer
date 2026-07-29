@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
-from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig, PipelineResult
+from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig
 from src.api.client import APIClient
 from src.api.exceptions import APIConnectionError, AuthenticationError
 from src.config.manager import ConfigManager
@@ -97,38 +97,40 @@ class TestE2ESmoke:
         task_id = _get_test_task_id()
 
         # Build a minimal ConfigManager
-        config = ConfigManager(config={
-            "api": {
-                "base_url": API_BASE_URL,
-                "api_key": DEVCLOUD_TOKEN,
-                "timeout": 30,
-                "retry": 2,
-            },
-            "cache": {
-                "db_path": str(Path("./data/cache.db")),
-                "ttl": 3600,
-            },
-            "llm": {
-                "api_key": "",
-                "model": "gpt-4",
-                "base_url": "",
-                "temperature": 0.7,
-                "max_tokens": 4096,
-            },
-            "embedding": {
-                "provider": "openai",
-                "model": "text-embedding-3-small",
-                "api_key": "",
-                "base_url": "",
-                "batch_size": 100,
-            },
-            "clustering": {
-                "algorithm": "hdbscan",
-                "min_cluster_size": 3,
-                "min_samples": 2,
-                "metric": "euclidean",
-            },
-        })
+        config = ConfigManager(
+            config={
+                "api": {
+                    "base_url": API_BASE_URL,
+                    "api_key": DEVCLOUD_TOKEN,
+                    "timeout": 30,
+                    "retry": 2,
+                },
+                "cache": {
+                    "db_path": str(Path("./data/cache.db")),
+                    "ttl": 3600,
+                },
+                "llm": {
+                    "api_key": "",
+                    "model": "gpt-4",
+                    "base_url": "",
+                    "temperature": 0.7,
+                    "max_tokens": 4096,
+                },
+                "embedding": {
+                    "provider": "openai",
+                    "model": "text-embedding-3-small",
+                    "api_key": "",
+                    "base_url": "",
+                    "batch_size": 100,
+                },
+                "clustering": {
+                    "algorithm": "hdbscan",
+                    "min_cluster_size": 3,
+                    "min_samples": 2,
+                    "metric": "euclidean",
+                },
+            }
+        )
 
         pipeline_config = PipelineConfig(
             use_cache=False,
@@ -170,21 +172,40 @@ class TestE2ESmoke:
         """E2E: Pipeline handles errors gracefully without unhandled exceptions."""
         _skip_if_no_token()
 
-        config = ConfigManager(config={
-            "api": {
-                "base_url": API_BASE_URL,
-                "api_key": DEVCLOUD_TOKEN,
-                "timeout": 10,
-                "retry": 1,
-            },
-            "cache": {
-                "db_path": str(Path("./data/cache.db")),
-                "ttl": 3600,
-            },
-            "llm": {"api_key": "", "model": "gpt-4", "base_url": "", "temperature": 0.7, "max_tokens": 4096},
-            "embedding": {"provider": "openai", "model": "text-embedding-3-small", "api_key": "", "base_url": "", "batch_size": 100},
-            "clustering": {"algorithm": "hdbscan", "min_cluster_size": 3, "min_samples": 2, "metric": "euclidean"},
-        })
+        config = ConfigManager(
+            config={
+                "api": {
+                    "base_url": API_BASE_URL,
+                    "api_key": DEVCLOUD_TOKEN,
+                    "timeout": 10,
+                    "retry": 1,
+                },
+                "cache": {
+                    "db_path": str(Path("./data/cache.db")),
+                    "ttl": 3600,
+                },
+                "llm": {
+                    "api_key": "",
+                    "model": "gpt-4",
+                    "base_url": "",
+                    "temperature": 0.7,
+                    "max_tokens": 4096,
+                },
+                "embedding": {
+                    "provider": "openai",
+                    "model": "text-embedding-3-small",
+                    "api_key": "",
+                    "base_url": "",
+                    "batch_size": 100,
+                },
+                "clustering": {
+                    "algorithm": "hdbscan",
+                    "min_cluster_size": 3,
+                    "min_samples": 2,
+                    "metric": "euclidean",
+                },
+            }
+        )
 
         pipeline_config = PipelineConfig(
             use_cache=False,

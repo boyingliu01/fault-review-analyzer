@@ -1,4 +1,5 @@
 """反馈管理器"""
+
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -42,7 +43,9 @@ class FeedbackManager:
 
             # 创建索引
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_feedback_task_id ON feedback(task_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_feedback_type ON feedback(feedback_type)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_feedback_type ON feedback(feedback_type)"
+            )
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_feedback_rating ON feedback(rating)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_feedback_reviewed ON feedback(reviewed)")
 
@@ -56,25 +59,28 @@ class FeedbackManager:
 
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO feedback (
                     id, task_id, feedback_type, original_result, corrected_result,
                     rating, comment, created_by, created_at, reviewed, reviewed_by, reviewed_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                feedback.id,
-                feedback.task_id,
-                feedback.feedback_type.value,
-                json.dumps(feedback.original_result),
-                json.dumps(feedback.corrected_result) if feedback.corrected_result else None,
-                feedback.rating.value,
-                feedback.comment,
-                feedback.created_by,
-                feedback.created_at.isoformat(),
-                1 if feedback.reviewed else 0,
-                feedback.reviewed_by,
-                feedback.reviewed_at.isoformat() if feedback.reviewed_at else None
-            ))
+            """,
+                (
+                    feedback.id,
+                    feedback.task_id,
+                    feedback.feedback_type.value,
+                    json.dumps(feedback.original_result),
+                    json.dumps(feedback.corrected_result) if feedback.corrected_result else None,
+                    feedback.rating.value,
+                    feedback.comment,
+                    feedback.created_by,
+                    feedback.created_at.isoformat(),
+                    1 if feedback.reviewed else 0,
+                    feedback.reviewed_by,
+                    feedback.reviewed_at.isoformat() if feedback.reviewed_at else None,
+                ),
+            )
             conn.commit()
 
         logger.debug(f"Feedback added: {feedback.id}")
@@ -87,9 +93,12 @@ class FeedbackManager:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM feedback WHERE id = ?
-            """, (feedback_id,))
+            """,
+                (feedback_id,),
+            )
             row = cursor.fetchone()
 
             if not row:
@@ -100,14 +109,18 @@ class FeedbackManager:
                 task_id=row["task_id"],
                 feedback_type=FeedbackType(row["feedback_type"]),
                 original_result=json.loads(row["original_result"]),
-                corrected_result=json.loads(row["corrected_result"]) if row["corrected_result"] else None,
+                corrected_result=json.loads(row["corrected_result"])
+                if row["corrected_result"]
+                else None,
                 rating=FeedbackRating(row["rating"]),
                 comment=row["comment"],
                 created_by=row["created_by"],
                 created_at=self._parse_datetime(row["created_at"]),
                 reviewed=bool(row["reviewed"]),
                 reviewed_by=row["reviewed_by"],
-                reviewed_at=self._parse_datetime(row["reviewed_at"]) if row["reviewed_at"] else None
+                reviewed_at=self._parse_datetime(row["reviewed_at"])
+                if row["reviewed_at"]
+                else None,
             )
 
     def get_feedback_by_task(self, task_id: str) -> list[Feedback]:
@@ -117,9 +130,12 @@ class FeedbackManager:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM feedback WHERE task_id = ? ORDER BY created_at DESC
-            """, (task_id,))
+            """,
+                (task_id,),
+            )
             rows = cursor.fetchall()
 
             return [
@@ -128,15 +144,20 @@ class FeedbackManager:
                     task_id=row["task_id"],
                     feedback_type=FeedbackType(row["feedback_type"]),
                     original_result=json.loads(row["original_result"]),
-                    corrected_result=json.loads(row["corrected_result"]) if row["corrected_result"] else None,
+                    corrected_result=json.loads(row["corrected_result"])
+                    if row["corrected_result"]
+                    else None,
                     rating=FeedbackRating(row["rating"]),
                     comment=row["comment"],
                     created_by=row["created_by"],
                     created_at=self._parse_datetime(row["created_at"]),
                     reviewed=bool(row["reviewed"]),
                     reviewed_by=row["reviewed_by"],
-                    reviewed_at=self._parse_datetime(row["reviewed_at"]) if row["reviewed_at"] else None
-                ) for row in rows
+                    reviewed_at=self._parse_datetime(row["reviewed_at"])
+                    if row["reviewed_at"]
+                    else None,
+                )
+                for row in rows
             ]
 
     def list_feedback(
@@ -145,7 +166,7 @@ class FeedbackManager:
         rating: FeedbackRating | None = None,
         reviewed: bool | None = None,
         limit: int = 100,
-        offset: int = 0
+        offset: int = 0,
     ) -> list[Feedback]:
         """列出反馈"""
         import json
@@ -180,32 +201,36 @@ class FeedbackManager:
                     task_id=row["task_id"],
                     feedback_type=FeedbackType(row["feedback_type"]),
                     original_result=json.loads(row["original_result"]),
-                    corrected_result=json.loads(row["corrected_result"]) if row["corrected_result"] else None,
+                    corrected_result=json.loads(row["corrected_result"])
+                    if row["corrected_result"]
+                    else None,
                     rating=FeedbackRating(row["rating"]),
                     comment=row["comment"],
                     created_by=row["created_by"],
                     created_at=self._parse_datetime(row["created_at"]),
                     reviewed=bool(row["reviewed"]),
                     reviewed_by=row["reviewed_by"],
-                    reviewed_at=self._parse_datetime(row["reviewed_at"]) if row["reviewed_at"] else None
-                ) for row in rows
+                    reviewed_at=self._parse_datetime(row["reviewed_at"])
+                    if row["reviewed_at"]
+                    else None,
+                )
+                for row in rows
             ]
 
-    def review_feedback(
-        self,
-        feedback_id: str,
-        reviewed_by: str
-    ) -> bool:
+    def review_feedback(self, feedback_id: str, reviewed_by: str) -> bool:
         """审核反馈"""
         from datetime import datetime
 
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE feedback
                 SET reviewed = 1, reviewed_by = ?, reviewed_at = ?
                 WHERE id = ?
-            """, (reviewed_by, datetime.now().isoformat(), feedback_id))
+            """,
+                (reviewed_by, datetime.now().isoformat(), feedback_id),
+            )
             conn.commit()
 
             return cursor.rowcount > 0
@@ -245,12 +270,12 @@ class FeedbackManager:
 
             if total_feedback > 0:
                 # 纠错类型反馈数
-                correction_count = by_type.get("label_correction", 0) + by_type.get("root_cause_correction", 0)
+                correction_count = by_type.get("label_correction", 0) + by_type.get(
+                    "root_cause_correction", 0
+                )
 
                 # 好评数（4分及以上）
-                positive_count = sum(
-                    by_rating.get(rating, 0) for rating in [4, 5]
-                )
+                positive_count = sum(by_rating.get(rating, 0) for rating in [4, 5])
 
             correction_ratio = correction_count / total_feedback if total_feedback > 0 else 0.0
             positive_ratio = positive_count / total_feedback if total_feedback > 0 else 0.0
@@ -267,6 +292,7 @@ class FeedbackManager:
     def _parse_datetime(self, date_str: str) -> Any:
         """解析日期时间字符串"""
         from datetime import datetime
+
         try:
             return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         except Exception as e:

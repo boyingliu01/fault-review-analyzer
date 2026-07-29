@@ -1,4 +1,5 @@
 """反馈数据模型"""
+
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -8,11 +9,11 @@ from pydantic import BaseModel, Field
 
 
 class FeedbackType(str, Enum):
-    LABEL_CORRECTION = "label_correction"      # 标签纠正
+    LABEL_CORRECTION = "label_correction"  # 标签纠正
     ROOT_CAUSE_CORRECTION = "root_cause_correction"  # 根因纠正
-    FALSE_POSITIVE = "false_positive"          # 误报
-    FALSE_NEGATIVE = "false_negative"          # 漏报
-    GENERAL = "general"                        # 一般反馈
+    FALSE_POSITIVE = "false_positive"  # 误报
+    FALSE_NEGATIVE = "false_negative"  # 漏报
+    GENERAL = "general"  # 一般反馈
 
 
 class FeedbackRating(int, Enum):

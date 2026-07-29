@@ -11,7 +11,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -19,10 +22,10 @@ from typer.testing import CliRunner
 from src.cache.manager import CacheManager
 from src.cli.main import app
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def runner() -> CliRunner:
@@ -143,12 +146,11 @@ output:
 # 模拟: fault-analyzer analyze single 60001 --config config.yaml --no-llm
 # ---------------------------------------------------------------------------
 
+
 class TestAnalyzeSingleWorkflow:
     """用户运行 analyze single 命令的完整流程。"""
 
-    def test_analyze_cached_task_shows_results(
-        self, runner: CliRunner, config_file: Path
-    ):
+    def test_analyze_cached_task_shows_results(self, runner: CliRunner, config_file: Path):
         """分析缓存中的任务应显示分析结果表格。"""
         result = runner.invoke(
             app,
@@ -168,10 +170,14 @@ class TestAnalyzeSingleWorkflow:
         result = runner.invoke(
             app,
             [
-                "analyze", "single", "60001",
-                "--config", str(config_file),
+                "analyze",
+                "single",
+                "60001",
+                "--config",
+                str(config_file),
                 "--no-llm",
-                "--output", str(output_dir),
+                "--output",
+                str(output_dir),
             ],
         )
 
@@ -183,9 +189,7 @@ class TestAnalyzeSingleWorkflow:
         content = report_files[0].read_text(encoding="utf-8")
         assert "60001" in content or "数据库" in content
 
-    def test_analyze_nonexistent_task_shows_error(
-        self, runner: CliRunner, config_file: Path
-    ):
+    def test_analyze_nonexistent_task_shows_error(self, runner: CliRunner, config_file: Path):
         """分析不存在的任务应显示错误信息。"""
         result = runner.invoke(
             app,
@@ -195,7 +199,9 @@ class TestAnalyzeSingleWorkflow:
         # 应显示错误或失败信息（不是崩溃）
         assert "Traceback" not in (result.output or "")
         # 退出码应为非0（表示失败）或有错误提示
-        has_error = result.exit_code != 0 or "失败" in result.output or "not found" in result.output.lower()
+        has_error = (
+            result.exit_code != 0 or "失败" in result.output or "not found" in result.output.lower()
+        )
         assert has_error, f"Expected error for nonexistent task, got: {result.output}"
 
 
@@ -204,12 +210,11 @@ class TestAnalyzeSingleWorkflow:
 # 模拟: fault-analyzer fetch single 60001 --config config.yaml
 # ---------------------------------------------------------------------------
 
+
 class TestFetchCachedWorkflow:
     """用户获取数据时缓存已存在的场景。"""
 
-    def test_fetch_cached_task_skips_api(
-        self, runner: CliRunner, config_file: Path
-    ):
+    def test_fetch_cached_task_skips_api(self, runner: CliRunner, config_file: Path):
         """获取已在缓存中的任务应直接返回，不调用 API。"""
         result = runner.invoke(
             app,
@@ -226,12 +231,11 @@ class TestFetchCachedWorkflow:
 # 模拟: fault-analyzer cache list / cache stats
 # ---------------------------------------------------------------------------
 
+
 class TestCacheWorkflow:
     """用户查看缓存的完整流程。"""
 
-    def test_cache_list_shows_cached_tasks(
-        self, runner: CliRunner, config_file: Path
-    ):
+    def test_cache_list_shows_cached_tasks(self, runner: CliRunner, config_file: Path):
         """cache list 应显示缓存中的任务。"""
         result = runner.invoke(
             app,
@@ -242,9 +246,7 @@ class TestCacheWorkflow:
         # 应显示任务信息
         assert "60001" in result.output or "数据库" in result.output
 
-    def test_cache_stats_shows_statistics(
-        self, runner: CliRunner, config_file: Path
-    ):
+    def test_cache_stats_shows_statistics(self, runner: CliRunner, config_file: Path):
         """cache stats 应显示缓存统计信息。"""
         result = runner.invoke(
             app,
@@ -253,13 +255,16 @@ class TestCacheWorkflow:
 
         assert result.exit_code == 0, f"Command failed: {result.output}"
         # 应显示统计信息
-        assert "总条目" in result.output or "条目" in result.output or "entry" in result.output.lower()
+        assert (
+            "总条目" in result.output or "条目" in result.output or "entry" in result.output.lower()
+        )
 
 
 # ---------------------------------------------------------------------------
 # 工作流 4: 用户生成报告
 # 模拟: fault-analyzer report generate 60001 --config config.yaml
 # ---------------------------------------------------------------------------
+
 
 class TestReportWorkflow:
     """用户生成报告的完整流程。"""
@@ -272,9 +277,13 @@ class TestReportWorkflow:
         result = runner.invoke(
             app,
             [
-                "report", "generate", "60001",
-                "--config", str(config_file),
-                "--output", str(output_dir),
+                "report",
+                "generate",
+                "60001",
+                "--config",
+                str(config_file),
+                "--output",
+                str(output_dir),
             ],
         )
 

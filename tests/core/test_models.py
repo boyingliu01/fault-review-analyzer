@@ -290,13 +290,9 @@ class TestRootCauseInfo:
     def test_confidence_bounds(self):
         """测试置信度在 0-1 之间"""
         with pytest.raises(ValidationError):
-            RootCauseInfo(
-                root_cause_id="rc-001", description="根因描述", confidence=-0.1
-            )
+            RootCauseInfo(root_cause_id="rc-001", description="根因描述", confidence=-0.1)
         with pytest.raises(ValidationError):
-            RootCauseInfo(
-                root_cause_id="rc-001", description="根因描述", confidence=1.1
-            )
+            RootCauseInfo(root_cause_id="rc-001", description="根因描述", confidence=1.1)
 
 
 class TestEnums:

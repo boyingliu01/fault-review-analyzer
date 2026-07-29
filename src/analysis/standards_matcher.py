@@ -98,9 +98,7 @@ class StandardsMatcher:
 
         # 规范embedding缓存目录（避免每次启动重算全部条款向量）
         if cache_dir is None:
-            cache_dir = (
-                Path(__file__).parent.parent.parent / "data" / "cache"
-            )
+            cache_dir = Path(__file__).parent.parent.parent / "data" / "cache"
         self._cache_dir = Path(cache_dir)
         self._emb_cache_file = self._cache_dir / "standards_embeddings.json"
 
@@ -132,9 +130,7 @@ class StandardsMatcher:
             logger.warning("LLM精排失败，降级为相似度判定")
 
         # 降级：按相似度阈值判定
-        matches = [
-            m for m in candidates if m.similarity >= SIMILARITY_THRESHOLD
-        ]
+        matches = [m for m in candidates if m.similarity >= SIMILARITY_THRESHOLD]
         mode = "similarity_only" if self._embedding_generator else "keyword_only"
         return StandardsMatchResult(matches=matches, match_mode=mode, query_text=query_text)
 
@@ -193,9 +189,7 @@ class StandardsMatcher:
         )
         return top
 
-    def _retrieve_by_keywords(
-        self, query_text: str, rules: list[Any]
-    ) -> list[StandardMatch]:
+    def _retrieve_by_keywords(self, query_text: str, rules: list[Any]) -> list[StandardMatch]:
         """关键词重叠降级召回。"""
         query_terms = self._extract_terms(query_text)
         scored: list[StandardMatch] = []
@@ -286,9 +280,7 @@ class StandardsMatcher:
                 rid: {"hash": h, "embedding": emb}
                 for rid, (h, emb) in (self._rule_embeddings or {}).items()
             }
-            self._emb_cache_file.write_text(
-                json.dumps(data, ensure_ascii=False), encoding="utf-8"
-            )
+            self._emb_cache_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         except Exception as e:
             logger.warning(f"规范embedding缓存保存失败: {e}")
 
@@ -317,17 +309,13 @@ class StandardsMatcher:
             logger.error(f"LLM规范精排失败: {e}")
             return None
 
-    def _build_rerank_prompt(
-        self, query_text: str, candidates: list[StandardMatch]
-    ) -> str:
+    def _build_rerank_prompt(self, query_text: str, candidates: list[StandardMatch]) -> str:
         rules_text = ""
         for i, c in enumerate(candidates, 1):
             rule = self._standards_manager.get_rule(c.rule_id)
             content = rule.content[:300] if rule else ""
             rules_text += (
-                f"\n### 候选{i}: {c.rule_id}（{c.level}）\n"
-                f"标题: {c.rule_title}\n"
-                f"内容: {content}\n"
+                f"\n### 候选{i}: {c.rule_id}（{c.level}）\n标题: {c.rule_title}\n内容: {content}\n"
             )
 
         return f"""请判断以下故障分析结论与候选规范条款的关系。
@@ -382,9 +370,7 @@ class StandardsMatcher:
             matches.append(candidate)
 
         # violated在前，其后按confidence排序
-        matches.sort(
-            key=lambda m: (m.relation != RELATION_VIOLATED, -m.confidence)
-        )
+        matches.sort(key=lambda m: (m.relation != RELATION_VIOLATED, -m.confidence))
         return matches
 
     # ------------------------------------------------------------------

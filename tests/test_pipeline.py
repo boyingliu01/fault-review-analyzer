@@ -244,6 +244,7 @@ class TestAnalysisPipeline:
                 with patch.object(pipeline, "_get_cluster_analyzer") as mock_clust:
                     mock_cluster = MagicMock()
                     from src.clustering.models import ClusterResult
+
                     mock_result = MagicMock(spec=ClusterResult)
                     mock_result.labels = [0, 0]
                     mock_result.n_clusters = 1
@@ -285,9 +286,7 @@ class TestAnalysisPipeline:
         task_data = {
             "title": "Test",
             "description": "Test desc",
-            "development": {
-                "commits": [{"message": "password='secret'"}]
-            },
+            "development": {"commits": [{"message": "password='secret'"}]},
         }
 
         violations = pipeline._check_rules(task_data)
@@ -311,12 +310,14 @@ class TestAnalysisPipeline:
                 {"type": "开发", "content": "开发内容", "metadata": {}},
             ]
         }
-        labels = [{"name": "bug", "confidence": 0.9, "category": "issue", "description": "Bug issue"}]
-        root_causes = [{"cause_type": "代码错误", "description": "描述", "evidence": "", "confidence": 0.8}]
+        labels = [
+            {"name": "bug", "confidence": 0.9, "category": "issue", "description": "Bug issue"}
+        ]
+        root_causes = [
+            {"cause_type": "代码错误", "description": "描述", "evidence": "", "confidence": 0.8}
+        ]
 
-        report = pipeline._generate_report(
-            task_data, preprocessed, labels, root_causes
-        )
+        report = pipeline._generate_report(task_data, preprocessed, labels, root_causes)
 
         assert isinstance(report, str)
         assert len(report) > 0
@@ -367,9 +368,7 @@ class TestAnalysisPipeline:
         assert pipeline._api_client is None
 
     @pytest.mark.asyncio
-    async def test_run_single_preprocess_raises_exception(
-        self, mock_config, pipeline_config
-    ):
+    async def test_run_single_preprocess_raises_exception(self, mock_config, pipeline_config):
         """Preprocess raises exception → caught, result.error set."""
         from datetime import datetime
 
@@ -403,9 +402,7 @@ class TestAnalysisPipeline:
         assert result.error == "Bad data"
 
     @pytest.mark.asyncio
-    async def test_run_single_llm_not_available(
-        self, mock_config
-    ):
+    async def test_run_single_llm_not_available(self, mock_config):
         """use_llm=True but no LLM provider → labels/root_causes empty, no crash."""
         from datetime import datetime
 
@@ -451,9 +448,7 @@ class TestAnalysisPipeline:
         mock_llm_factory.assert_called()
 
     @pytest.mark.asyncio
-    async def test_run_single_all_flags_false(
-        self, mock_config
-    ):
+    async def test_run_single_all_flags_false(self, mock_config):
         """All PipelineConfig flags False → only fetch + preprocess, no analysis."""
         from datetime import datetime
 
@@ -496,9 +491,7 @@ class TestAnalysisPipeline:
         assert result.report == ""
 
     @pytest.mark.asyncio
-    async def test_run_batch_empty_task_ids(
-        self, mock_config, pipeline_config
-    ):
+    async def test_run_batch_empty_task_ids(self, mock_config, pipeline_config):
         """Empty task_ids list → empty results list, no crash."""
         pipeline = AnalysisPipeline(
             config=mock_config,
@@ -511,9 +504,7 @@ class TestAnalysisPipeline:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_run_batch_partial_failure(
-        self, mock_config, pipeline_config
-    ):
+    async def test_run_batch_partial_failure(self, mock_config, pipeline_config):
         """One task fails (not found), others succeed → partial results returned."""
         from datetime import datetime
 
@@ -557,9 +548,7 @@ class TestAnalysisPipeline:
         assert results[2].error == ""
 
     @pytest.mark.asyncio
-    async def test_run_clustering_single_task(
-        self, mock_config, pipeline_config
-    ):
+    async def test_run_clustering_single_task(self, mock_config, pipeline_config):
         """Only 1 task provided → should still return result, not crash."""
         from datetime import datetime
 
@@ -604,9 +593,7 @@ class TestAnalysisPipeline:
         assert result["total_found"] == 1
 
     @pytest.mark.asyncio
-    async def test_run_clustering_all_missing(
-        self, mock_config, pipeline_config
-    ):
+    async def test_run_clustering_all_missing(self, mock_config, pipeline_config):
         """All task IDs not found → error result with missing_tasks."""
         pipeline = AnalysisPipeline(
             config=mock_config,
@@ -623,9 +610,7 @@ class TestAnalysisPipeline:
         assert "No tasks to cluster" in result["error"]
         assert result["missing_tasks"] == [99999, 88888]
 
-    def test_generate_report_with_none_data(
-        self, mock_config, pipeline_config
-    ):
+    def test_generate_report_with_none_data(self, mock_config, pipeline_config):
         """Report generation with None labels and None root_causes → should not crash."""
         pipeline = AnalysisPipeline(
             config=mock_config,
@@ -660,9 +645,7 @@ class TestAnalysisPipeline:
         assert pipeline._api_client is None
 
     @pytest.mark.asyncio
-    async def test_context_manager_exit_calls_close(
-        self, mock_config, pipeline_config
-    ):
+    async def test_context_manager_exit_calls_close(self, mock_config, pipeline_config):
         """__aexit__ should invoke close(), cleaning up API client."""
         pipeline = AnalysisPipeline(
             config=mock_config,
@@ -679,9 +662,7 @@ class TestAnalysisPipeline:
         mock_api_client.close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_run_single_exception_mid_pipeline(
-        self, mock_config, pipeline_config
-    ):
+    async def test_run_single_exception_mid_pipeline(self, mock_config, pipeline_config):
         """Exception during check_rules → caught, error set on result."""
         from datetime import datetime
 
@@ -706,7 +687,9 @@ class TestAnalysisPipeline:
 
             # Simulate rules engine crashing at runtime
             with patch.object(
-                pipeline._rules_engine, "check", side_effect=RuntimeError("Rules engine unavailable")
+                pipeline._rules_engine,
+                "check",
+                side_effect=RuntimeError("Rules engine unavailable"),
             ):
                 async with pipeline:
                     result = await pipeline.run_single(12345)

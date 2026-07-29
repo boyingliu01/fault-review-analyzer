@@ -1,7 +1,6 @@
 """E2E 测试 Playwright 配置"""
 
 
-
 def pytest_runtest_setup(item):
     """E2E 测试 setup"""
     # 为带 @pytest.mark.ui 标记的测试确保 Playwright 可用

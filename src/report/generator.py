@@ -345,7 +345,11 @@ class ReportGenerator:
                     pass
 
             return self._render_single_markdown(
-                task_data, segments, labels, root_causes, suggestions,
+                task_data,
+                segments,
+                labels,
+                root_causes,
+                suggestions,
                 violations=violations,
                 code_change_analysis=code_change_analysis,
                 standard_matches=standard_matches,
@@ -463,7 +467,10 @@ class ReportGenerator:
             raise ValueError(f"Unsupported report format: {format}")
 
     def generate(
-        self, data: ReportData, format: ReportFormat = ReportFormat.MARKDOWN, filename: str | None = None
+        self,
+        data: ReportData,
+        format: ReportFormat = ReportFormat.MARKDOWN,
+        filename: str | None = None,
     ) -> Path | str:
         """Generate a report and save to file.
 
@@ -774,7 +781,9 @@ class ReportGenerator:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(content, encoding="utf-8")
 
-    def get_template(self, template_name: str, format: ReportFormat = ReportFormat.MARKDOWN) -> str | None:
+    def get_template(
+        self, template_name: str, format: ReportFormat = ReportFormat.MARKDOWN
+    ) -> str | None:
         """Get template content from template directory or default."""
         if self._env:
             try:
