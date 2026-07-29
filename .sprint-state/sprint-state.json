@@ -1,10 +1,11 @@
 {
   "requirement": "补齐代码diff分析链路 - 获取/分析/规范检查/聚类集成",
   "isolation": {
-    "branch": "sprint/2026-07-21-code-diff-analysis",
+    "branch": "master",
     "created_from": "master",
     "worktree_path": null,
-    "created_from_commit": "f9589e5"
+    "created_from_commit": "f9589e5",
+    "merged": true
   },
   "phase": 6,
   "status": "user_acceptance_pending",
