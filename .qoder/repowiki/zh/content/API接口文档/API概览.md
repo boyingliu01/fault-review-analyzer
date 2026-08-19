@@ -19,11 +19,10 @@
 
 ## 更新摘要
 **所做更改**
-- 新增研发云代码变更API全量字段支持说明
-- 更新轻量级文件获取接口文档
-- 增强APIClient功能描述，包含新的代码变更查询方法
-- 更新客户端认证机制章节，包含完整的研发云API集成示例
-- 添加新的错误处理模式，包含代码变更相关的异常类型
+- 新增APIClient.verify_token()方法的详细说明
+- 更新客户端认证机制章节，包含轻量级令牌验证功能
+- 添加verify_token方法的使用示例和最佳实践
+- 更新错误处理模式，包含新的认证相关异常类型
 
 ## 目录
 1. [简介](#简介)
@@ -38,7 +37,7 @@
 10. [结论](#结论)
 
 ## 简介
-本概览文档面向Bug聚类分析系统的RESTful API，覆盖整体架构、基础URL、认证机制、版本管理、设计原则与命名规范、端点清单、请求/响应格式、状态码约定、错误处理模式、速率限制、安全考虑、性能优化建议以及快速开始指南。目标是帮助开发者快速理解并集成API服务，特别是针对研发云代码变更API的完整集成方案。
+本概览文档面向Bug聚类分析系统的RESTful API，覆盖整体架构、基础URL、认证机制、版本管理、设计原则与命名规范、端点清单、请求/响应格式、状态码约定、错误处理模式、速率限制、安全考虑、性能优化建议以及快速开始指南。目标是帮助开发者快速理解并集成API服务。
 
 ## 项目结构
 API采用FastAPI构建，按功能域拆分路由模块，统一通过应用工厂创建实例并注册中间件、路由与生命周期钩子。关键目录与职责：
@@ -47,7 +46,7 @@ API采用FastAPI构建，按功能域拆分路由模块，统一通过应用工�
 - src/api/dependencies.py：配置管理器与分析流水线的依赖注入
 - src/api/routes/*：健康检查、任务分析、聚类查询、报告获取、反馈管理
 - src/api/server_models.py：统一的请求/响应数据模型
-- src/api/client.py：HTTP客户端封装，包含研发云代码变更API集成和轻量级认证验证功能
+- src/api/client.py：HTTP客户端封装，包含轻量级认证验证功能
 - scripts/start_api_server.py：启动脚本与环境变量读取
 - config/config.yaml.example：系统配置示例（LLM、嵌入、缓存、规则等）
 
@@ -69,7 +68,6 @@ I --> F
 J["客户端封装<br/>client.py"] --> A
 K["启动脚本<br/>start_api_server.py"] --> A
 L["配置示例<br/>config.yaml.example"] --> A
-M["研发云API集成<br/>代码变更查询"] --> J
 ```
 
 **图示来源**
@@ -103,7 +101,6 @@ M["研发云API集成<br/>代码变更查询"] --> J
 - HTTP客户端封装
   - APIClient：封装HTTP请求逻辑，支持重试、熔断器、超时管理等高级特性。
   - verify_token()：轻量级认证验证方法，用于快速检查API令牌有效性。
-  - 研发云代码变更API集成：支持根据任务单号查询代码分支Commit信息和代码变动详细信息。
 - 路由与模型
   - 健康检查：GET /health
   - 分析：POST /analyze、POST /analyze/batch
@@ -112,7 +109,7 @@ M["研发云API集成<br/>代码变更查询"] --> J
   - 反馈：POST /feedback、GET /feedback/{id}、GET /feedback/task/{task_id}、GET /feedback?filters...、POST /feedback/{id}/review、GET /feedback/stats/summary
   - server_models定义统一的数据结构，包括分析选项、单条/批量分析请求与响应、聚类信息、报告响应、错误响应等。
 
-**更新** 新增研发云代码变更API集成功能和APIClient客户端封装增强
+**更新** 新增APIClient客户端封装和verify_token()轻量级认证验证方法
 
 章节来源
 - [src/api/server.py:38-111](file://src/api/server.py#L38-L111)
@@ -132,7 +129,7 @@ API遵循分层与模块化设计：
 - 中间件层：认证、限流、日志
 - 领域层：分析流水线、聚类、报告生成、反馈管理
 - 基础设施层：配置管理、缓存、外部LLM/嵌入服务（由配置驱动）
-- 客户端层：APIClient封装，提供轻量级认证验证、研发云代码变更API集成和高级网络特性
+- 客户端层：APIClient封装，提供轻量级认证验证和高级网络特性
 
 ```mermaid
 sequenceDiagram
@@ -143,7 +140,6 @@ participant Router as "路由处理器"
 participant Deps as "依赖注入(配置/流水线)"
 participant Domain as "领域逻辑(分析/聚类/报告/反馈)"
 participant APIC as "APIClient(含verify_token)"
-participant DevCloud as "研发云API"
 Client->>App : HTTP 请求
 App->>MW : 进入中间件链
 MW-->>Client : 401/403/429 (如失败)
@@ -153,9 +149,7 @@ Deps-->>Router : 返回可用实例
 Router->>Domain : 执行业务逻辑
 Domain->>APIC : 调用APIClient方法
 APIC->>APIC : verify_token() 轻量级验证
-APIC->>DevCloud : 代码变更API查询
-DevCloud-->>APIC : 返回代码变更信息
-APIC-->>Domain : 返回验证结果和代码变更数据
+APIC-->>Domain : 返回验证结果
 Domain-->>Router : 返回结果
 Router-->>Client : JSON 响应
 ```
@@ -164,7 +158,7 @@ Router-->>Client : JSON 响应
 - [src/api/server.py:81-111](file://src/api/server.py#L81-L111)
 - [src/api/middleware.py:81-141](file://src/api/middleware.py#L81-L141)
 - [src/api/dependencies.py:14-33](file://src/api/dependencies.py#L14-L33)
-- [src/api/client.py:163-211](file://src/api/client.py#L163-211)
+- [src/api/client.py:163-211](file://src/api/client.py#L163-L211)
 
 ## 详细组件分析
 
@@ -182,12 +176,8 @@ Router-->>Client : JSON 响应
   - APIClient.verify_token()方法提供快速令牌验证
   - 使用轻量级端点进行认证检查，避免完整业务逻辑开销
   - 支持连接错误、超时、认证失败的明确错误处理
-- 研发云API认证
-  - 支持Bearer Token自动处理
-  - 集成研发云代码变更API的认证机制
-  - 统一的错误处理和重试机制
 
-**更新** 新增研发云API认证支持和APIClient.verify_token()轻量级认证验证功能
+**更新** 新增APIClient.verify_token()轻量级认证验证功能
 
 ```mermaid
 flowchart TD
@@ -214,20 +204,15 @@ Response --> |401| Expired["抛出AuthenticationError"]
 Response --> |5xx| ServerErr["抛出ServerError"]
 Response --> |其他| Success
 end
-subgraph "研发云API认证"
-DevAuth["研发云API认证"] --> CheckDevToken{"研发云Token有效?"}
-CheckDevToken --> |否| DevAuthError["抛出研发云认证错误"]
-CheckDevToken --> |是| DevSuccess["认证成功"]
-end
 ```
 
 **图示来源**
 - [src/api/middleware.py:81-141](file://src/api/middleware.py#L81-L141)
-- [src/api/client.py:163-211](file://src/api/client.py#L163-211)
+- [src/api/client.py:163-211](file://src/api/client.py#L163-L211)
 
 章节来源
 - [src/api/middleware.py:48-141](file://src/api/middleware.py#L48-L141)
-- [src/api/client.py:163-211](file://src/api/client.py#L163-211)
+- [src/api/client.py:163-211](file://src/api/client.py#L163-L211)
 
 ### 速率限制
 - 策略：基于内存的时间窗口计数，默认每分钟60次
@@ -255,9 +240,8 @@ end
 - 可观测性：中间件记录请求/响应耗时与异常
 - 可扩展性：路由按功能域拆分，依赖注入解耦配置与流水线
 - 客户端封装：APIClient提供统一的HTTP客户端接口，支持重试、熔断、超时等高级特性
-- 研发云API集成：统一的认证机制和错误处理模式
 
-**更新** 新增研发云API集成设计原则
+**更新** 新增客户端封装设计原则
 
 章节来源
 - [src/api/server.py:56-78](file://src/api/server.py#L56-L78)
@@ -291,13 +275,6 @@ end
   - GET /feedback?feedback_type=&rating=&reviewed=&limit=&offset=
   - POST /feedback/{feedback_id}/review
   - GET /feedback/stats/summary
-- 研发云代码变更API（客户端集成）
-  - 根据任务单号查询代码分支Commit信息
-  - 根据代码仓库地址和特性分支名称查询代码分支Commit信息
-  - 根据任务单号查询代码变动详细信息
-  - 轻量级文件获取接口
-
-**更新** 新增研发云代码变更API客户端集成方法
 
 章节来源
 - [src/api/routes/health.py:10-22](file://src/api/routes/health.py#L10-L22)
@@ -306,16 +283,12 @@ end
 - [src/api/routes/reports.py:16-129](file://src/api/routes/reports.py#L16-L129)
 - [src/api/routes/feedback.py:26-156](file://src/api/routes/feedback.py#L26-L156)
 - [src/api/server_models.py:17-150](file://src/api/server_models.py#L17-L150)
-- [src/api/client.py:25-389](file://src/api/client.py#L25-L389)
 
 ### 请求/响应格式规范
 - 内容类型：application/json
 - 成功响应：具体模型字段见server_models定义
 - 错误响应：ErrorResponse（error、message、detail、timestamp）
 - 分页与过滤：反馈列表支持limit/offset及多条件过滤
-- 研发云API响应：支持全量字段返回和轻量级文件获取
-
-**更新** 新增研发云API响应格式规范
 
 章节来源
 - [src/api/server_models.py:9-159](file://src/api/server_models.py#L9-L159)
@@ -338,9 +311,8 @@ end
   - ServerError：服务器错误（5xx）
   - APIConnectionError：连接错误
   - APIError：通用API错误
-  - 研发云API相关异常：支持代码变更查询的错误分类
 
-**更新** 新增研发云API相关异常类型和处理模式
+**更新** 新增客户端异常类型定义
 
 章节来源
 - [src/api/middleware.py:93-141](file://src/api/middleware.py#L93-L141)
@@ -358,16 +330,14 @@ end
 - 利用OpenAPI文档（/docs、/redoc）进行联调与自动化测试
 - 使用APIClient.verify_token()进行轻量级认证预检查
 - 实现适当的重试机制和熔断器保护
-- 研发云API集成：合理使用全量字段和轻量级接口，平衡数据完整性与性能
-- 错误处理：统一使用客户端异常类型进行分类处理
 
-**更新** 新增研发云API集成最佳实践
+**更新** 新增APIClient.verify_token()使用建议和重试机制最佳实践
 
 章节来源
 - [src/api/server.py:102-111](file://src/api/server.py#L102-L111)
 - [src/api/routes/analyze.py:87-108](file://src/api/routes/analyze.py#L87-L108)
 - [src/api/routes/reports.py:46-105](file://src/api/routes/reports.py#L46-L105)
-- [src/api/client.py:163-211](file://src/api/client.py#L163-211)
+- [src/api/client.py:163-211](file://src/api/client.py#L163-L211)
 
 ## 依赖关系分析
 - 路由依赖
@@ -381,9 +351,8 @@ end
 - 客户端依赖
   - APIClient封装httpx.AsyncClient，提供重试、熔断、超时等高级特性
   - 依赖异常类型定义进行错误分类和处理
-  - 集成研发云代码变更API的全量字段支持和轻量级文件获取
 
-**更新** 新增研发云API集成的依赖关系分析
+**更新** 新增客户端依赖关系分析
 
 ```mermaid
 classDiagram
@@ -421,13 +390,6 @@ class APIClient {
 +get_task()
 +get_full_task()
 +_request()
-+dev_cloud_code_change_api()
-}
-class DevCloudAPI {
-+query_commit_by_task()
-+query_commit_by_repo_branch()
-+query_code_changes()
-+get_lightweight_file()
 }
 class Exceptions {
 +AuthenticationError
@@ -442,7 +404,6 @@ FastAPI_App --> Routes : "include_router"
 Routes --> Dependencies : "Depends"
 Routes --> Models : "使用"
 Routes --> APIClient : "使用"
-APIClient --> DevCloudAPI : "集成"
 APIClient --> Exceptions : "抛出"
 ```
 
@@ -478,19 +439,15 @@ APIClient --> Exceptions : "抛出"
 - 轻量级验证优化
   - verify_token()使用最小请求体，减少网络开销
   - 支持快速失败和明确的错误反馈
-- 研发云API性能优化
-  - 轻量级文件获取接口减少数据传输
-  - 全量字段支持可选参数控制
-  - 智能缓存和重试机制
 
-**更新** 新增研发云API性能优化说明
+**更新** 新增轻量级验证的性能优化说明
 
 章节来源
 - [src/api/middleware.py:13-46](file://src/api/middleware.py#L13-L46)
 - [src/api/routes/analyze.py:87-108](file://src/api/routes/analyze.py#L87-L108)
 - [src/api/routes/reports.py:58-105](file://src/api/routes/reports.py#L58-L105)
 - [config/config.yaml.example:22-26](file://config/config.yaml.example#L22-L26)
-- [src/api/client.py:163-211](file://src/api/client.py#L163-211)
+- [src/api/client.py:163-211](file://src/api/client.py#L163-L211)
 
 ## 安全与错误处理
 - 认证与安全
@@ -498,24 +455,20 @@ APIClient --> Exceptions : "抛出"
   - 避免在URL中携带Token，优先使用Header
   - CORS默认允许所有来源，生产应限定域名
   - APIClient支持Bearer Token自动处理
-  - 研发云API认证：统一的Token管理和安全传输
 - 输入校验
   - Pydantic模型严格校验，非法输入返回422
   - 报告接口对format进行白名单校验
-  - 研发云API参数校验：任务单号、仓库地址、分支名称等
 - 错误处理
   - 中间件统一返回标准错误体
   - 路由层针对业务异常抛出HTTPException，保持错误语义清晰
   - APIClient提供细粒度的异常分类和错误处理
   - verify_token()提供明确的认证状态反馈
-  - 研发云API错误处理：统一的异常分类和重试机制
 - 连接安全
   - 支持HTTPS连接
   - 超时配置防止连接挂起
   - 重试机制带指数退避
-  - 研发云API连接池和连接复用
 
-**更新** 新增研发云API安全特性和错误处理机制
+**更新** 新增APIClient安全特性和错误处理机制
 
 章节来源
 - [src/api/middleware.py:81-141](file://src/api/middleware.py#L81-L141)
@@ -523,7 +476,7 @@ APIClient --> Exceptions : "抛出"
 - [src/api/routes/reports.py:46-56](file://src/api/routes/reports.py#L46-L56)
 - [src/api/server_models.py:152-159](file://src/api/server_models.py#L152-L159)
 - [src/api/client.py:87-98](file://src/api/client.py#L87-L98)
-- [src/api/client.py:163-211](file://src/api/client.py#L163-211)
+- [src/api/client.py:163-211](file://src/api/client.py#L163-L211)
 
 ## 快速开始与示例
 - 启动服务
@@ -545,17 +498,11 @@ APIClient --> Exceptions : "抛出"
   - 创建APIClient实例并进行轻量级认证验证
   - 使用异步上下文管理器管理资源
   - 处理各种异常情况
-  - 集成研发云代码变更API查询功能
-- 研发云API集成示例
-  - 根据任务单号查询代码分支Commit信息
-  - 根据代码仓库地址和特性分支名称查询代码分支Commit信息
-  - 根据任务单号查询代码变动详细信息
-  - 使用轻量级文件获取接口
 
-**更新** 新增研发云API集成示例和客户端使用方法
+**更新** 新增APIClient使用示例
 
 章节来源
-- [scripts/start_api_server.py:13-64](file://scripts/start_api_server.py#L13-64)
+- [scripts/start_api_server.py:13-64](file://scripts/start_api_server.py#L13-L64)
 - [src/api/server.py:102-111](file://src/api/server.py#L102-L111)
 - [src/api/routes/health.py:10-22](file://src/api/routes/health.py#L10-L22)
 - [src/api/routes/analyze.py:58-201](file://src/api/routes/analyze.py#L58-L201)
@@ -565,6 +512,6 @@ APIClient --> Exceptions : "抛出"
 - [src/api/client.py:25-389](file://src/api/client.py#L25-L389)
 
 ## 结论
-该API以FastAPI为核心，采用清晰的模块化设计与统一的中间件机制，提供任务分析、聚类查询、报告生成与反馈管理能力。通过Token认证与速率限制保障安全性与稳定性，配合完善的错误响应与可观测性日志，便于开发与运维。新增的APIClient.verify_token()方法提供了轻量级认证验证能力，增强了客户端的健壮性和用户体验。研发云代码变更API的全量字段支持和轻量级文件获取接口的集成，进一步提升了系统的完整性和实用性。建议在生产环境严格配置认证与CORS，并结合缓存与配置优化提升性能。
+该API以FastAPI为核心，采用清晰的模块化设计与统一的中间件机制，提供任务分析、聚类查询、报告生成与反馈管理能力。通过Token认证与速率限制保障安全性与稳定性，配合完善的错误响应与可观测性日志，便于开发与运维。新增的APIClient.verify_token()方法提供了轻量级认证验证能力，增强了客户端的健壮性和用户体验。建议在生产环境严格配置认证与CORS，并结合缓存与配置优化提升性能。
 
-**更新** 强调新增的APIClient.verify_token()方法和研发云API集成对系统功能的增强作用
+**更新** 强调新增的APIClient.verify_token()方法对系统健壮性的增强作用
