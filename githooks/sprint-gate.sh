@@ -74,6 +74,12 @@ d = json.load(open(sys.argv[1]))
 print(d.get('phase', 0))
 " "$SPRINT_STATE_FILE")
 
+SPRINT_MERGED=$("$PYTHON" -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(str(d.get('isolation', {}).get('merged', False)).lower())
+" "$SPRINT_STATE_FILE")
+
 PHASE_HISTORY_COUNT=$("$PYTHON" -c "
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -84,6 +90,11 @@ print(len(completed))
 
 # ── Pre-push checks ──
 if [ "$MODE" = "pre-push" ]; then
+  if [ "$SPRINT_MERGED" = "true" ]; then
+    echo "✅ Gate MS: No active sprint; completed sprint is already merged. PASS."
+    exit 0
+  fi
+
   ERRORS=0
 
   # Check 1: Branch must match sprint isolation branch
