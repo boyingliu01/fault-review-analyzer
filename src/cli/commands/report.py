@@ -32,85 +32,67 @@ def generate(
         raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
-    cache_manager = CacheManager(db_path=cache_path)
-
     generator = ReportGenerator()
 
-    if task_id is not None:
-        console.print(f"[cyan]生成任务 {task_id} 的分析报告...[/cyan]")
+    with CacheManager(db_path=cache_path) as cache_manager:
+        if task_id is not None:
+            console.print(f"[cyan]生成任务 {task_id} 的分析报告...[/cyan]")
+            task_data = cache_manager.load_task(task_id)
+            if not task_data:
+                console.print(f"[red]任务 {task_id} 不在缓存中[/red]")
+                console.print("[yellow]请先使用 fetch 命令获取任务数据[/yellow]")
+                return
+            report = generator.generate_single(
+                task_data=task_data,
+                segments=task_data.get("segments", []),
+                labels=task_data.get("labels", []),
+                root_causes=task_data.get("root_causes", []),
+            )
+            output_path = output / f"task_{task_id}_report.md"
+            output.mkdir(parents=True, exist_ok=True)
+            generator.save_report(report, output_path)
+            console.print(f"[green]报告已生成: {output_path}[/green]")
+        elif cluster_id is not None:
+            console.print(f"[cyan]生成聚类 {cluster_id} 的分析报告...[/cyan]")
+            all_tasks = cache_manager.get_all_tasks()
+            cluster_tasks = [t for t in all_tasks if t.get("cluster_id") == cluster_id]
+            if not cluster_tasks:
+                console.print(f"[yellow]聚类 {cluster_id} 中没有任务[/yellow]")
+                return
+            from src.report.models import ClusterReport
 
-        task_data = cache_manager.load_task(task_id)
-        if not task_data:
-            console.print(f"[red]任务 {task_id} 不在缓存中[/red]")
-            console.print("[yellow]请先使用 fetch 命令获取任务数据[/yellow]")
-            return
-
-        report = generator.generate_single(
-            task_data=task_data,
-            segments=task_data.get("segments", []),
-            labels=task_data.get("labels", []),
-            root_causes=task_data.get("root_causes", []),
-        )
-
-        output_path = output / f"task_{task_id}_report.md"
-        output.mkdir(parents=True, exist_ok=True)
-        generator.save_report(report, output_path)
-
-        console.print(f"[green]报告已生成: {output_path}[/green]")
-
-    elif cluster_id is not None:
-        console.print(f"[cyan]生成聚类 {cluster_id} 的分析报告...[/cyan]")
-
-        all_tasks = cache_manager.get_all_tasks()
-        cluster_tasks = [t for t in all_tasks if t.get("cluster_id") == cluster_id]
-
-        if not cluster_tasks:
-            console.print(f"[yellow]聚类 {cluster_id} 中没有任务[/yellow]")
-            return
-
-        from src.report.models import ClusterReport
-
-        cluster_report = ClusterReport(
-            cluster_id=cluster_id,
-            task_count=len(cluster_tasks),
-            labels=[],
-            common_root_causes=[],
-            summary="聚类分析报告",
-            suggestions=["建议优化代码质量", "加强测试覆盖"],
-        )
-
-        report = generator.generate_cluster(cluster_report)
-
-        output_path = output / f"cluster_{cluster_id}_report.md"
-        output.mkdir(parents=True, exist_ok=True)
-        generator.save_report(report, output_path)
-
-        console.print(f"[green]报告已生成: {output_path}[/green]")
-
-    else:
-        console.print("[yellow]批量生成报告...[/yellow]")
-
-        all_tasks = cache_manager.get_all_tasks()
-
-        if not all_tasks:
-            console.print("[yellow]缓存中没有任务数据[/yellow]")
-            return
-
-        output.mkdir(parents=True, exist_ok=True)
-
-        for task in all_tasks:
-            tid = task.get("task_id")
-            if tid:
-                report = generator.generate_single(
-                    task_data=task,
-                    segments=task.get("segments", []),
-                    labels=task.get("labels", []),
-                    root_causes=task.get("root_causes", []),
-                )
-                task_output = output / f"task_{tid}_report.md"
-                generator.save_report(report, task_output)
-
-        console.print(f"[green]已为 {len(all_tasks)} 个任务生成报告[/green]")
+            cluster_report = ClusterReport(
+                cluster_id=cluster_id,
+                task_count=len(cluster_tasks),
+                labels=[],
+                common_root_causes=[],
+                summary="聚类分析报告",
+                suggestions=["建议优化代码质量", "加强测试覆盖"],
+            )
+            report = generator.generate_cluster(cluster_report)
+            output_path = output / f"cluster_{cluster_id}_report.md"
+            output.mkdir(parents=True, exist_ok=True)
+            generator.save_report(report, output_path)
+            console.print(f"[green]报告已生成: {output_path}[/green]")
+        else:
+            console.print("[yellow]批量生成报告...[/yellow]")
+            all_tasks = cache_manager.get_all_tasks()
+            if not all_tasks:
+                console.print("[yellow]缓存中没有任务数据[/yellow]")
+                return
+            output.mkdir(parents=True, exist_ok=True)
+            for task in all_tasks:
+                tid = task.get("task_id")
+                if tid:
+                    report = generator.generate_single(
+                        task_data=task,
+                        segments=task.get("segments", []),
+                        labels=task.get("labels", []),
+                        root_causes=task.get("root_causes", []),
+                    )
+                    task_output = output / f"task_{tid}_report.md"
+                    generator.save_report(report, task_output)
+            console.print(f"[green]已为 {len(all_tasks)} 个任务生成报告[/green]")
 
 
 @app.command("list")

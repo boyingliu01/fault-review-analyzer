@@ -77,7 +77,10 @@ print(d.get('phase', 0))
 SPRINT_MERGED=$("$PYTHON" -c "
 import json, sys
 d = json.load(open(sys.argv[1]))
-print(str(d.get('isolation', {}).get('merged', False)).lower())
+merged = d.get('isolation', {}).get('merged')
+if not isinstance(merged, bool):
+    raise SystemExit('isolation.merged must be a JSON boolean')
+print('true' if merged else 'false')
 " "$SPRINT_STATE_FILE")
 
 PHASE_HISTORY_COUNT=$("$PYTHON" -c "

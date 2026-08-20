@@ -110,10 +110,13 @@ class AnalysisPipeline:
         await self.close()
 
     async def close(self) -> None:
-        """Close all async resources."""
+        """Close all owned resources."""
         if self._api_client:
             await self._api_client.close()
             self._api_client = None
+        if self._cache_manager:
+            self._cache_manager.close()
+            self._cache_manager = None
 
     async def run_single(self, task_id: int) -> PipelineResult:
         """Run analysis pipeline for a single task."""
