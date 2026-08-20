@@ -34,42 +34,38 @@ def fetch_single(
     cache_path = Path(config.cache.db_path)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-    cache_manager = CacheManager(
-        db_path=cache_path,
-        ttl=config.cache.ttl,
-    )
+    with CacheManager(db_path=cache_path, ttl=config.cache.ttl) as cache_manager:
+        if not force:
+            cached = cache_manager.get_task(task_id)
+            if cached:
+                console.print(f"[green]从缓存加载任务 {task_id}[/green]")
+                return
 
-    if not force:
-        cached = cache_manager.get_task(task_id)
-        if cached:
-            console.print(f"[green]从缓存加载任务 {task_id}[/green]")
-            return
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task(f"正在获取任务 {task_id}...", total=None)
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        progress.add_task(f"正在获取任务 {task_id}...", total=None)
+            async def _fetch() -> Any:
+                async with APIClient(
+                    base_url=config.api.base_url,
+                    token=config.api.api_key,
+                    timeout=config.api.timeout,
+                    retry=config.api.retry,
+                ) as client:
+                    return await client.get_full_task(task_id)
 
-        async def _fetch() -> Any:
-            async with APIClient(
-                base_url=config.api.base_url,
-                token=config.api.api_key,
-                timeout=config.api.timeout,
-                retry=config.api.retry,
-            ) as client:
-                return await client.get_full_task(task_id)
+            import asyncio
 
-        import asyncio
+            task = asyncio.run(_fetch())
 
-        task = asyncio.run(_fetch())
-
-        if task:
-            cache_manager.save_task(task_id, task.model_dump(mode="json"))
-            console.print(f"[green]成功获取并缓存任务 {task_id}[/green]")
-        else:
-            console.print(f"[red]获取任务 {task_id} 失败[/red]")
+            if task:
+                cache_manager.save_task(task_id, task.model_dump(mode="json"))
+                console.print(f"[green]成功获取并缓存任务 {task_id}[/green]")
+            else:
+                console.print(f"[red]获取任务 {task_id} 失败[/red]")
 
 
 @app.command("batch")
@@ -92,76 +88,72 @@ def fetch_batch(
     cache_path = Path(config.cache.db_path)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-    cache_manager = CacheManager(
-        db_path=cache_path,
-        ttl=config.cache.ttl,
-    )
+    with CacheManager(db_path=cache_path, ttl=config.cache.ttl) as cache_manager:
+        task_id_list: list[int] = []
 
-    task_id_list: list[int] = []
+        if task_ids:
+            try:
+                task_id_list = [int(tid.strip()) for tid in task_ids.split(",") if tid.strip()]
+            except ValueError:
+                console.print("[red]任务ID格式无效，请使用逗号分隔的数字列表[/red]")
+                return
 
-    if task_ids:
-        try:
-            task_id_list = [int(tid.strip()) for tid in task_ids.split(",") if tid.strip()]
-        except ValueError:
-            console.print("[red]任务ID格式无效，请使用逗号分隔的数字列表[/red]")
-            return
+        if query:
+            console.print(f"[cyan]使用查询条件: {query}[/cyan]")
+            console.print("[yellow]API批量查询需要后端支持，当前仅支持task_ids模式[/yellow]")
 
-    if query:
-        console.print(f"[cyan]使用查询条件: {query}[/cyan]")
-        console.print("[yellow]API批量查询需要后端支持，当前仅支持task_ids模式[/yellow]")
+            if not task_id_list:
+                console.print("[yellow]没有指定任务ID，请使用 --task-ids 参数指定[/yellow]")
+                return
 
         if not task_id_list:
-            console.print("[yellow]没有指定任务ID，请使用 --task-ids 参数指定[/yellow]")
+            console.print("[yellow]请指定任务ID列表，使用 --task-ids 参数[/yellow]")
             return
 
-    if not task_id_list:
-        console.print("[yellow]请指定任务ID列表，使用 --task-ids 参数[/yellow]")
-        return
+        console.print(f"[cyan]准备获取 {len(task_id_list)} 个任务...[/cyan]")
 
-    console.print(f"[cyan]准备获取 {len(task_id_list)} 个任务...[/cyan]")
+        success_count = 0
+        fail_count = 0
+        skip_count = 0
 
-    success_count = 0
-    fail_count = 0
-    skip_count = 0
+        import asyncio
 
-    import asyncio
+        async def fetch_tasks() -> None:
+            nonlocal success_count, fail_count, skip_count
 
-    async def fetch_tasks() -> None:
-        nonlocal success_count, fail_count, skip_count
+            async with APIClient(
+                base_url=config.api.base_url,
+                token=config.api.api_key,
+                timeout=config.api.timeout,
+                retry=config.api.retry,
+            ) as client:
+                for task_id in task_id_list:
+                    if not force:
+                        cached = cache_manager.get_task(task_id)
+                        if cached:
+                            console.print(f"  任务 {task_id}: [yellow]跳过（已在缓存中）[/yellow]")
+                            skip_count += 1
+                            continue
 
-        async with APIClient(
-            base_url=config.api.base_url,
-            token=config.api.api_key,
-            timeout=config.api.timeout,
-            retry=config.api.retry,
-        ) as client:
-            for task_id in task_id_list:
-                if not force:
-                    cached = cache_manager.get_task(task_id)
-                    if cached:
-                        console.print(f"  任务 {task_id}: [yellow]跳过（已在缓存中）[/yellow]")
-                        skip_count += 1
-                        continue
-
-                try:
-                    task = await client.get_full_task(task_id)
-                    if task:
-                        cache_manager.save_task(task_id, task.model_dump(mode="json"))
-                        console.print(f"  任务 {task_id}: [green]成功[/green]")
-                        success_count += 1
-                    else:
-                        console.print(f"  任务 {task_id}: [red]失败（未找到）[/red]")
+                    try:
+                        task = await client.get_full_task(task_id)
+                        if task:
+                            cache_manager.save_task(task_id, task.model_dump(mode="json"))
+                            console.print(f"  任务 {task_id}: [green]成功[/green]")
+                            success_count += 1
+                        else:
+                            console.print(f"  任务 {task_id}: [red]失败（未找到）[/red]")
+                            fail_count += 1
+                    except Exception as e:
+                        console.print(f"  任务 {task_id}: [red]失败 ({e})[/red]")
                         fail_count += 1
-                except Exception as e:
-                    console.print(f"  任务 {task_id}: [red]失败 ({e})[/red]")
-                    fail_count += 1
 
-    asyncio.run(fetch_tasks())
+        asyncio.run(fetch_tasks())
 
-    console.print("\n[bold]获取完成:[/bold]")
-    console.print(f"  成功: {success_count}")
-    console.print(f"  跳过: {skip_count}")
-    console.print(f"  失败: {fail_count}")
+        console.print("\n[bold]获取完成:[/bold]")
+        console.print(f"  成功: {success_count}")
+        console.print(f"  跳过: {skip_count}")
+        console.print(f"  失败: {fail_count}")
 
 
 @app.command("status")
@@ -180,17 +172,16 @@ def cache_status(
 
     cache_path = Path(config.cache.db_path)
 
-    cache_manager = CacheManager(db_path=cache_path)
-
-    if task_id:
-        status = cache_manager.get_status(task_id)
-        console.print(f"任务 {task_id} 缓存状态: [bold]{status.value}[/bold]")
-    else:
-        stats = cache_manager.get_stats()
-        console.print("[bold]缓存统计:[/bold]")
-        console.print(f"  总条目: {stats['total_entries']}")
-        console.print(f"  有效条目: {stats['valid_entries']}")
-        console.print(f"  过期条目: {stats['expired_entries']}")
+    with CacheManager(db_path=cache_path) as cache_manager:
+        if task_id:
+            status = cache_manager.get_status(task_id)
+            console.print(f"任务 {task_id} 缓存状态: [bold]{status.value}[/bold]")
+        else:
+            stats = cache_manager.get_stats()
+            console.print("[bold]缓存统计:[/bold]")
+            console.print(f"  总条目: {stats['total_entries']}")
+            console.print(f"  有效条目: {stats['valid_entries']}")
+            console.print(f"  过期条目: {stats['expired_entries']}")
 
 
 @app.command("list")
@@ -208,9 +199,8 @@ def cache_list(
         raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
-    cache_manager = CacheManager(db_path=cache_path)
-
-    all_tasks = cache_manager.get_all_tasks()
+    with CacheManager(db_path=cache_path) as cache_manager:
+        all_tasks = cache_manager.get_all_tasks()
 
     if not all_tasks:
         console.print("[yellow]缓存中没有任务[/yellow]")

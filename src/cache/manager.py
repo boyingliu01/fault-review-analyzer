@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -12,31 +13,43 @@ class CacheManager:
         self.db_path = Path(db_path)
         self.ttl = ttl
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._connection = sqlite3.connect(self.db_path)
-        self._connection.row_factory = sqlite3.Row
+        self._lock = threading.RLock()
+        self._closed = False
+        with self._lock:
+            self._connection = sqlite3.connect(
+                self.db_path,
+                check_same_thread=False,
+                timeout=5.0,
+            )
+            self._connection.row_factory = sqlite3.Row
         self._init_db()
 
     def _init_db(self) -> None:
-        self._connection.execute("PRAGMA journal_mode=WAL")
-        self._connection.execute(
+        with self._lock:
+            self._connection.execute("PRAGMA busy_timeout = 5000")
+            self._connection.execute("PRAGMA journal_mode=WAL")
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS cache (
+                    task_id INTEGER PRIMARY KEY,
+                    data TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL
+                )
             """
-            CREATE TABLE IF NOT EXISTS cache (
-                task_id INTEGER PRIMARY KEY,
-                data TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL
             )
-        """
-        )
-        self._connection.execute(
+            self._connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_expires_at ON cache(expires_at)
             """
-            CREATE INDEX IF NOT EXISTS idx_expires_at ON cache(expires_at)
-        """
-        )
-        self._connection.commit()
+            )
+            self._connection.commit()
 
     def close(self) -> None:
-        self._connection.close()
+        with self._lock:
+            if not self._closed:
+                self._connection.close()
+                self._closed = True
 
     def __enter__(self) -> "CacheManager":
         return self
@@ -45,21 +58,22 @@ class CacheManager:
         self.close()
 
     def get_task(self, task_id: int) -> dict[str, Any] | None:
-        cursor = self._connection.execute(
-            "SELECT * FROM cache WHERE task_id = ?",
-            (task_id,),
-        )
-        row = cursor.fetchone()
+        with self._lock:
+            cursor = self._connection.execute(
+                "SELECT * FROM cache WHERE task_id = ?",
+                (task_id,),
+            )
+            row = cursor.fetchone()
 
-        if row is None:
-            return None
+            if row is None:
+                return None
 
-        expires_at = datetime.fromisoformat(row["expires_at"])
-        if datetime.now() > expires_at:
-            return None
+            expires_at = datetime.fromisoformat(row["expires_at"])
+            if datetime.now() > expires_at:
+                return None
 
-        data = json.loads(row["data"])
-        return data if isinstance(data, dict) else None
+            data = json.loads(row["data"])
+            return data if isinstance(data, dict) else None
 
     def load_task(self, task_id: int) -> dict[str, Any] | None:
         return self.get_task(task_id)
@@ -68,95 +82,102 @@ class CacheManager:
         now = datetime.now()
         expires_at = now + timedelta(seconds=self.ttl)
 
-        self._connection.execute(
-            """
-            INSERT OR REPLACE INTO cache (task_id, data, created_at, expires_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                task_id,
-                json.dumps(data, ensure_ascii=False),
-                now.isoformat(),
-                expires_at.isoformat(),
-            ),
-        )
-        self._connection.commit()
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT OR REPLACE INTO cache (task_id, data, created_at, expires_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    task_id,
+                    json.dumps(data, ensure_ascii=False),
+                    now.isoformat(),
+                    expires_at.isoformat(),
+                ),
+            )
+            self._connection.commit()
 
     def invalidate(self, task_id: int | None = None) -> None:
-        if task_id is not None:
-            self._connection.execute("DELETE FROM cache WHERE task_id = ?", (task_id,))
-        else:
-            self._connection.execute("DELETE FROM cache")
-        self._connection.commit()
+        with self._lock:
+            if task_id is not None:
+                self._connection.execute("DELETE FROM cache WHERE task_id = ?", (task_id,))
+            else:
+                self._connection.execute("DELETE FROM cache")
+            self._connection.commit()
 
     def invalidate_all(self) -> None:
         self.invalidate(None)
 
     def get_status(self, task_id: int) -> CacheStatus:
-        cursor = self._connection.execute(
-            "SELECT expires_at FROM cache WHERE task_id = ?",
-            (task_id,),
-        )
-        row = cursor.fetchone()
+        with self._lock:
+            cursor = self._connection.execute(
+                "SELECT expires_at FROM cache WHERE task_id = ?",
+                (task_id,),
+            )
+            row = cursor.fetchone()
 
-        if row is None:
-            return CacheStatus.NOT_EXISTS
+            if row is None:
+                return CacheStatus.NOT_EXISTS
 
-        expires_at = datetime.fromisoformat(row["expires_at"])
-        if datetime.now() > expires_at:
-            return CacheStatus.EXPIRED
+            expires_at = datetime.fromisoformat(row["expires_at"])
+            if datetime.now() > expires_at:
+                return CacheStatus.EXPIRED
 
-        return CacheStatus.VALID
+            return CacheStatus.VALID
 
     def get_index(self) -> list[dict[str, Any]]:
-        cursor = self._connection.execute("SELECT task_id, created_at, expires_at FROM cache")
-        rows = cursor.fetchall()
+        with self._lock:
+            cursor = self._connection.execute("SELECT task_id, created_at, expires_at FROM cache")
+            rows = cursor.fetchall()
 
-        return [
-            {
-                "task_id": row["task_id"],
-                "created_at": row["created_at"],
-                "expires_at": row["expires_at"],
-            }
-            for row in rows
-        ]
+            return [
+                {
+                    "task_id": row["task_id"],
+                    "created_at": row["created_at"],
+                    "expires_at": row["expires_at"],
+                }
+                for row in rows
+            ]
 
     def get_stats(self) -> dict[str, Any]:
-        cursor = self._connection.execute("SELECT COUNT(*) FROM cache")
-        total = cursor.fetchone()[0]
+        with self._lock:
+            cursor = self._connection.execute("SELECT COUNT(*) FROM cache")
+            total = cursor.fetchone()[0]
 
-        now = datetime.now().isoformat()
-        cursor = self._connection.execute(
-            "SELECT COUNT(*) FROM cache WHERE expires_at > ?",
-            (now,),
-        )
-        valid = cursor.fetchone()[0]
+            now = datetime.now().isoformat()
+            cursor = self._connection.execute(
+                "SELECT COUNT(*) FROM cache WHERE expires_at > ?",
+                (now,),
+            )
+            valid = cursor.fetchone()[0]
 
-        return {
-            "total_entries": total,
-            "valid_entries": valid,
-            "expired_entries": total - valid,
-        }
+            return {
+                "total_entries": total,
+                "valid_entries": valid,
+                "expired_entries": total - valid,
+            }
 
     def get_all_tasks(self) -> list[dict[str, Any]]:
-        cursor = self._connection.execute("SELECT * FROM cache")
-        rows = cursor.fetchall()
+        with self._lock:
+            cursor = self._connection.execute("SELECT * FROM cache")
+            rows = cursor.fetchall()
 
-        result = []
-        now = datetime.now()
-        for row in rows:
-            expires_at = datetime.fromisoformat(row["expires_at"])
-            if now <= expires_at:
-                data = json.loads(row["data"])
-                result.append(data)
+            result = []
+            now = datetime.now()
+            for row in rows:
+                expires_at = datetime.fromisoformat(row["expires_at"])
+                if now <= expires_at:
+                    data = json.loads(row["data"])
+                    result.append(data)
 
-        return result
+            return result
 
     def cleanup_expired(self) -> int:
         now = datetime.now().isoformat()
-        cursor = self._connection.execute(
-            "DELETE FROM cache WHERE expires_at < ?",
-            (now,),
-        )
-        self._connection.commit()
-        return cursor.rowcount
+        with self._lock:
+            cursor = self._connection.execute(
+                "DELETE FROM cache WHERE expires_at < ?",
+                (now,),
+            )
+            self._connection.commit()
+            return cursor.rowcount

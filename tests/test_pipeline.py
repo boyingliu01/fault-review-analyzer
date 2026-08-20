@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -62,8 +63,12 @@ class TestPipelineResult:
         )
 
         assert result.task_id == 12345
-        assert result.task_data["title"] == "Test"
-        assert len(result.labels) == 1
+        task_data = result.task_data
+        labels = result.labels
+        assert task_data is not None
+        assert labels is not None
+        assert task_data["title"] == "Test"
+        assert len(labels) == 1
         assert result.report == "# Report"
 
     def test_result_with_error(self):
@@ -368,6 +373,17 @@ class TestAnalysisPipeline:
         assert pipeline._api_client is None
 
     @pytest.mark.asyncio
+    async def test_pipeline_close_closes_and_clears_cache(self, mock_config, pipeline_config):
+        pipeline = AnalysisPipeline(config=mock_config, pipeline_config=pipeline_config)
+        mock_cache_manager = MagicMock()
+        pipeline._cache_manager = mock_cache_manager
+
+        await pipeline.close()
+
+        mock_cache_manager.close.assert_called_once()
+        assert pipeline._cache_manager is None
+
+    @pytest.mark.asyncio
     async def test_run_single_preprocess_raises_exception(self, mock_config, pipeline_config):
         """Preprocess raises exception → caught, result.error set."""
         from datetime import datetime
@@ -618,7 +634,7 @@ class TestAnalysisPipeline:
         )
 
         task_data = {"task_id": 12345, "title": "Test", "description": ""}
-        preprocessed = {"segments": []}
+        preprocessed: dict[str, Any] = {"segments": []}
 
         report = pipeline._generate_report(task_data, preprocessed, None, None)
 
