@@ -52,6 +52,11 @@ class PipelineConfig:
     match_standards: bool = True  # 故障结论与研发规范语义匹配
     generate_report: bool = True
     output_path: Path = field(default_factory=lambda: Path("./output"))
+    max_concurrency: int = 10
+
+    def __post_init__(self) -> None:
+        if self.max_concurrency < 1:
+            raise ValueError("max_concurrency must be positive")
 
 
 @dataclass
@@ -336,8 +341,14 @@ class AnalysisPipeline:
         """Run analysis pipeline for multiple tasks concurrently."""
         import asyncio
 
+        semaphore = asyncio.Semaphore(self._pipeline_config.max_concurrency)
+
+        async def run_with_limit(task_id: int) -> PipelineResult:
+            async with semaphore:
+                return await self.run_single(task_id)
+
         results = await asyncio.gather(
-            *[self.run_single(task_id) for task_id in task_ids],
+            *[run_with_limit(task_id) for task_id in task_ids],
             return_exceptions=False,
         )
         return list(results)
