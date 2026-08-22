@@ -7,10 +7,10 @@ from pathlib import Path
 # 添加上级目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.api.server import create_app
+from src.api.server import create_app, parse_environment_bool
 
 
-def main():
+def main() -> None:
     """主函数"""
     print("=" * 60)
     print("  Fault Review Analyzer API Server")
@@ -19,15 +19,19 @@ def main():
     # 从环境变量获取配置
     host = os.getenv("API_HOST", "0.0.0.0")
     port = int(os.getenv("API_PORT", "8000"))
+    allow_unauthenticated = parse_environment_bool("API_ALLOW_UNAUTHENTICATED")
 
     # 检查是否有 API 令牌配置
     api_tokens_env = os.getenv("API_VALID_TOKENS", "")
     if api_tokens_env:
-        valid_tokens = set(t.strip() for t in api_tokens_env.split(","))
+        valid_tokens = {token.strip() for token in api_tokens_env.split(",")}
         print(f"\n✓ API token authentication enabled ({len(valid_tokens)} tokens)")
     else:
         valid_tokens = None
-        print("\n⚠️  API token authentication disabled (development mode)")
+        print("\n⚠️  No API tokens configured")
+
+    if allow_unauthenticated:
+        print("⚠️  Unauthenticated API access enabled (development mode)")
 
     print(f"✓ Starting server on {host}:{port}")
 
@@ -50,6 +54,7 @@ def main():
     app = create_app(
         valid_tokens=valid_tokens,
         rate_limit_requests=int(os.getenv("API_RATE_LIMIT", "60")),
+        allow_unauthenticated=allow_unauthenticated,
     )
 
     # 启动服务器

@@ -18,11 +18,15 @@ class TestTokenValidator:
         assert validator.is_valid("token2") is True
         assert validator.is_valid("invalid") is False
 
-    def test_token_validator_with_no_tokens(self):
-        """测试 Token 验证器 - 无有效 Token（开发模式）"""
+    def test_token_validator_with_no_tokens_rejects_tokens_by_default(self):
+        """测试 Token 验证器 - 无有效 Token 时默认拒绝"""
         validator = TokenValidator()
+        assert validator.is_valid("any_token") is False
+
+    def test_token_validator_allows_tokens_with_explicit_unauthenticated_opt_in(self):
+        """测试 Token 验证器 - 显式开启无认证开发模式"""
+        validator = TokenValidator(allow_unauthenticated=True)
         assert validator.is_valid("any_token") is True
-        assert validator.is_valid("") is True
 
 
 class TestRateLimiter:
@@ -160,7 +164,7 @@ class TestMiddlewareSetup:
     def test_middleware_rate_limiting(self):
         """测试速率限制中间件"""
         # 设置严格的速率限制（1个请求/分钟）
-        app = create_app(rate_limit_requests=1)
+        app = create_app(rate_limit_requests=1, allow_unauthenticated=True)
 
         with TestClient(app) as client:
             # 第一个请求通过
@@ -170,6 +174,33 @@ class TestMiddlewareSetup:
             # 第二个请求被拒绝
             response = client.get("/clusters", headers={"X-API-Token": "test"})
             assert response.status_code == 429
+
+    def test_middleware_rejects_protected_endpoint_without_configured_tokens(self):
+        """测试未配置 Token 时受保护接口默认关闭"""
+        app = create_app()
+
+        with TestClient(app) as client:
+            response = client.get("/clusters")
+
+        assert response.status_code == 401
+
+    def test_middleware_rejects_unconfigured_token_by_default(self):
+        """测试未配置有效 Token 时拒绝任意 Token"""
+        app = create_app()
+
+        with TestClient(app) as client:
+            response = client.get("/clusters", headers={"X-API-Token": "unconfigured"})
+
+        assert response.status_code == 403
+
+    def test_middleware_allows_protected_endpoint_with_explicit_unauthenticated_opt_in(self):
+        """测试显式开启无认证开发模式后允许访问受保护接口"""
+        app = create_app(allow_unauthenticated=True)
+
+        with TestClient(app) as client:
+            response = client.get("/clusters")
+
+        assert response.status_code == 200
 
     def test_health_endpoint_no_auth(self):
         """测试健康检查接口无认证"""

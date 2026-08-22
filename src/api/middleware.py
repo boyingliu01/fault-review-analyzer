@@ -74,21 +74,24 @@ class RateLimiter:
 class TokenValidator:
     """Token 验证器"""
 
-    def __init__(self, valid_tokens: set[str] | None = None):
+    def __init__(
+        self,
+        valid_tokens: set[str] | None = None,
+        allow_unauthenticated: bool = False,
+    ) -> None:
         self.valid_tokens = valid_tokens or set()
+        self.allow_unauthenticated = allow_unauthenticated
 
     def is_valid(self, token: str) -> bool:
         """验证 token 是否有效"""
-        if not self.valid_tokens:
-            # 如果没有配置有效 token，则允许所有请求（开发模式）
-            return True
-        return token in self.valid_tokens
+        return self.allow_unauthenticated or token in self.valid_tokens
 
 
 def setup_middleware(
     app: FastAPI,
     token_validator: TokenValidator | None = None,
     rate_limiter: RateLimiter | None = None,
+    allow_unauthenticated: bool = False,
 ) -> None:
     """
     设置中间件
@@ -97,6 +100,7 @@ def setup_middleware(
         app: FastAPI 应用实例
         token_validator: Token 验证器
         rate_limiter: 速率限制器
+        allow_unauthenticated: 是否显式允许无认证访问
     """
     if token_validator is None:
         token_validator = TokenValidator()
@@ -114,7 +118,7 @@ def setup_middleware(
         # 从 Header 或 Query 参数获取 Token
         token = request.headers.get("X-API-Token") or request.query_params.get("api_token")
 
-        if not token:
+        if not token and not allow_unauthenticated:
             logger.warning(f"Missing API token for request: {request.url.path}")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -127,7 +131,7 @@ def setup_middleware(
             )
 
         # 验证 Token
-        if not token_validator.is_valid(token):
+        if token and not token_validator.is_valid(token):
             logger.warning(f"Invalid API token for request: {request.url.path}")
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
