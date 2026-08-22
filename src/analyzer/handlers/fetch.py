@@ -48,7 +48,7 @@ class FetchHandler:
         if self._api_client is None:
             return None
 
-        task = await self._api_client.get_task(task_id)
+        task = await self._api_client.get_full_task(task_id)
 
         if self._use_cache and self._cache_manager is not None:
             self._cache_manager.save_task(task_id, task.model_dump(mode="json"))
