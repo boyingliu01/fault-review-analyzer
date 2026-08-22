@@ -22,7 +22,7 @@ from src.embedding.generator import EmbeddingGenerator
 from src.knowledge.manager import StandardsManager
 from src.preprocessor.models import ProcessedTask
 from src.preprocessor.processor import DataPreprocessor
-from src.report.generator import ReportGenerator
+from src.report.generator import ReportFormat, ReportGenerator
 from src.rules.engine import RulesEngine
 
 
@@ -51,6 +51,7 @@ class PipelineConfig:
     check_rules: bool = True
     match_standards: bool = True  # 故障结论与研发规范语义匹配
     generate_report: bool = True
+    report_format: ReportFormat = ReportFormat.MARKDOWN
     output_path: Path = field(default_factory=lambda: Path("./output"))
     max_concurrency: int = 10
 
@@ -259,7 +260,7 @@ class AnalysisPipeline:
 
         if self._pipeline_config.generate_report:
             result.report = self._generate_report(
-                task_data.model_dump(),
+                task_data.model_dump(mode="json"),
                 result.preprocessed or {},
                 result.labels,
                 result.root_causes,
@@ -828,6 +829,7 @@ class AnalysisPipeline:
             labels=labels or [],
             root_causes=root_causes or [],
             suggestions=suggestions,
+            format=self._pipeline_config.report_format,
             violations=violations,
             code_change_analysis=code_change_analysis,
             standard_matches=standard_matches,
