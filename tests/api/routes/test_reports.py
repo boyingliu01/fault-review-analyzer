@@ -1,11 +1,13 @@
 """Unit tests for /reports/{task_id} routes."""
 
-from unittest.mock import AsyncMock, patch
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from src.analyzer.pipeline import PipelineResult
+from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig, PipelineResult
+from src.api.models import TaskInfo
 from src.api.server import create_app
 
 
@@ -46,6 +48,44 @@ class TestGetReport:
             assert data["task_id"] == "12345"
             assert data["report_format"] == "html"
             assert "<html>" in data["content"]
+
+    def test_report_retrieval_disables_standards_matching(self, client):
+        with patch("src.api.routes.reports.AnalysisPipeline") as mock_pipeline:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.run_single.return_value = PipelineResult(
+                task_id=12345,
+                report="report",
+                error="",
+            )
+            mock_pipeline.return_value = mock_instance
+
+            response = client.get("/reports/12345", headers=_headers())
+
+            assert response.status_code == 200
+            pipeline_config = mock_pipeline.call_args.args[1]
+            assert pipeline_config.match_standards is False
+
+    @pytest.mark.asyncio
+    async def test_normal_analysis_invokes_standards_matching(self):
+        pipeline = AnalysisPipeline(MagicMock(), PipelineConfig(match_standards=True))
+        task = TaskInfo(
+            task_id=12345,
+            title="Database timeout",
+            description="Requests timed out",
+            status="resolved",
+            priority="high",
+            create_time=datetime(2026, 1, 1),
+        )
+        matcher = MagicMock()
+        matcher.match = AsyncMock(
+            return_value=MagicMock(matches=[], violated=[]),
+        )
+
+        with patch.object(pipeline, "_get_standards_matcher", return_value=matcher):
+            await pipeline._match_standards(task, PipelineResult(task_id=12345))
+
+        matcher.match.assert_awaited_once()
 
     def test_format_markdown(self, client):
         """Explicit format=markdown."""
