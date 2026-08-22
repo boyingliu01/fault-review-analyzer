@@ -254,7 +254,8 @@ class AnalysisPipeline:
     ) -> None:
         """Check rules and generate report if configured."""
         if self._pipeline_config.check_rules:
-            result.violations = self._check_rules(task_data.model_dump())
+            rule_violations = self._check_rules(task_data.model_dump())
+            result.violations = rule_violations + (result.violations or [])
 
         if self._pipeline_config.generate_report:
             result.report = self._generate_report(
