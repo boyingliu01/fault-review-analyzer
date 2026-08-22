@@ -97,7 +97,7 @@ class TestFetchHandler:
         from src.analyzer.handlers.fetch import FetchHandler
 
         mock_api = MagicMock()
-        mock_api.get_task = AsyncMock(return_value=sample_task)
+        mock_api.get_full_task = AsyncMock(return_value=sample_task)
         mock_cache = MagicMock()
         mock_cache.load_task.return_value = None
 
@@ -105,7 +105,7 @@ class TestFetchHandler:
         result = await handler.fetch_task(12345)
 
         assert result is sample_task
-        mock_api.get_task.assert_called_once_with(12345)
+        mock_api.get_full_task.assert_called_once_with(12345)
 
     @pytest.mark.asyncio
     async def test_fetch_task_from_cache(self, sample_task):
@@ -119,8 +119,9 @@ class TestFetchHandler:
         handler = FetchHandler(api_client=mock_api, cache_manager=mock_cache, use_cache=True)
         result = await handler.fetch_task(12345)
 
+        assert result is not None
         assert result.task_id == 12345
-        mock_api.get_task.assert_not_called()
+        mock_api.get_full_task.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_fetch_task_no_cache(self, sample_task):
@@ -128,7 +129,7 @@ class TestFetchHandler:
         from src.analyzer.handlers.fetch import FetchHandler
 
         mock_api = MagicMock()
-        mock_api.get_task = AsyncMock(return_value=sample_task)
+        mock_api.get_full_task = AsyncMock(return_value=sample_task)
         mock_cache = MagicMock()
 
         handler = FetchHandler(api_client=mock_api, cache_manager=mock_cache, use_cache=False)
@@ -267,34 +268,37 @@ class TestPipelineOrchestrator:
         from src.analyzer.orchestrator import PipelineOrchestrator
 
         fetch = FetchHandler(api_client=MagicMock(), cache_manager=MagicMock())
-        fetch.fetch_task = AsyncMock(return_value=sample_task)
-
         analyze = AnalyzeHandler(llm_provider=None)
         report = ReportHandler()
-        report.check_rules = MagicMock(return_value=[])
-        report.generate_report = MagicMock(return_value="# Report")
 
-        orchestrator = PipelineOrchestrator(
-            fetch_handler=fetch,
-            analyze_handler=analyze,
-            report_handler=report,
-        )
+        with (
+            patch.object(fetch, "fetch_task", new_callable=AsyncMock, return_value=sample_task) as mock_fetch,
+            patch.object(report, "check_rules", return_value=[]) as mock_check_rules,
+            patch.object(report, "generate_report", return_value="# Report") as mock_generate_report,
+        ):
+            orchestrator = PipelineOrchestrator(
+                fetch_handler=fetch,
+                analyze_handler=analyze,
+                report_handler=report,
+            )
 
-        from src.analyzer.pipeline import PipelineConfig
+            from src.analyzer.pipeline import PipelineConfig
 
-        config = PipelineConfig(
-            use_llm=False,
-            generate_labels=False,
-            analyze_root_cause=False,
-            check_rules=True,
-            generate_report=True,
-        )
+            config = PipelineConfig(
+                use_llm=False,
+                generate_labels=False,
+                analyze_root_cause=False,
+                check_rules=True,
+                generate_report=True,
+            )
 
-        result = await orchestrator.run_single(12345, config)
+            result = await orchestrator.run_single(12345, config)
 
-        assert result.task_id == 12345
-        assert result.error == ""
-        fetch.fetch_task.assert_called_once_with(12345)
+            assert result.task_id == 12345
+            assert result.error == ""
+            mock_fetch.assert_called_once_with(12345)
+            mock_check_rules.assert_called_once()
+            mock_generate_report.assert_called_once()
 
 
 # --- Backward Compatibility Tests ---

@@ -31,7 +31,7 @@ TASK_IDS = [
 ]
 
 
-async def fetch_tasks():
+async def fetch_tasks() -> None:
     config_manager = ConfigManager()
     config = config_manager.load()
 
@@ -61,7 +61,7 @@ async def fetch_tasks():
                 continue
 
             try:
-                task = await client.get_task(task_id)
+                task = await client.get_full_task(task_id)
                 if task:
                     cache_manager.save_task(task_id, task.model_dump(mode="json"))
                     print(f"  任务 {task_id}: [green]成功[/green] - {task.title[:30]}...")
