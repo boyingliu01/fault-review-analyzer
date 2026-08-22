@@ -13,9 +13,10 @@ from loguru import logger
 class RateLimiter:
     """速率限制器"""
 
-    def __init__(self, requests_per_minute: int = 60):
+    def __init__(self, requests_per_minute: int = 60) -> None:
         self.requests_per_minute = requests_per_minute
         self.requests: dict[str, list[float]] = defaultdict(list)
+        self._next_cleanup_at = time.time() + 60
 
     def is_allowed(self, identifier: str) -> tuple[bool, int]:
         """
@@ -29,6 +30,15 @@ class RateLimiter:
         """
         now = time.time()
         one_minute_ago = now - 60
+
+        if now >= self._next_cleanup_at:
+            for stored_identifier, timestamps in list(self.requests.items()):
+                active_timestamps = [timestamp for timestamp in timestamps if timestamp > one_minute_ago]
+                if active_timestamps:
+                    self.requests[stored_identifier] = active_timestamps
+                else:
+                    del self.requests[stored_identifier]
+            self._next_cleanup_at = now + 60
 
         # 清理一分钟前的记录
         self.requests[identifier] = [t for t in self.requests[identifier] if t > one_minute_ago]
