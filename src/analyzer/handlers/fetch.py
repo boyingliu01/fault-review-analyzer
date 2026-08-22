@@ -26,10 +26,12 @@ class FetchHandler:
         api_client: APIClient | None = None,
         cache_manager: CacheManager | None = None,
         use_cache: bool = True,
+        max_concurrency: int = 10,
     ) -> None:
         self._api_client = api_client
         self._cache_manager = cache_manager
         self._use_cache = use_cache
+        self._max_concurrency = max_concurrency
 
     async def fetch_task(self, task_id: int) -> TaskInfo | None:
         """Fetch a single task from cache or API.
@@ -66,8 +68,14 @@ class FetchHandler:
         """
         import asyncio
 
+        semaphore = asyncio.Semaphore(self._max_concurrency)
+
+        async def fetch_with_limit(task_id: int) -> TaskInfo | None:
+            async with semaphore:
+                return await self.fetch_task(task_id)
+
         results = await asyncio.gather(
-            *[self.fetch_task(tid) for tid in task_ids],
+            *[fetch_with_limit(tid) for tid in task_ids],
             return_exceptions=True,
         )
         return [t for t in results if isinstance(t, TaskInfo)]
