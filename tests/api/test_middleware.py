@@ -28,6 +28,30 @@ class TestTokenValidator:
 class TestRateLimiter:
     """速率限制器测试"""
 
+    def test_rate_limiter_caps_identifiers_examined_per_cleanup_call(self, monkeypatch):
+        """测试速率限制 - 单次清理检查固定数量的标识符"""
+        examined_identifiers = 0
+
+        class TrackingTimestamps(list[float]):
+            def __iter__(self):
+                nonlocal examined_identifiers
+                examined_identifiers += 1
+                return super().__iter__()
+
+        now = 0.0
+        monkeypatch.setattr(time, "time", lambda: now)
+        limiter = RateLimiter(requests_per_minute=2)
+        for index in range(192):
+            identifier = f"stale-{index}"
+            limiter.is_allowed(identifier)
+            limiter.requests[identifier] = TrackingTimestamps(limiter.requests[identifier])
+
+        now = 61.0
+        limiter.is_allowed("trigger")
+
+        assert examined_identifiers <= 64
+        assert any(identifier.startswith("stale-") for identifier in limiter.requests)
+
     def test_rate_limiter_under_limit(self):
         """测试速率限制 - 未超限"""
         limiter = RateLimiter(requests_per_minute=5)

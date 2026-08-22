@@ -1,13 +1,15 @@
 """API 认证中间件"""
 
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Final
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from loguru import logger
+
+_CLEANUP_BATCH_SIZE: Final = 64
 
 
 class RateLimiter:
@@ -16,6 +18,9 @@ class RateLimiter:
     def __init__(self, requests_per_minute: int = 60) -> None:
         self.requests_per_minute = requests_per_minute
         self.requests: dict[str, list[float]] = defaultdict(list)
+        self._cleanup_queue: deque[str] = deque()
+        self._queued_identifiers: set[str] = set()
+        self._cleanup_remaining = 0
         self._next_cleanup_at = time.time() + 60
 
     def is_allowed(self, identifier: str) -> tuple[bool, int]:
@@ -32,13 +37,23 @@ class RateLimiter:
         one_minute_ago = now - 60
 
         if now >= self._next_cleanup_at:
-            for stored_identifier, timestamps in list(self.requests.items()):
+            self._cleanup_remaining = len(self._cleanup_queue)
+            self._next_cleanup_at = now + 60
+
+        identifiers_to_check = min(_CLEANUP_BATCH_SIZE, self._cleanup_remaining)
+        for _ in range(identifiers_to_check):
+            stored_identifier = self._cleanup_queue.popleft()
+            self._queued_identifiers.remove(stored_identifier)
+            self._cleanup_remaining -= 1
+            timestamps = self.requests.get(stored_identifier)
+            if timestamps is not None:
                 active_timestamps = [timestamp for timestamp in timestamps if timestamp > one_minute_ago]
                 if active_timestamps:
                     self.requests[stored_identifier] = active_timestamps
+                    self._cleanup_queue.append(stored_identifier)
+                    self._queued_identifiers.add(stored_identifier)
                 else:
                     del self.requests[stored_identifier]
-            self._next_cleanup_at = now + 60
 
         # 清理一分钟前的记录
         self.requests[identifier] = [t for t in self.requests[identifier] if t > one_minute_ago]
@@ -49,6 +64,9 @@ class RateLimiter:
 
         # 记录当前请求
         self.requests[identifier].append(now)
+        if identifier not in self._queued_identifiers:
+            self._cleanup_queue.append(identifier)
+            self._queued_identifiers.add(identifier)
         remaining = self.requests_per_minute - len(self.requests[identifier])
         return True, remaining
 
