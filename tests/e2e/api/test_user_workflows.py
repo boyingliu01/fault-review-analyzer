@@ -120,7 +120,11 @@ output:
 def client(test_env: tuple[Path, Path]) -> TestClient:
     """创建配置好的 FastAPI TestClient。"""
     config_path, _ = test_env
-    app = create_app(valid_tokens=None, rate_limit_requests=100)
+    app = create_app(
+        valid_tokens=None,
+        rate_limit_requests=100,
+        allow_unauthenticated=True,
+    )
 
     # 覆盖依赖，使用测试配置
     def override_config_manager() -> ConfigManager:

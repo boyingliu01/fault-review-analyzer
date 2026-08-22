@@ -12,6 +12,18 @@ from src.api.middleware import RateLimiter, TokenValidator, setup_middleware
 from src.api.routes import analyze, clusters, feedback, health, reports
 
 
+def parse_environment_bool(name: str, default: bool = False) -> bool:
+    """Parse an environment variable that accepts only true or false."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    raise ValueError(f"{name} must be 'true' or 'false'")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
@@ -38,13 +50,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 def create_app(
     valid_tokens: set[str] | None = None,
     rate_limit_requests: int = 60,
+    allow_unauthenticated: bool = False,
 ) -> FastAPI:
     """
     创建 FastAPI 应用
 
     Args:
-        valid_tokens: 有效的 API Token 集合（None 表示允许所有）
+        valid_tokens: 有效的 API Token 集合
         rate_limit_requests: 每分钟请求限制数
+        allow_unauthenticated: 是否显式允许无认证访问
 
     Returns:
         FastAPI: 配置好的 FastAPI 应用实例
@@ -88,9 +102,9 @@ def create_app(
     )
 
     # 认证和速率限制中间件
-    token_validator = TokenValidator(valid_tokens)
+    token_validator = TokenValidator(valid_tokens, allow_unauthenticated)
     rate_limiter = RateLimiter(requests_per_minute=rate_limit_requests)
-    setup_middleware(app, token_validator, rate_limiter)
+    setup_middleware(app, token_validator, rate_limiter, allow_unauthenticated)
 
     # 注册路由
     app.include_router(health.router, prefix="")
@@ -125,6 +139,7 @@ def main() -> None:
     port = int(os.getenv("API_PORT", "8000"))
     valid_tokens_env = os.getenv("API_VALID_TOKENS", "")
     rate_limit = int(os.getenv("API_RATE_LIMIT", "60"))
+    allow_unauthenticated = parse_environment_bool("API_ALLOW_UNAUTHENTICATED")
 
     # 解析有效 tokens
     valid_tokens = None
@@ -135,6 +150,7 @@ def main() -> None:
     app = create_app(
         valid_tokens=valid_tokens,
         rate_limit_requests=rate_limit,
+        allow_unauthenticated=allow_unauthenticated,
     )
 
     # 启动服务器

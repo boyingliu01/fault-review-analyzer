@@ -5,13 +5,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from src.api import server
 from src.api.server import create_app
 
 
 @pytest.fixture
 def client_without_auth_require():
     """创建无认证的测试客户端"""
-    app = create_app(valid_tokens=None)
+    app = create_app(valid_tokens=None, allow_unauthenticated=True)
     return TestClient(app)
 
 
@@ -109,6 +110,52 @@ class TestAuthMiddleware:
             assert response.status_code != 401
             assert response.status_code != 403
 
+
+class TestServerEnvironment:
+    """服务器环境变量配置测试"""
+
+    def test_main_requires_authentication_when_opt_in_is_absent(self, monkeypatch):
+        """测试未设置环境变量时默认要求认证"""
+        monkeypatch.delenv("API_ALLOW_UNAUTHENTICATED", raising=False)
+
+        with (
+            patch("src.api.server.create_app") as mock_create_app,
+            patch("uvicorn.run"),
+        ):
+            server.main()
+
+        assert mock_create_app.call_args.kwargs["allow_unauthenticated"] is False
+
+    def test_main_enables_unauthenticated_mode_only_for_true(self, monkeypatch):
+        """测试环境变量 true 显式开启无认证模式"""
+        monkeypatch.setenv("API_ALLOW_UNAUTHENTICATED", "true")
+
+        with (
+            patch("src.api.server.create_app") as mock_create_app,
+            patch("uvicorn.run"),
+        ):
+            server.main()
+
+        assert mock_create_app.call_args.kwargs["allow_unauthenticated"] is True
+
+    def test_main_keeps_authentication_required_for_false(self, monkeypatch):
+        """测试环境变量 false 保持认证要求"""
+        monkeypatch.setenv("API_ALLOW_UNAUTHENTICATED", "false")
+
+        with (
+            patch("src.api.server.create_app") as mock_create_app,
+            patch("uvicorn.run"),
+        ):
+            server.main()
+
+        assert mock_create_app.call_args.kwargs["allow_unauthenticated"] is False
+
+    def test_main_rejects_invalid_unauthenticated_environment_value(self, monkeypatch):
+        """测试拒绝非 true/false 的无认证环境变量"""
+        monkeypatch.setenv("API_ALLOW_UNAUTHENTICATED", "yes")
+
+        with pytest.raises(ValueError, match="API_ALLOW_UNAUTHENTICATED"):
+            server.main()
 
 class TestAnalyzeEndpoints:
     """分析接口测试"""

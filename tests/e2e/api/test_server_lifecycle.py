@@ -13,7 +13,11 @@ from src.api.server import create_app
 @pytest.fixture
 def app_no_auth():
     """创建无 token 验证的 FastAPI 应用（开发模式）。"""
-    return create_app(valid_tokens=None, rate_limit_requests=100)
+    return create_app(
+        valid_tokens=None,
+        rate_limit_requests=100,
+        allow_unauthenticated=True,
+    )
 
 
 @pytest.fixture
@@ -25,7 +29,11 @@ def app_with_auth():
 @pytest.fixture
 def app_rate_limited():
     """创建低速率限制的应用。"""
-    return create_app(valid_tokens=None, rate_limit_requests=3)
+    return create_app(
+        valid_tokens=None,
+        rate_limit_requests=3,
+        allow_unauthenticated=True,
+    )
 
 
 @pytest.fixture
