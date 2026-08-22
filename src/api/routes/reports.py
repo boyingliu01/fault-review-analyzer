@@ -9,6 +9,7 @@ from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig
 from src.api.dependencies import get_config_manager
 from src.api.server_models import ErrorResponse, ReportResponse
 from src.config.manager import ConfigManager
+from src.report.generator import ReportFormat
 
 router = APIRouter()
 
@@ -65,6 +66,7 @@ async def get_report(
             check_rules=False,
             match_standards=False,
             generate_report=True,
+            report_format=ReportFormat(format),
         )
 
         # 执行分析获取报告
@@ -90,14 +92,7 @@ async def get_report(
                 },
             )
 
-        # 根据格式返回报告
         report_content = result.report
-
-        # 如果请求 json 格式，尝试解析报告
-        if format == "json":
-            # 这里可以将 HTML/Markdown 报告转换为结构化 JSON
-            # 暂时直接返回原格式内容
-            pass
 
         return ReportResponse(
             task_id=task_id,
