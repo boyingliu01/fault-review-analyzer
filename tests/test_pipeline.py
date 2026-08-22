@@ -384,6 +384,32 @@ class TestAnalysisPipeline:
         assert pipeline._cache_manager is None
 
     @pytest.mark.asyncio
+    async def test_pipeline_close_releases_every_owned_resource_once(
+        self, mock_config, pipeline_config
+    ):
+        pipeline = AnalysisPipeline(config=mock_config, pipeline_config=pipeline_config)
+        mock_api_client = MagicMock(close=AsyncMock())
+        mock_embedding_generator = MagicMock(close=AsyncMock())
+        mock_llm_provider = MagicMock(close=AsyncMock())
+        mock_cache_manager = MagicMock()
+        pipeline._api_client = mock_api_client
+        pipeline._embedding_generator = mock_embedding_generator
+        pipeline._llm_providers = [mock_llm_provider]
+        pipeline._cache_manager = mock_cache_manager
+
+        await pipeline.close()
+        await pipeline.close()
+
+        mock_api_client.close.assert_awaited_once()
+        mock_embedding_generator.close.assert_awaited_once()
+        mock_llm_provider.close.assert_awaited_once()
+        mock_cache_manager.close.assert_called_once()
+        assert pipeline._api_client is None
+        assert pipeline._embedding_generator is None
+        assert pipeline._llm_providers == []
+        assert pipeline._cache_manager is None
+
+    @pytest.mark.asyncio
     async def test_run_single_preprocess_raises_exception(self, mock_config, pipeline_config):
         """Preprocess raises exception → caught, result.error set."""
         from datetime import datetime

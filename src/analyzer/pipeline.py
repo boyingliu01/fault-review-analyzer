@@ -87,6 +87,7 @@ class AnalysisPipeline:
         self._api_client: APIClient | None = None
         self._cache_manager: CacheManager | None = None
         self._embedding_generator: EmbeddingGenerator | None = None
+        self._llm_providers: list[Any] = []
         self._cluster_analyzer: ClusterAnalyzer | None = None
         self._preprocessor = DataPreprocessor()
         self._label_generator: LabelGenerator | None = None
@@ -111,12 +112,25 @@ class AnalysisPipeline:
 
     async def close(self) -> None:
         """Close all owned resources."""
-        if self._api_client:
+        if self._api_client is not None:
             await self._api_client.close()
             self._api_client = None
-        if self._cache_manager:
+        if self._embedding_generator is not None:
+            await self._embedding_generator.close()
+            self._embedding_generator = None
+        for provider in self._llm_providers:
+            await provider.close()
+        self._llm_providers.clear()
+        if self._cache_manager is not None:
             self._cache_manager.close()
             self._cache_manager = None
+
+    def _create_llm_provider(self, config: Any) -> Any:
+        """Create and track an LLM provider owned by this pipeline."""
+        provider = create_llm_provider(config)
+        if provider is not None:
+            self._llm_providers.append(provider)
+        return provider
 
     async def run_single(self, task_id: int) -> PipelineResult:
         """Run analysis pipeline for a single task."""
@@ -306,7 +320,7 @@ class AnalysisPipeline:
             if self._pipeline_config.use_llm:
                 llm_config = self._config.get_config().llm
                 if llm_config.api_key:
-                    llm_provider = create_llm_provider(llm_config)
+                    llm_provider = self._create_llm_provider(llm_config)
 
             self._standards_matcher = StandardsMatcher(
                 standards_manager=standards_manager,
@@ -452,7 +466,7 @@ class AnalysisPipeline:
             if self._pipeline_config.use_llm:
                 llm_config = self._config.get_config().llm
                 if llm_config.api_key:
-                    llm_provider = create_llm_provider(llm_config)
+                    llm_provider = self._create_llm_provider(llm_config)
             self._code_change_analyzer = CodeChangeAnalyzer(llm_provider=llm_provider)
         return self._code_change_analyzer
 
@@ -512,7 +526,7 @@ class AnalysisPipeline:
         """Generate labels for task."""
         if self._label_generator is None:
             llm_config = self._config.get_config().llm
-            provider = create_llm_provider(llm_config) if llm_config.api_key else None
+            provider = self._create_llm_provider(llm_config) if llm_config.api_key else None
             self._label_generator = LabelGenerator(llm_provider=provider)
 
         if not self._label_generator.is_available:
@@ -541,7 +555,7 @@ class AnalysisPipeline:
         """Analyze root cause for task."""
         if self._root_cause_analyzer is None:
             llm_config = self._config.get_config().llm
-            provider = create_llm_provider(llm_config) if llm_config.api_key else None
+            provider = self._create_llm_provider(llm_config) if llm_config.api_key else None
             self._root_cause_analyzer = RootCauseAnalyzer(llm_provider=provider)
 
         if not self._root_cause_analyzer.is_available:
@@ -592,7 +606,7 @@ class AnalysisPipeline:
         """
         if self._deep_root_cause_analyzer is None:
             llm_config = self._config.get_config().llm
-            provider = create_llm_provider(llm_config) if llm_config.api_key else None
+            provider = self._create_llm_provider(llm_config) if llm_config.api_key else None
             if provider is not None:
                 adapter = _LLMClientAdapter(provider)
                 self._deep_root_cause_analyzer = DeepRootCauseAnalyzer(adapter)
@@ -719,7 +733,7 @@ class AnalysisPipeline:
         if not llm_config.api_key:
             return ""
 
-        provider = create_llm_provider(llm_config)
+        provider = self._create_llm_provider(llm_config)
         if provider is None:
             return ""
 
