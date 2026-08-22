@@ -63,6 +63,7 @@ async def get_report(
             analyze_root_cause=False,
             analyze_root_cause_deep=False,
             check_rules=False,
+            match_standards=False,
             generate_report=True,
         )
 
