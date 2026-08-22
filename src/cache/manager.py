@@ -23,6 +23,7 @@ class CacheManager:
             )
             self._connection.row_factory = sqlite3.Row
         self._init_db()
+        self.cleanup_expired()
 
     def _init_db(self) -> None:
         with self._lock:
@@ -58,7 +59,7 @@ class CacheManager:
         self.close()
 
     def get_task(self, task_id: int) -> dict[str, Any] | None:
-        with self._lock:
+        with self._lock, self._connection:
             cursor = self._connection.execute(
                 "SELECT * FROM cache WHERE task_id = ?",
                 (task_id,),
@@ -70,6 +71,10 @@ class CacheManager:
 
             expires_at = datetime.fromisoformat(row["expires_at"])
             if datetime.now() > expires_at:
+                self._connection.execute(
+                    "DELETE FROM cache WHERE task_id = ? AND expires_at = ?",
+                    (task_id, row["expires_at"]),
+                )
                 return None
 
             data = json.loads(row["data"])
@@ -151,11 +156,13 @@ class CacheManager:
             )
             valid = cursor.fetchone()[0]
 
-            return {
+            stats = {
                 "total_entries": total,
                 "valid_entries": valid,
                 "expired_entries": total - valid,
             }
+        self.cleanup_expired()
+        return stats
 
     def get_all_tasks(self) -> list[dict[str, Any]]:
         with self._lock:
@@ -170,7 +177,8 @@ class CacheManager:
                     data = json.loads(row["data"])
                     result.append(data)
 
-            return result
+        self.cleanup_expired()
+        return result
 
     def cleanup_expired(self) -> int:
         now = datetime.now().isoformat()
