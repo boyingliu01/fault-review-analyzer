@@ -184,6 +184,12 @@ class EmbeddingGenerator:
                 pass
         return self._client
 
+    async def close(self) -> None:
+        """Close the owned OpenAI client, if it was initialized."""
+        if self._client is not None:
+            await self._client.close()
+            self._client = None
+
     async def embed_text(self, text: str) -> list[float]:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty for embedding")

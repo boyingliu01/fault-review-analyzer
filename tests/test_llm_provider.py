@@ -60,6 +60,19 @@ class TestOpenAILLMProvider:
 
             assert result == ""
 
+    @pytest.mark.asyncio
+    async def test_close_releases_client_once(self):
+        provider = OpenAILLMProvider(api_key="test-key")
+        mock_client = MagicMock()
+        mock_client.close = AsyncMock()
+        provider._client = mock_client
+
+        await provider.close()
+        await provider.close()
+
+        mock_client.close.assert_awaited_once()
+        assert provider._client is None
+
 
 class TestCreateLLMProvider:
     def test_create_provider_with_api_key(self):

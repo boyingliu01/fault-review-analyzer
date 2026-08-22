@@ -35,6 +35,12 @@ class OpenAILLMProvider:
                 ) from None
         return self._client
 
+    async def close(self) -> None:
+        """Close the owned OpenAI client, if it was initialized."""
+        if self._client is not None:
+            await self._client.close()
+            self._client = None
+
     async def generate(self, system: str, user: str) -> str:
         """Generate text using OpenAI API."""
         client = self._get_client()
