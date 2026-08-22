@@ -223,7 +223,7 @@ class TestAnalysisPipelineRefactored:
         result = PipelineResult(task_id=12345)
 
         mock_processed = MagicMock()
-        mock_preprocessed_dict = {"segments": []}
+        mock_preprocessed_dict: dict[str, list] = {"segments": []}
         result.preprocessed = mock_preprocessed_dict
 
         pipeline._check_and_generate_report(sample_task_info, mock_processed, result)
@@ -237,14 +237,20 @@ class TestAnalysisPipelineRefactored:
         self, mock_generate_report, mock_check_rules, config_manager, sample_task_info
     ):
         """Test _check_and_generate_report with both checks enabled."""
-        sample_violations = [
-            {
-                "rule_id": "R001",
-                "rule_name": "Test Rule",
-                "severity": "high",
-                "message": "Test message",
-            }
-        ]
+        rule_violation = {
+            "rule_id": "R001",
+            "rule_name": "Test Rule",
+            "severity": "high",
+            "message": "Test message",
+        }
+        code_violation = {
+            "rule_id": "CODE001",
+            "rule_name": "Code Change Rule",
+            "severity": "medium",
+            "message": "Code change message",
+        }
+        sample_violations = [rule_violation]
+        expected_violations = [rule_violation, code_violation]
         sample_report_content = "Test Report Content"
 
         mock_check_rules.return_value = sample_violations
@@ -252,20 +258,21 @@ class TestAnalysisPipelineRefactored:
 
         pipeline_config = PipelineConfig(check_rules=True, generate_report=True)
         pipeline = AnalysisPipeline(config_manager, pipeline_config)
-        result = PipelineResult(task_id=12345)
+        result = PipelineResult(task_id=12345, violations=[code_violation])
 
         mock_processed = MagicMock()
-        mock_preprocessed_dict = {"segments": []}
+        mock_preprocessed_dict: dict[str, list] = {"segments": []}
         result.preprocessed = mock_preprocessed_dict
         result.labels = []
         result.root_causes = []
 
         pipeline._check_and_generate_report(sample_task_info, mock_processed, result)
 
-        assert result.violations == sample_violations
+        assert result.violations == expected_violations
         assert result.report == sample_report_content
         mock_check_rules.assert_called_once()
         mock_generate_report.assert_called_once()
+        assert mock_generate_report.call_args.kwargs["violations"] == expected_violations
 
     @pytest.mark.asyncio
     @patch("src.analyzer.pipeline.AnalysisPipeline._fetch_task_data")
