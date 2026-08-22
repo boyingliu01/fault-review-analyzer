@@ -72,6 +72,40 @@ class TestRateLimiter:
         assert allowed is True
         assert remaining == 0  # 新的窗口
 
+    def test_rate_limiter_evicts_high_cardinality_stale_identifiers(self, monkeypatch):
+        """测试速率限制 - 淘汰大量过期标识符"""
+        now = 0.0
+        monkeypatch.setattr(time, "time", lambda: now)
+        limiter = RateLimiter(requests_per_minute=2)
+        stale_identifiers = {f"stale-{index}" for index in range(1_000)}
+        for identifier in stale_identifiers:
+            limiter.is_allowed(identifier)
+
+        now = 61.0
+        for index in range(len(stale_identifiers)):
+            limiter.is_allowed(f"fresh-{index}")
+
+        assert stale_identifiers.isdisjoint(limiter.requests)
+
+    def test_rate_limiter_cleanup_preserves_active_identifier(self, monkeypatch):
+        """测试速率限制 - 清理时保留活跃标识符"""
+        now = 0.0
+        monkeypatch.setattr(time, "time", lambda: now)
+        limiter = RateLimiter(requests_per_minute=3)
+        limiter.is_allowed("stale")
+
+        now = 30.0
+        limiter.is_allowed("active")
+
+        now = 61.0
+        limiter.is_allowed("trigger")
+        allowed, remaining = limiter.is_allowed("active")
+
+        assert "stale" not in limiter.requests
+        assert "active" in limiter.requests
+        assert allowed is True
+        assert remaining == 1
+
 
 class TestMiddlewareSetup:
     """中间件配置测试"""
