@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -16,6 +17,7 @@ class TestPipelineConfig:
         assert config.analyze_root_cause is True
         assert config.check_rules is True
         assert config.generate_report is True
+        assert config.max_concurrency == 10
 
     def test_custom_config(self):
         config = PipelineConfig(
@@ -36,6 +38,10 @@ class TestPipelineConfig:
     def test_output_path_custom(self):
         config = PipelineConfig(output_path=Path("./custom_output"))
         assert config.output_path == Path("./custom_output")
+
+    def test_max_concurrency_must_be_positive(self):
+        with pytest.raises(ValueError, match="max_concurrency must be positive"):
+            PipelineConfig(max_concurrency=0)
 
 
 class TestPipelineResult:
@@ -544,6 +550,69 @@ class TestAnalysisPipeline:
             results = await pipeline.run_batch([])
 
         assert results == []
+
+    @pytest.mark.asyncio
+    async def test_run_batch_bounds_active_run_single_calls(self, mock_config):
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=PipelineConfig(max_concurrency=2),
+        )
+        release = asyncio.Event()
+        limit_reached = asyncio.Event()
+        active_calls = 0
+        max_active_calls = 0
+        started_task_ids: list[int] = []
+
+        async def run_single(task_id: int) -> PipelineResult:
+            nonlocal active_calls, max_active_calls
+            active_calls += 1
+            max_active_calls = max(max_active_calls, active_calls)
+            started_task_ids.append(task_id)
+            if active_calls == 2:
+                limit_reached.set()
+            try:
+                await release.wait()
+                return PipelineResult(task_id=task_id)
+            finally:
+                active_calls -= 1
+
+        with patch.object(pipeline, "run_single", side_effect=run_single):
+            batch_task = asyncio.create_task(pipeline.run_batch([1, 2, 3, 4]))
+            await asyncio.wait_for(limit_reached.wait(), timeout=1)
+
+            assert max_active_calls == 2
+            assert started_task_ids == [1, 2]
+
+            release.set()
+            await batch_task
+
+    @pytest.mark.asyncio
+    async def test_run_batch_preserves_input_order(self, mock_config):
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=PipelineConfig(max_concurrency=3),
+        )
+        releases = {task_id: asyncio.Event() for task_id in (1, 2, 3)}
+        all_started = asyncio.Event()
+        started_count = 0
+
+        async def run_single(task_id: int) -> PipelineResult:
+            nonlocal started_count
+            started_count += 1
+            if started_count == 3:
+                all_started.set()
+            await releases[task_id].wait()
+            return PipelineResult(task_id=task_id)
+
+        with patch.object(pipeline, "run_single", side_effect=run_single):
+            batch_task = asyncio.create_task(pipeline.run_batch([1, 2, 3]))
+            await asyncio.wait_for(all_started.wait(), timeout=1)
+            releases[3].set()
+            releases[2].set()
+            releases[1].set()
+            results = await batch_task
+
+        assert [result.task_id for result in results] == [1, 2, 3]
 
     @pytest.mark.asyncio
     async def test_run_batch_partial_failure(self, mock_config, pipeline_config):
