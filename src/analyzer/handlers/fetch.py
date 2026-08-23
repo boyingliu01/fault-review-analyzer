@@ -28,6 +28,9 @@ class FetchHandler:
         use_cache: bool = True,
         max_concurrency: int = 10,
     ) -> None:
+        if max_concurrency <= 0:
+            raise ValueError("max_concurrency must be positive")
+
         self._api_client = api_client
         self._cache_manager = cache_manager
         self._use_cache = use_cache
