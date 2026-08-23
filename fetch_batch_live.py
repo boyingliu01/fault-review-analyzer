@@ -2,14 +2,15 @@
 """批量获取故障单数据"""
 
 import asyncio
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
-
-from src.config.manager import ConfigManager
 from src.api.client import APIClient
 from src.cache.manager import CacheManager
-from pathlib import Path
+from src.config.manager import ConfigManager
+
+load_dotenv(override=True)
 
 # 要获取的故障单列表
 TASK_IDS = [
