@@ -92,6 +92,14 @@ class TestFetchHandler:
         handler = FetchHandler(api_client=mock_api, cache_manager=mock_cache, use_cache=True)
         assert handler._api_client is mock_api
 
+    @pytest.mark.parametrize("max_concurrency", [0, -1])
+    def test_init_rejects_non_positive_max_concurrency(self, max_concurrency):
+        """FetchHandler rejects non-positive concurrency limits immediately."""
+        from src.analyzer.handlers.fetch import FetchHandler
+
+        with pytest.raises(ValueError, match="^max_concurrency must be positive$"):
+            FetchHandler(max_concurrency=max_concurrency)
+
     @pytest.mark.asyncio
     async def test_fetch_task_from_api(self, sample_task):
         """FetchHandler fetches task from API when cache miss."""
