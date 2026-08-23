@@ -23,6 +23,7 @@ def main() -> None:
     host = os.getenv("API_HOST", "0.0.0.0")
     port = int(os.getenv("API_PORT", "8000"))
     allow_unauthenticated = parse_environment_bool("API_ALLOW_UNAUTHENTICATED")
+    api_docs_enabled = parse_environment_bool("API_DOCS_ENABLED")
     allowed_origins = parse_environment_list("API_CORS_ORIGINS")
     allowed_methods = parse_environment_list("API_CORS_METHODS", _DEFAULT_CORS_METHODS)
     allowed_headers = parse_environment_list("API_CORS_HEADERS", _DEFAULT_CORS_HEADERS)
@@ -51,9 +52,10 @@ def main() -> None:
     print(f"  GET   http://{host}:{port}/clusters")
     print(f"  GET   http://{host}:{port}/clusters/{{cluster_id}}")
     print(f"  GET   http://{host}:{port}/reports/{{task_id}}")
-    print("\n  API Docs:")
-    print(f"  - Swagger: http://{host}:{port}/docs")
-    print(f"  - ReDoc:   http://{host}:{port}/redoc")
+    if api_docs_enabled:
+        print("\n  API Docs:")
+        print(f"  - Swagger: http://{host}:{port}/docs")
+        print(f"  - ReDoc:   http://{host}:{port}/redoc")
     print("=" * 60 + "\n")
 
     # 创建应用
@@ -61,6 +63,7 @@ def main() -> None:
         valid_tokens=valid_tokens,
         rate_limit_requests=int(os.getenv("API_RATE_LIMIT", "60")),
         allow_unauthenticated=allow_unauthenticated,
+        api_docs_enabled=api_docs_enabled,
         allowed_origins=allowed_origins,
         allowed_methods=allowed_methods,
         allowed_headers=allowed_headers,
