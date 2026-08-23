@@ -7,7 +7,10 @@ from pathlib import Path
 # 添加上级目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.api.server import create_app, parse_environment_bool
+from src.api.server import create_app, parse_environment_bool, parse_environment_list
+
+_DEFAULT_CORS_METHODS = ("GET", "POST", "OPTIONS")
+_DEFAULT_CORS_HEADERS = ("Content-Type", "X-API-Token")
 
 
 def main() -> None:
@@ -20,6 +23,9 @@ def main() -> None:
     host = os.getenv("API_HOST", "0.0.0.0")
     port = int(os.getenv("API_PORT", "8000"))
     allow_unauthenticated = parse_environment_bool("API_ALLOW_UNAUTHENTICATED")
+    allowed_origins = parse_environment_list("API_CORS_ORIGINS")
+    allowed_methods = parse_environment_list("API_CORS_METHODS", _DEFAULT_CORS_METHODS)
+    allowed_headers = parse_environment_list("API_CORS_HEADERS", _DEFAULT_CORS_HEADERS)
 
     # 检查是否有 API 令牌配置
     api_tokens_env = os.getenv("API_VALID_TOKENS", "")
@@ -55,6 +61,9 @@ def main() -> None:
         valid_tokens=valid_tokens,
         rate_limit_requests=int(os.getenv("API_RATE_LIMIT", "60")),
         allow_unauthenticated=allow_unauthenticated,
+        allowed_origins=allowed_origins,
+        allowed_methods=allowed_methods,
+        allowed_headers=allowed_headers,
     )
 
     # 启动服务器
