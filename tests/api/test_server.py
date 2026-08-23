@@ -41,7 +41,7 @@ class TestHealthCheck:
         assert response.status_code == 200
         data = response.json()
         assert "Welcome" in data["message"]
-        assert "docs" in data
+        assert "docs" not in data
         assert "health" in data
 
 

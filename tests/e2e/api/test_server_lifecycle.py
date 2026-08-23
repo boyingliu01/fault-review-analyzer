@@ -17,6 +17,7 @@ def app_no_auth():
         valid_tokens=None,
         rate_limit_requests=100,
         allow_unauthenticated=True,
+        api_docs_enabled=True,
     )
 
 
