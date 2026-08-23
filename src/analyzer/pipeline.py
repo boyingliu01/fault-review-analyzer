@@ -457,9 +457,11 @@ class AnalysisPipeline:
 
         使用 get_full_task 以同时获取代码变更（development）和生产信息（production）。
         """
+        import asyncio
+
         if self._pipeline_config.use_cache:
             cache = self._get_cache_manager()
-            cached = cache.load_task(task_id)
+            cached = await asyncio.to_thread(cache.load_task, task_id)
             if cached:
                 return TaskInfo(**cached)
 
@@ -468,7 +470,7 @@ class AnalysisPipeline:
 
         if self._pipeline_config.use_cache:
             cache = self._get_cache_manager()
-            cache.save_task(task_id, task.model_dump(mode="json"))
+            await asyncio.to_thread(cache.save_task, task_id, task.model_dump(mode="json"))
 
         return task
 
