@@ -416,6 +416,69 @@ class TestAnalysisPipeline:
         assert pipeline._cache_manager is None
 
     @pytest.mark.asyncio
+    async def test_pipeline_close_attempts_all_resources_after_first_async_cancellation(
+        self, mock_config, pipeline_config
+    ):
+        pipeline = AnalysisPipeline(config=mock_config, pipeline_config=pipeline_config)
+        cancellation = asyncio.CancelledError()
+        later_failure = RuntimeError("embedding close failed")
+        mock_api_client = MagicMock(close=AsyncMock(side_effect=cancellation))
+        mock_embedding_generator = MagicMock(close=AsyncMock(side_effect=later_failure))
+        mock_llm_provider = MagicMock(close=AsyncMock())
+        mock_cache_manager = MagicMock()
+        pipeline._api_client = mock_api_client
+        pipeline._embedding_generator = mock_embedding_generator
+        pipeline._llm_providers = [mock_llm_provider]
+        pipeline._cache_manager = mock_cache_manager
+
+        with pytest.raises(asyncio.CancelledError) as raised:
+            await pipeline.close()
+
+        assert raised.value is cancellation
+        mock_api_client.close.assert_awaited_once()
+        mock_embedding_generator.close.assert_awaited_once()
+        mock_llm_provider.close.assert_awaited_once()
+        mock_cache_manager.close.assert_called_once()
+        assert pipeline._api_client is None
+        assert pipeline._embedding_generator is None
+        assert pipeline._llm_providers == []
+        assert pipeline._cache_manager is None
+
+        await pipeline.close()
+
+    @pytest.mark.asyncio
+    async def test_pipeline_close_continues_after_middle_provider_failure(
+        self, mock_config, pipeline_config
+    ):
+        pipeline = AnalysisPipeline(config=mock_config, pipeline_config=pipeline_config)
+        provider_failure = RuntimeError("provider close failed")
+        mock_api_client = MagicMock(close=AsyncMock())
+        mock_embedding_generator = MagicMock(close=AsyncMock())
+        first_provider = MagicMock(close=AsyncMock())
+        failing_provider = MagicMock(close=AsyncMock(side_effect=provider_failure))
+        last_provider = MagicMock(close=AsyncMock())
+        mock_cache_manager = MagicMock()
+        pipeline._api_client = mock_api_client
+        pipeline._embedding_generator = mock_embedding_generator
+        pipeline._llm_providers = [first_provider, failing_provider, last_provider]
+        pipeline._cache_manager = mock_cache_manager
+
+        with pytest.raises(RuntimeError) as raised:
+            await pipeline.close()
+
+        assert raised.value is provider_failure
+        mock_api_client.close.assert_awaited_once()
+        mock_embedding_generator.close.assert_awaited_once()
+        first_provider.close.assert_awaited_once()
+        failing_provider.close.assert_awaited_once()
+        last_provider.close.assert_awaited_once()
+        mock_cache_manager.close.assert_called_once()
+        assert pipeline._api_client is None
+        assert pipeline._embedding_generator is None
+        assert pipeline._llm_providers == []
+        assert pipeline._cache_manager is None
+
+    @pytest.mark.asyncio
     async def test_run_single_preprocess_raises_exception(self, mock_config, pipeline_config):
         """Preprocess raises exception → caught, result.error set."""
         from datetime import datetime

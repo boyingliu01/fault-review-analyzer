@@ -118,18 +118,38 @@ class AnalysisPipeline:
 
     async def close(self) -> None:
         """Close all owned resources."""
-        if self._api_client is not None:
-            await self._api_client.close()
-            self._api_client = None
-        if self._embedding_generator is not None:
-            await self._embedding_generator.close()
-            self._embedding_generator = None
-        for provider in self._llm_providers:
-            await provider.close()
-        self._llm_providers.clear()
-        if self._cache_manager is not None:
-            self._cache_manager.close()
-            self._cache_manager = None
+        api_client, self._api_client = self._api_client, None
+        embedding_generator, self._embedding_generator = self._embedding_generator, None
+        llm_providers, self._llm_providers = self._llm_providers, []
+        cache_manager, self._cache_manager = self._cache_manager, None
+        first_error: BaseException | None = None
+
+        if api_client is not None:
+            try:
+                await api_client.close()
+            except BaseException as error:
+                first_error = error
+        if embedding_generator is not None:
+            try:
+                await embedding_generator.close()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+        for provider in llm_providers:
+            try:
+                await provider.close()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+        if cache_manager is not None:
+            try:
+                cache_manager.close()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+
+        if first_error is not None:
+            raise first_error
 
     def _create_llm_provider(self, config: Any) -> Any:
         """Create and track an LLM provider owned by this pipeline."""
