@@ -42,8 +42,10 @@ class FetchHandler:
         Returns:
             TaskInfo if found, None otherwise.
         """
+        import asyncio
+
         if self._use_cache and self._cache_manager is not None:
-            cached = self._cache_manager.load_task(task_id)
+            cached = await asyncio.to_thread(self._cache_manager.load_task, task_id)
             if cached:
                 return TaskInfo(**cached)
 
@@ -53,7 +55,11 @@ class FetchHandler:
         task = await self._api_client.get_full_task(task_id)
 
         if self._use_cache and self._cache_manager is not None:
-            self._cache_manager.save_task(task_id, task.model_dump(mode="json"))
+            await asyncio.to_thread(
+                self._cache_manager.save_task,
+                task_id,
+                task.model_dump(mode="json"),
+            )
 
         return task
 
