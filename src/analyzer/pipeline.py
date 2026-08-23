@@ -177,8 +177,12 @@ class AnalysisPipeline:
             await self._match_standards(task_data, result)
             self._check_and_generate_report(task_data, preprocessed, result)
 
-        except Exception as e:
-            result.error = str(e)
+        except Exception as error:
+            logger.bind(
+                task_id=task_id,
+                exception_type=type(error).__name__,
+            ).error("Analysis pipeline failed")
+            result.error = "Analysis failed due to an internal error"
 
         return result
 
