@@ -480,7 +480,7 @@ class TestAnalysisPipeline:
 
     @pytest.mark.asyncio
     async def test_run_single_preprocess_raises_exception(self, mock_config, pipeline_config):
-        """Preprocess raises exception → caught, result.error set."""
+        """Preprocess raises exception → caught, internal details redacted."""
         from datetime import datetime
 
         from src.api.models import TaskInfo
@@ -510,7 +510,7 @@ class TestAnalysisPipeline:
                     result = await pipeline.run_single(12345)
 
         assert result.task_id == 12345
-        assert result.error == "Bad data"
+        assert result.error == "Analysis failed due to an internal error"
 
     @pytest.mark.asyncio
     async def test_run_single_llm_not_available(self, mock_config):
@@ -837,7 +837,7 @@ class TestAnalysisPipeline:
 
     @pytest.mark.asyncio
     async def test_run_single_exception_mid_pipeline(self, mock_config, pipeline_config):
-        """Exception during check_rules → caught, error set on result."""
+        """Exception during check_rules → caught, internal details redacted."""
         from datetime import datetime
 
         from src.api.models import TaskInfo
@@ -869,4 +869,4 @@ class TestAnalysisPipeline:
                     result = await pipeline.run_single(12345)
 
         assert result.task_id == 12345
-        assert "Rules engine unavailable" in result.error
+        assert result.error == "Analysis failed due to an internal error"

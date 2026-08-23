@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from loguru import logger
 
 from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig, PipelineResult
 from src.api.models import TaskInfo
@@ -319,15 +320,23 @@ class TestAnalysisPipelineRefactored:
 
     @pytest.mark.asyncio
     @patch("src.analyzer.pipeline.AnalysisPipeline._fetch_task_data")
-    async def test_run_single_handles_exception(
+    async def test_run_single_redacts_unexpected_exception(
         self, mock_fetch_data, config_manager, pipeline_config
     ):
-        """Test run_single handles exceptions gracefully."""
-        test_error = "Test error message"
-        mock_fetch_data.side_effect = Exception(test_error)
+        """Test run_single redacts unexpected exception details from results and logs."""
+        sentinel_secret = "SENTINEL-SECRET-analysis-failure"
+        mock_fetch_data.side_effect = RuntimeError(sentinel_secret)
+        log_messages: list[str] = []
+        sink_id = logger.add(log_messages.append, format="{message} {extra}")
 
         pipeline = AnalysisPipeline(config_manager, pipeline_config)
-        result = await pipeline.run_single(12345)
+        try:
+            result = await pipeline.run_single(12345)
+        finally:
+            logger.remove(sink_id)
 
         assert result.task_id == 12345
-        assert result.error == test_error
+        assert result.error == "Analysis failed due to an internal error"
+        assert sentinel_secret not in result.error
+        assert any("RuntimeError" in message and "12345" in message for message in log_messages)
+        assert all(sentinel_secret not in message for message in log_messages)
