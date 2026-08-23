@@ -142,9 +142,7 @@ class TestServerErrorResponse:
         # 应返回错误状态码（404=not found 或 500=server error）
         assert response.status_code >= 400
 
-    def test_invalid_task_id_format_in_get_returns_400(
-        self, client_auth: TestClient
-    ):
+    def test_invalid_task_id_format_in_get_returns_400(self, client_auth: TestClient):
         """GET /reports/{task_id} 中无效 task_id 格式应返回 400。"""
         response = client_auth.get(
             "/reports/not-a-number",
@@ -153,9 +151,7 @@ class TestServerErrorResponse:
         # 无效格式应返回 400 或 422（FastAPI 验证错误）
         assert response.status_code in (400, 422)
 
-    def test_valid_token_query_param_returns_401_on_protected_routes(
-        self, client_auth: TestClient
-    ):
+    def test_valid_token_query_param_returns_401_on_protected_routes(self, client_auth: TestClient):
         """通过 query 参数传递有效 token 应视为缺少认证。"""
         response = client_auth.get(
             "/reports/12345?api_token=valid-token-123",

@@ -47,7 +47,9 @@ class RateLimiter:
             self._cleanup_remaining -= 1
             timestamps = self.requests.get(stored_identifier)
             if timestamps is not None:
-                active_timestamps = [timestamp for timestamp in timestamps if timestamp > one_minute_ago]
+                active_timestamps = [
+                    timestamp for timestamp in timestamps if timestamp > one_minute_ago
+                ]
                 if active_timestamps:
                     self.requests[stored_identifier] = active_timestamps
                     self._cleanup_queue.append(stored_identifier)

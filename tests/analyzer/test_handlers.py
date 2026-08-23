@@ -306,9 +306,13 @@ class TestPipelineOrchestrator:
         report = ReportHandler()
 
         with (
-            patch.object(fetch, "fetch_task", new_callable=AsyncMock, return_value=sample_task) as mock_fetch,
+            patch.object(
+                fetch, "fetch_task", new_callable=AsyncMock, return_value=sample_task
+            ) as mock_fetch,
             patch.object(report, "check_rules", return_value=[]) as mock_check_rules,
-            patch.object(report, "generate_report", return_value="# Report") as mock_generate_report,
+            patch.object(
+                report, "generate_report", return_value="# Report"
+            ) as mock_generate_report,
         ):
             orchestrator = PipelineOrchestrator(
                 fetch_handler=fetch,
