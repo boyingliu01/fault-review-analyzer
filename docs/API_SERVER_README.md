@@ -23,8 +23,14 @@ pip install -e ".[dev]"
 API_HOST=0.0.0.0          # 监听地址
 API_PORT=8000             # 监听端口
 
-# 认证配置（可选）
-API_VALID_TOKENS=token1,token2,token3  # 有效的 API Token 列表
+# 认证配置
+API_VALID_TOKENS=<token-a>,<token-b>    # 有效的 API Token 列表
+API_ALLOW_UNAUTHENTICATED=false        # 仅本地开发可设为 true
+
+# CORS 配置
+API_CORS_ORIGINS=https://app.example.com  # 允许的来源，逗号分隔
+API_CORS_METHODS=GET,POST,OPTIONS          # 允许的方法，逗号分隔
+API_CORS_HEADERS=Content-Type,X-API-Token  # 允许的请求头，逗号分隔
 
 # 速率限制配置
 API_RATE_LIMIT=60          # 每分钟请求限制
@@ -136,21 +142,20 @@ X-API-Token: <your-token>
 
 ### Token 认证
 
-API 支持通过 HTTP Header 或查询参数传递 Token：
+受保护的 API 路由只接受通过 HTTP Header 传递 Token，不支持将 Token 放在 URL 查询参数中：
 
 **方式一: Header 传递**
 ```http
-X-API-Token: your-secret-token
-```
-
-**方式二: 查询参数传递**
-```http
-GET /clusters?api_token=your-secret-token
+X-API-Token: <your-token>
 ```
 
 ### 开发模式
 
-如果没有配置 `API_VALID_TOKENS` 环境变量，服务器将运行在开发模式下，允许所有请求（无需认证）。
+服务器默认拒绝未认证请求，即使没有配置 `API_VALID_TOKENS`。仅在本地开发时，显式设置 `API_ALLOW_UNAUTHENTICATED=true` 才会允许免认证访问。不要在生产环境启用此选项。
+
+### CORS
+
+CORS 默认不允许任何来源。通过 `API_CORS_ORIGINS` 显式配置允许的来源，并按需设置 `API_CORS_METHODS` 和 `API_CORS_HEADERS`。不要使用通配符来源开放生产 API。
 
 ## 速率限制
 

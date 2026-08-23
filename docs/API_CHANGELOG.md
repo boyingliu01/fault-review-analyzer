@@ -75,9 +75,9 @@
 ### 认证和授权
 
 - 新增 Token 认证机制
-- 支持通过 HTTP Header 或查询参数传递 Token
+- 仅支持通过 `X-API-Token` HTTP Header 传递 Token
 - 新增速率限制中间件（默认每分钟 60 次请求）
-- 支持开发模式（无需认证）
+- 默认拒绝未认证请求，仅支持通过 `API_ALLOW_UNAUTHENTICATED=true` 显式启用本地开发免认证模式
 
 ### 错误处理
 
@@ -159,7 +159,7 @@
 #### 认证变更
 
 - 原认证方式: Bearer Token
-- 新认证方式: X-API-Token 或 api_token 查询参数
+- 新认证方式: `X-API-Token` HTTP Header
 
 #### 响应格式变更
 

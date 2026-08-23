@@ -120,8 +120,12 @@
 |-------|------|-------|------|
 | `API_HOST` | API 服务监听地址 | 0.0.0.0 | 否 |
 | `API_PORT` | API 服务监听端口 | 8000 | 否 |
-| `API_VALID_TOKENS` | 有效的 API Token 列表 | - | 否 |
+| `API_VALID_TOKENS` | 有效的 API Token 列表，受保护路由通过 `X-API-Token` 请求头认证 | - | 否 |
+| `API_ALLOW_UNAUTHENTICATED` | 是否允许免认证访问，仅用于本地开发 | false | 否 |
 | `API_RATE_LIMIT` | 每分钟请求限制 | 60 | 否 |
+| `API_CORS_ORIGINS` | 允许跨域访问的来源列表，逗号分隔 | - | 否 |
+| `API_CORS_METHODS` | 允许跨域访问的 HTTP 方法列表，逗号分隔 | GET, POST, OPTIONS | 否 |
+| `API_CORS_HEADERS` | 允许跨域访问的请求头列表，逗号分隔 | Content-Type, X-API-Token | 否 |
 
 ### 配置文件
 
@@ -361,7 +365,7 @@ stringData:
   DEVCLOUD_TOKEN: "your-devcloud-token"
   LLM_API_KEY: "your-llm-api-key"
   EMBEDDING_API_KEY: "your-embedding-api-key"
-  API_VALID_TOKENS: "token1,token2,token3"
+  API_VALID_TOKENS: "<token-a>,<token-b>"
 ```
 
 创建 `k8s/deployment.yaml`：
