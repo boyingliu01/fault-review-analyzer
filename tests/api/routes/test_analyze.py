@@ -249,6 +249,41 @@ class TestAnalyzeBatch:
         response = client.post("/analyze/batch", json={}, headers=_headers())
         assert response.status_code == 422
 
+    def test_more_than_fifty_unique_task_ids_rejected_before_pipeline(
+        self, client, mock_pipeline
+    ):
+        """More than 50 unique task IDs are rejected before pipeline construction."""
+        mock_cls, _ = mock_pipeline
+
+        response = client.post(
+            "/analyze/batch",
+            json={"task_ids": list(range(1, 52))},
+            headers=_headers(),
+        )
+
+        assert response.status_code == 422
+        mock_cls.assert_not_called()
+
+    def test_duplicate_task_ids_are_coerced_and_deduplicated_in_first_seen_order(
+        self, client, mock_pipeline
+    ):
+        """Equivalent task IDs run once in first-seen order."""
+        _, mock_instance = mock_pipeline
+        mock_instance.run_batch.return_value = [
+            PipelineResult(task_id=1, labels=[], root_causes=[], report="r1", error=""),
+            PipelineResult(task_id=2, labels=[], root_causes=[], report="r2", error=""),
+        ]
+
+        response = client.post(
+            "/analyze/batch",
+            json={"task_ids": [1, "1", 2, 1]},
+            headers=_headers(),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["total_requested"] == 2
+        mock_instance.run_batch.assert_awaited_once_with([1, 2])
+
     def test_batch_exception_returns_500(self, client, mock_pipeline):
         """When pipeline.run_batch raises, the route returns 500."""
         _, mock_instance = mock_pipeline

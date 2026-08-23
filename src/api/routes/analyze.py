@@ -142,7 +142,7 @@ async def analyze_batch(
     Returns:
         BatchAnalyzeResponse: 分析结果
     """
-    task_ids = [str(task_id) for task_id in request.task_ids]
+    task_ids = request.task_ids
     logger.info(f"Starting batch analysis for tasks: {task_ids}")
     start_time = time.time()
 
@@ -160,7 +160,7 @@ async def analyze_batch(
 
         # 执行批量分析
         async with AnalysisPipeline(config_manager, pipeline_config) as pipeline:
-            results = await pipeline.run_batch([int(task_id) for task_id in task_ids])
+            results = await pipeline.run_batch(task_ids)
 
         analysis_time = time.time() - start_time
         logger.info(f"Batch analysis completed for {len(results)} tasks in {analysis_time:.2f}s")
@@ -171,7 +171,7 @@ async def analyze_batch(
         failed = 0
 
         for i, result in enumerate(results):
-            task_id = task_ids[i]
+            task_id = str(task_ids[i])
             response = convert_pipeline_result_to_response(task_id, result)
             responses.append(response)
             if response.status == "completed":
