@@ -3,6 +3,7 @@
 import time
 
 from fastapi.testclient import TestClient
+from loguru import logger
 
 from src.api.middleware import RateLimiter, TokenValidator
 from src.api.server import create_app
@@ -239,10 +240,27 @@ class TestMiddlewareErrorHandling:
             response = client.get("/health")
             assert response.status_code == 200
 
-    def test_token_from_query_parameter(self):
-        """测试从查询参数获取 Token"""
+    def test_query_token_does_not_authenticate(self):
+        """测试查询参数中的 Token 不能用于认证"""
         app = create_app(valid_tokens={"query_token"})
 
         with TestClient(app) as client:
             response = client.get("/clusters?api_token=query_token")
-            assert response.status_code == 200
+
+        assert response.status_code == 401
+
+    def test_api_token_is_not_logged_when_rate_limited(self):
+        """测试速率限制日志不包含 API Token"""
+        token = "secret-api-token"
+        messages: list[str] = []
+        sink_id = logger.add(messages.append, format="{message}")
+        app = create_app(valid_tokens={token}, rate_limit_requests=0)
+
+        try:
+            with TestClient(app) as client:
+                response = client.get("/clusters", headers={"X-API-Token": token})
+        finally:
+            logger.remove(sink_id)
+
+        assert response.status_code == 429
+        assert all(token not in message for message in messages)
