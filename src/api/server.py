@@ -114,6 +114,11 @@ def create_app(
     cors_methods = tuple(allowed_methods) if allowed_methods is not None else _DEFAULT_CORS_METHODS
     cors_headers = tuple(allowed_headers) if allowed_headers is not None else _DEFAULT_CORS_HEADERS
 
+    # 认证和速率限制中间件
+    token_validator = TokenValidator(valid_tokens, allow_unauthenticated)
+    rate_limiter = RateLimiter(requests_per_minute=rate_limit_requests)
+    setup_middleware(app, token_validator, rate_limiter, allow_unauthenticated)
+
     # CORS 中间件
     app.add_middleware(
         CORSMiddleware,
@@ -122,11 +127,6 @@ def create_app(
         allow_methods=cors_methods,
         allow_headers=cors_headers,
     )
-
-    # 认证和速率限制中间件
-    token_validator = TokenValidator(valid_tokens, allow_unauthenticated)
-    rate_limiter = RateLimiter(requests_per_minute=rate_limit_requests)
-    setup_middleware(app, token_validator, rate_limiter, allow_unauthenticated)
 
     # 注册路由
     app.include_router(health.router, prefix="")

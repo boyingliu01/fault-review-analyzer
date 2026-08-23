@@ -5,6 +5,7 @@ from pathlib import Path
 from types import ModuleType
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.api import server
@@ -92,7 +93,7 @@ def test_default_policy_does_not_allow_cross_origin_requests():
 def test_preflight_allows_configured_origin_method_and_headers():
     client = TestClient(
         create_app(
-            allow_unauthenticated=True,
+            valid_tokens={"valid-token"},
             allowed_origins=("https://app.example.com",),
             allowed_methods=("POST",),
             allowed_headers=("Content-Type", "X-API-Token"),
@@ -116,7 +117,7 @@ def test_preflight_allows_configured_origin_method_and_headers():
 def test_preflight_does_not_allow_unconfigured_origin():
     client = TestClient(
         create_app(
-            allow_unauthenticated=True,
+            valid_tokens={"valid-token"},
             allowed_origins=("https://app.example.com",),
         )
     )
@@ -130,7 +131,36 @@ def test_preflight_does_not_allow_unconfigured_origin():
         },
     )
 
+    assert response.status_code == 400
     assert "access-control-allow-origin" not in response.headers
+
+
+@pytest.mark.parametrize(
+    ("request_headers", "expected_status"),
+    [
+        ({}, 401),
+        ({"X-API-Token": "invalid-token"}, 403),
+    ],
+)
+def test_authentication_errors_include_cors_headers_for_configured_origin(
+    request_headers: dict[str, str],
+    expected_status: int,
+):
+    client = TestClient(
+        create_app(
+            valid_tokens={"valid-token"},
+            allowed_origins=("https://app.example.com",),
+        )
+    )
+
+    response = client.post(
+        "/analyze",
+        headers={"Origin": "https://app.example.com", **request_headers},
+        json={"task_id": "12345"},
+    )
+
+    assert response.status_code == expected_status
+    assert response.headers["access-control-allow-origin"] == "https://app.example.com"
 
 
 def test_wildcard_origin_disables_credentials():
