@@ -126,13 +126,13 @@ class TestServerAuthLifecycle:
         )
         assert response.status_code == 403
 
-    def test_query_param_token(self, client_with_auth: TestClient):
-        """通过 query 参数传递 token 也应有效。"""
+    def test_query_param_token_does_not_authenticate(self, client_with_auth: TestClient):
+        """通过 query 参数传递 token 应视为缺少认证。"""
         response = client_with_auth.post(
             "/analyze?api_token=valid-token-123",
             json={"task_id": "12345"},
         )
-        assert response.status_code not in (401, 403)
+        assert response.status_code == 401
 
 
 class TestServerRateLimiting:

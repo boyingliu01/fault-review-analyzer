@@ -88,27 +88,13 @@ class TestAuthMiddleware:
             assert response.status_code != 401
             assert response.status_code != 403
 
-    def test_valid_token_query_param(self, client_with_auth):
-        """测试通过 Query 参数传递有效 Token"""
-        with patch("src.api.routes.analyze.AnalysisPipeline") as mock_pipeline:
-            mock_instance = AsyncMock()
-            mock_instance.__aenter__.return_value = mock_instance
-            mock_instance.run_single.return_value = AsyncMock(
-                task_id=12345,
-                error="",
-                labels=[],
-                root_causes=[],
-                deep_root_causes={},
-                violations=[],
-                report="test report",
-            )
-            mock_pipeline.return_value = mock_instance
+    def test_valid_token_query_param_is_rejected(self, client_with_auth):
+        """测试 Query 参数中的有效 Token 不能用于认证"""
+        response = client_with_auth.post(
+            "/analyze?api_token=test-token-123", json={"task_id": "12345"}
+        )
 
-            response = client_with_auth.post(
-                "/analyze?api_token=test-token-123", json={"task_id": "12345"}
-            )
-            assert response.status_code != 401
-            assert response.status_code != 403
+        assert response.status_code == 401
 
 
 class TestServerEnvironment:

@@ -115,8 +115,8 @@ def setup_middleware(
         if request.url.path == "/health" or request.url.path == "/":
             return await call_next(request)
 
-        # 从 Header 或 Query 参数获取 Token
-        token = request.headers.get("X-API-Token") or request.query_params.get("api_token")
+        # 从 Header 获取 Token
+        token = request.headers.get("X-API-Token")
 
         if not token and not allow_unauthenticated:
             logger.warning(f"Missing API token for request: {request.url.path}")
@@ -148,7 +148,7 @@ def setup_middleware(
         allowed, remaining = rate_limiter.is_allowed(identifier)
 
         if not allowed:
-            logger.warning(f"Rate limit exceeded for: {identifier}")
+            logger.warning(f"Rate limit exceeded for request: {request.url.path}")
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={
