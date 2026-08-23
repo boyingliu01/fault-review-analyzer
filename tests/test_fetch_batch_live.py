@@ -27,11 +27,19 @@ async def test_fetch_tasks_uses_full_task_payload_for_cache() -> None:
 
     cache_manager = MagicMock()
     cache_manager.__enter__.return_value = cache_manager
+    cache_events: list[str] = []
+    cache_manager.__exit__.side_effect = lambda *_args: cache_events.append("cache_exit")
     cache_manager.get_task.return_value = None
+
+    def get_stats() -> dict[str, int]:
+        cache_events.append("stats")
+        return {"total_entries": 1, "valid_entries": 1}
+
+    cache_manager.get_stats.side_effect = get_stats
 
     api_client = MagicMock()
     api_client.__aenter__ = AsyncMock(return_value=api_client)
-    api_client.__aexit__ = AsyncMock(return_value=None)
+    api_client.__aexit__ = AsyncMock(side_effect=lambda *_args: cache_events.append("api_exit"))
     api_client.get_full_task = AsyncMock(return_value=task)
 
     with (
@@ -45,3 +53,8 @@ async def test_fetch_tasks_uses_full_task_payload_for_cache() -> None:
 
     api_client.get_full_task.assert_called_once_with(12345)
     cache_manager.save_task.assert_called_once_with(12345, task.model_dump(mode="json"))
+    api_client.__aenter__.assert_awaited_once()
+    api_client.__aexit__.assert_awaited_once()
+    cache_manager.__enter__.assert_called_once_with()
+    cache_manager.__exit__.assert_called_once()
+    assert cache_events == ["api_exit", "stats", "cache_exit"]
