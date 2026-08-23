@@ -5,8 +5,14 @@ import httpx
 import pytest
 
 from src.api.client import APIClient
-from src.api.exceptions import APIConnectionError, APIError, AuthenticationError, NotFoundError
-from src.api.models import CommitInfo, ProductionInfo, TaskInfo
+from src.api.exceptions import (
+    APIConnectionError,
+    APIError,
+    AuthenticationError,
+    NotFoundError,
+    ServerError,
+)
+from src.api.models import CommitInfo, DevelopmentInfo, ProductionInfo, TaskInfo
 
 
 class TestAPIClient:
@@ -76,6 +82,44 @@ class TestAPIClient:
             result = await api_client.get_task(12345)
             assert call_count == 3
             assert result.task_id == 12345
+
+    @pytest.mark.asyncio
+    async def test_retries_transient_server_errors_until_success(self, api_client):
+        responses = [
+            MagicMock(status_code=500),
+            MagicMock(status_code=500),
+            MagicMock(status_code=200),
+        ]
+        responses[-1].json.return_value = {"result": "recovered"}
+
+        api_client.ensure_client()
+        with (
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch.object(api_client._client, "request", side_effect=responses) as mock_request,
+        ):
+            result = await api_client._request("GET", "/health")
+
+        assert result == {"result": "recovered"}
+        assert mock_request.call_count == 3
+        assert [call.args[0] for call in mock_sleep.await_args_list] == [1, 2]
+        assert api_client.circuit_breaker._failure_count == 0
+
+    @pytest.mark.asyncio
+    async def test_exhausted_server_error_retries_raise_last_error(self, api_client):
+        responses = [MagicMock(status_code=503) for _ in range(api_client.retry)]
+
+        api_client.ensure_client()
+        with (
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch.object(api_client._client, "request", side_effect=responses) as mock_request,
+            pytest.raises(ServerError, match="Server error: 503") as exc_info,
+        ):
+            await api_client._request("GET", "/health")
+
+        assert exc_info.value.status_code == 500
+        assert mock_request.call_count == api_client.retry
+        assert [call.args[0] for call in mock_sleep.await_args_list] == [1, 2]
+        assert api_client.circuit_breaker._failure_count == api_client.retry
 
     @pytest.mark.asyncio
     async def test_error_handling_401(self, api_client):
@@ -287,10 +331,7 @@ class TestAPIDataModels:
             status="open",
             priority="low",
             create_time=datetime(2024, 1, 1),
-            development={
-                "commits": [],
-                "code_reviews": [],
-            },
+            development=DevelopmentInfo(),
         )
 
         assert task.development is not None
@@ -303,11 +344,10 @@ class TestAPIDataModels:
             status="open",
             priority="low",
             create_time=datetime(2024, 1, 1),
-            production={
-                "incident_time": datetime(2024, 1, 1),
-                "symptoms": "Test symptom",
-                "logs": [],
-            },
+            production=ProductionInfo(
+                incident_time=datetime(2024, 1, 1),
+                symptoms="Test symptom",
+            ),
         )
 
         assert task.production is not None
