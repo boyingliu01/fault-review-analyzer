@@ -366,7 +366,13 @@ class AnalysisPipeline:
         """
         import asyncio
 
-        fetch_tasks = [self._fetch_task(task_id) for task_id in task_ids]
+        semaphore = asyncio.Semaphore(self._pipeline_config.max_concurrency)
+
+        async def fetch_with_limit(task_id: int) -> TaskInfo | None:
+            async with semaphore:
+                return await self._fetch_task(task_id)
+
+        fetch_tasks = [fetch_with_limit(task_id) for task_id in task_ids]
         fetched = await asyncio.gather(*fetch_tasks)
         tasks_data: list[TaskInfo] = [t for t in fetched if t is not None]
 
