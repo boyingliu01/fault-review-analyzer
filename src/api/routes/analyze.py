@@ -107,16 +107,18 @@ async def analyze_task(
 
         return response
 
-    except Exception as e:
-        logger.error(f"Error analyzing task {task_id}: {str(e)}")
+    except Exception as error:
+        logger.bind(task_id=task_id, exception_type=type(error).__name__).error(
+            "Task analysis failed"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": "AnalysisFailed",
-                "message": str(e),
+                "message": "Analysis failed due to an internal error",
                 "detail": {},
             },
-        ) from e
+        ) from error
 
 
 @router.post(
@@ -187,13 +189,15 @@ async def analyze_batch(
             analysis_time=analysis_time,
         )
 
-    except Exception as e:
-        logger.error(f"Error in batch analysis: {str(e)}")
+    except Exception as error:
+        logger.bind(task_ids=task_ids, exception_type=type(error).__name__).error(
+            "Batch analysis failed"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": "BatchAnalysisFailed",
-                "message": str(e),
+                "message": "Batch analysis failed due to an internal error",
                 "detail": {},
             },
-        ) from e
+        ) from error

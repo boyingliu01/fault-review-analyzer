@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from loguru import logger
 
 from src.analyzer.pipeline import PipelineResult
 from src.api.server import create_app
@@ -160,17 +161,26 @@ class TestAnalyzeTask:
         assert response.status_code == 200
         assert response.json()["status"] == "completed"
 
-    def test_pipeline_error_propagates_as_500(self, client, mock_pipeline):
-        """When pipeline.run_single raises an exception, the route returns 500."""
+    def test_pipeline_error_is_redacted_from_response_and_logs(self, client, mock_pipeline):
+        """Unexpected pipeline errors expose only stable response and log metadata."""
         _, mock_instance = mock_pipeline
-        mock_instance.run_single.side_effect = RuntimeError("DB connection failed")
+        sentinel_secret = "SENTINEL-SECRET-analyze-single"
+        mock_instance.run_single.side_effect = RuntimeError(sentinel_secret)
+        log_messages: list[str] = []
+        sink_id = logger.add(log_messages.append, format="{message} {extra}")
 
-        response = client.post("/analyze", json={"task_id": "12345"}, headers=_headers())
+        try:
+            response = client.post("/analyze", json={"task_id": "12345"}, headers=_headers())
+        finally:
+            logger.remove(sink_id)
+
         assert response.status_code == 500
         data = response.json()
-        assert "detail" in data
         assert data["detail"]["error"] == "AnalysisFailed"
-        assert "DB connection failed" in data["detail"]["message"]
+        assert data["detail"]["message"] == "Analysis failed due to an internal error"
+        assert sentinel_secret not in response.text
+        assert any("RuntimeError" in message and "12345" in message for message in log_messages)
+        assert all(sentinel_secret not in message for message in log_messages)
 
     def test_pipeline_result_with_error_returns_200(self, client, mock_pipeline):
         """When pipeline succeeds but the result has an error field, returns 200 with status=failed."""
@@ -284,12 +294,23 @@ class TestAnalyzeBatch:
         assert response.json()["total_requested"] == 2
         mock_instance.run_batch.assert_awaited_once_with([1, 2])
 
-    def test_batch_exception_returns_500(self, client, mock_pipeline):
-        """When pipeline.run_batch raises, the route returns 500."""
+    def test_batch_exception_is_redacted_from_response_and_logs(self, client, mock_pipeline):
+        """Unexpected batch errors expose only stable response and log metadata."""
         _, mock_instance = mock_pipeline
-        mock_instance.run_batch.side_effect = TimeoutError("timeout")
+        sentinel_secret = "SENTINEL-SECRET-analyze-batch"
+        mock_instance.run_batch.side_effect = TimeoutError(sentinel_secret)
+        log_messages: list[str] = []
+        sink_id = logger.add(log_messages.append, format="{message} {extra}")
 
-        response = client.post("/analyze/batch", json={"task_ids": [1]}, headers=_headers())
+        try:
+            response = client.post("/analyze/batch", json={"task_ids": [1]}, headers=_headers())
+        finally:
+            logger.remove(sink_id)
+
         assert response.status_code == 500
         data = response.json()
         assert data["detail"]["error"] == "BatchAnalysisFailed"
+        assert data["detail"]["message"] == "Batch analysis failed due to an internal error"
+        assert sentinel_secret not in response.text
+        assert any("TimeoutError" in message and "1" in message for message in log_messages)
+        assert all(sentinel_secret not in message for message in log_messages)
