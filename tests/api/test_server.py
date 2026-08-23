@@ -1,5 +1,8 @@
 """API 服务器测试"""
 
+import importlib.util
+from pathlib import Path
+from types import ModuleType
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -7,6 +10,17 @@ from fastapi.testclient import TestClient
 
 from src.api import server
 from src.api.server import create_app
+
+
+def load_start_api_server() -> ModuleType:
+    """Load the standalone API launcher module."""
+    script_path = Path(__file__).parents[2] / "scripts" / "start_api_server.py"
+    spec = importlib.util.spec_from_file_location("test_start_api_server", script_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 @pytest.fixture
@@ -111,6 +125,31 @@ class TestServerEnvironment:
             server.main()
 
         assert mock_create_app.call_args.kwargs["allow_unauthenticated"] is False
+
+    def test_main_disables_uvicorn_access_logging(self, monkeypatch):
+        """Test the module launcher disables query-bearing access logs."""
+        monkeypatch.setenv("API_ALLOW_UNAUTHENTICATED", "false")
+
+        with (
+            patch("src.api.server.create_app"),
+            patch("uvicorn.run") as mock_run,
+        ):
+            server.main()
+
+        assert mock_run.call_args.kwargs["access_log"] is False
+
+    def test_standalone_launcher_disables_uvicorn_access_logging(self, monkeypatch):
+        """Test the standalone launcher disables query-bearing access logs."""
+        start_api_server = load_start_api_server()
+        monkeypatch.setenv("API_ALLOW_UNAUTHENTICATED", "false")
+
+        with (
+            patch.object(start_api_server, "create_app"),
+            patch("uvicorn.run") as mock_run,
+        ):
+            start_api_server.main()
+
+        assert mock_run.call_args.kwargs["access_log"] is False
 
     def test_main_enables_unauthenticated_mode_only_for_true(self, monkeypatch):
         """测试环境变量 true 显式开启无认证模式"""

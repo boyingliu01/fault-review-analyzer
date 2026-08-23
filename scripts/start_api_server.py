@@ -77,7 +77,7 @@ def main() -> None:
         host=host,
         port=port,
         log_level="info",
-        access_log=True,
+        access_log=False,
     )
 
 

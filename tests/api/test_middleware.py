@@ -249,6 +249,22 @@ class TestMiddlewareErrorHandling:
 
         assert response.status_code == 401
 
+    def test_query_token_is_absent_from_application_logs(self):
+        """Test rejected query tokens do not appear in application logs."""
+        token = "query-token-sentinel"
+        messages: list[str] = []
+        sink_id = logger.add(messages.append, format="{message}")
+        app = create_app(valid_tokens={token})
+
+        try:
+            with TestClient(app) as client:
+                response = client.get(f"/clusters?api_token={token}")
+        finally:
+            logger.remove(sink_id)
+
+        assert response.status_code == 401
+        assert all(token not in message for message in messages)
+
     def test_api_token_is_not_logged_when_rate_limited(self):
         """测试速率限制日志不包含 API Token"""
         token = "secret-api-token"
