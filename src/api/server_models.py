@@ -1,9 +1,11 @@
 """API 服务数据模型"""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Final
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+MAX_BATCH_TASK_IDS: Final = 50
 
 
 class HealthResponse(BaseModel):
@@ -38,8 +40,18 @@ class SingleAnalyzeRequest(BaseModel):
 class BatchAnalyzeRequest(BaseModel):
     """批量分析请求"""
 
-    task_ids: list[str | int] = Field(..., description="任务ID列表", min_length=1)
+    task_ids: list[int] = Field(..., description="任务ID列表", min_length=1)
     options: AnalyzeOptions = Field(default_factory=AnalyzeOptions, description="分析选项")
+
+    @field_validator("task_ids")
+    @classmethod
+    def deduplicate_task_ids(cls, task_ids: list[int]) -> list[int]:
+        """Preserve the first occurrence of at most 50 unique task IDs."""
+        unique_task_ids = list(dict.fromkeys(task_ids))
+        if len(unique_task_ids) > MAX_BATCH_TASK_IDS:
+            message = f"batch requests support at most {MAX_BATCH_TASK_IDS} unique task IDs"
+            raise ValueError(message)
+        return unique_task_ids
 
 
 class LabelInfo(BaseModel):
