@@ -141,7 +141,6 @@ class APIClient:
                 elif response.status_code >= 500:
                     # Server errors indicate service failure
                     error = ServerError(f"Server error: {response.status_code}")
-                    self._circuit_breaker.record_failure(error)
                     raise error
                 else:
                     raise APIError(
@@ -164,8 +163,8 @@ class APIClient:
             except (AuthenticationError, NotFoundError, RateLimitError):
                 raise
 
-        # All retries failed - record failure
-        if last_error and not isinstance(last_error, ServerError):
+        # All retries failed - record the logical request once
+        if last_error:
             self._circuit_breaker.record_failure(last_error)
         raise last_error or APIConnectionError("Unknown error")
 
