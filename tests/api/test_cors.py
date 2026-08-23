@@ -66,9 +66,7 @@ def test_start_script_propagates_explicit_cors_environment_settings(monkeypatch)
     ):
         start_api_server.main()
 
-    assert mock_create_app.call_args.kwargs["allowed_origins"] == (
-        "https://app.example.com",
-    )
+    assert mock_create_app.call_args.kwargs["allowed_origins"] == ("https://app.example.com",)
     assert mock_create_app.call_args.kwargs["allowed_methods"] == ("GET", "POST")
     assert mock_create_app.call_args.kwargs["allowed_headers"] == (
         "Content-Type",

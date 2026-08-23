@@ -143,6 +143,7 @@ class TestServerEnvironment:
         with pytest.raises(ValueError, match="API_ALLOW_UNAUTHENTICATED"):
             server.main()
 
+
 class TestAnalyzeEndpoints:
     """分析接口测试"""
 
