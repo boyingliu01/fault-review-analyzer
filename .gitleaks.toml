@@ -48,6 +48,7 @@ paths = [
     '''\.sprint-state/.*''',
     '''\.code-walkthrough-result\.json$''',
     '''\.env$''',
+    '''^\.claude/worktrees/agent-[0-9a-f]+$''',
 ]
 regexes = [
     '''REDACTED_''',
