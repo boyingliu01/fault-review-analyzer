@@ -55,8 +55,7 @@ class FeedbackReview(BaseModel):
 
 
 class FeedbackResponse(Feedback):
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}
 
 
 class FeedbackListResponse(BaseModel):

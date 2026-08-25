@@ -32,8 +32,8 @@ def list_cache(
 ) -> None:
     """列出缓存条目"""
     cache_db = _get_cache_db_path(config_path)
-    cache_manager = CacheManager(db_path=cache_db)
-    index = cache_manager.get_index()[:limit]
+    with CacheManager(db_path=cache_db) as cache_manager:
+        index = cache_manager.get_index()[:limit]
 
     if not index:
         console.print("[yellow]缓存为空[/yellow]")
@@ -62,20 +62,19 @@ def clear_cache(
 ) -> None:
     """清除缓存"""
     cache_db = _get_cache_db_path(config_path)
-    cache_manager = CacheManager(db_path=cache_db)
+    with CacheManager(db_path=cache_db) as cache_manager:
+        if task_id:
+            cache_manager.invalidate(task_id)
+            console.print(f"[green]已清除任务 {task_id} 的缓存[/green]")
+        else:
+            if not force:
+                confirm = typer.confirm("确定要清空所有缓存吗？")
+                if not confirm:
+                    console.print("[yellow]操作已取消[/yellow]")
+                    return
 
-    if task_id:
-        cache_manager.invalidate(task_id)
-        console.print(f"[green]已清除任务 {task_id} 的缓存[/green]")
-    else:
-        if not force:
-            confirm = typer.confirm("确定要清空所有缓存吗？")
-            if not confirm:
-                console.print("[yellow]操作已取消[/yellow]")
-                return
-
-        cache_manager.invalidate_all()
-        console.print("[green]已清空所有缓存[/green]")
+            cache_manager.invalidate_all()
+            console.print("[green]已清空所有缓存[/green]")
 
 
 @app.command("stats")
@@ -84,8 +83,8 @@ def cache_stats(
 ) -> None:
     """显示缓存统计"""
     cache_db = _get_cache_db_path(config_path)
-    cache_manager = CacheManager(db_path=cache_db)
-    stats = cache_manager.get_stats()
+    with CacheManager(db_path=cache_db) as cache_manager:
+        stats = cache_manager.get_stats()
 
     table = Table(title="缓存统计")
     table.add_column("指标", style="cyan")
@@ -104,6 +103,6 @@ def cleanup_cache(
 ) -> None:
     """清理过期缓存"""
     cache_db = _get_cache_db_path(config_path)
-    cache_manager = CacheManager(db_path=cache_db)
-    count = cache_manager.cleanup_expired()
+    with CacheManager(db_path=cache_db) as cache_manager:
+        count = cache_manager.cleanup_expired()
     console.print(f"[green]已清理 {count} 条过期缓存[/green]")

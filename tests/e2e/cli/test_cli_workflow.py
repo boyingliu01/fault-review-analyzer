@@ -19,43 +19,43 @@ def runner():
 
 
 @pytest.fixture
-def cache_with_data(tmp_path: Path) -> CacheManager:
+def cache_with_data(tmp_path: Path) -> Path:
     """在临时路径创建缓存并写入测试数据。"""
     db_path = tmp_path / "cache.db"
-    manager = CacheManager(db_path=db_path, ttl=3600)
-    manager.save_task(
-        50001,
-        {
-            "task_id": 50001,
-            "title": "CLI测试任务",
-            "description": "用于CLI工作流测试",
-            "status": "resolved",
-            "priority": "high",
-            "create_time": "2024-07-01T10:00:00",
-            "resolve_time": "2024-07-01T14:00:00",
-            "development": {
-                "commits": [
-                    {
-                        "commit_id": "cli001",
-                        "message": "修复CLI命令",
-                        "time": "2024-07-01T09:00:00",
-                        "changes": ["src/cli.py"],
-                    }
-                ],
-                "code_changes": [],
-                "code_reviews": [],
+    with CacheManager(db_path=db_path, ttl=3600) as manager:
+        manager.save_task(
+            50001,
+            {
+                "task_id": 50001,
+                "title": "CLI测试任务",
+                "description": "用于CLI工作流测试",
+                "status": "resolved",
+                "priority": "high",
+                "create_time": "2024-07-01T10:00:00",
+                "resolve_time": "2024-07-01T14:00:00",
+                "development": {
+                    "commits": [
+                        {
+                            "commit_id": "cli001",
+                            "message": "修复CLI命令",
+                            "time": "2024-07-01T09:00:00",
+                            "changes": ["src/cli.py"],
+                        }
+                    ],
+                    "code_changes": [],
+                    "code_reviews": [],
+                },
+                "production": {
+                    "incident_time": "2024-07-01T11:00:00",
+                    "symptoms": "CLI命令报错",
+                    "logs": ["ERROR: CLI failure"],
+                    "stack_traces": [],
+                    "resolution": "修复命令参数",
+                    "timeline": [],
+                },
             },
-            "production": {
-                "incident_time": "2024-07-01T11:00:00",
-                "symptoms": "CLI命令报错",
-                "logs": ["ERROR: CLI failure"],
-                "stack_traces": [],
-                "resolution": "修复命令参数",
-                "timeline": [],
-            },
-        },
-    )
-    return manager
+        )
+    return db_path
 
 
 @pytest.fixture
@@ -142,7 +142,7 @@ class TestCLIConfigCommands:
 class TestCLICacheCommands:
     """测试 cache 子命令。"""
 
-    def test_cache_stats(self, runner: CliRunner, cache_with_data: CacheManager, tmp_path: Path):  # noqa: ARG002
+    def test_cache_stats(self, runner: CliRunner, cache_with_data: Path, tmp_path: Path):  # noqa: ARG002
         """cache stats 应显示缓存统计。"""
         # 需要修改默认缓存路径，这里直接测试命令是否可执行
         result = runner.invoke(app, ["cache", "stats"])
@@ -162,7 +162,7 @@ class TestCLIReportGeneration:
     def test_report_generate_from_cache(
         self,
         runner: CliRunner,
-        cache_with_data: CacheManager,  # noqa: ARG002
+        cache_with_data: Path,  # noqa: ARG002
         config_file: Path,
         tmp_path: Path,  # noqa: ARG002
     ):

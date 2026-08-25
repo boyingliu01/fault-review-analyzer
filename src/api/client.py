@@ -141,7 +141,6 @@ class APIClient:
                 elif response.status_code >= 500:
                     # Server errors indicate service failure
                     error = ServerError(f"Server error: {response.status_code}")
-                    self._circuit_breaker.record_failure(error)
                     raise error
                 else:
                     raise APIError(
@@ -157,10 +156,14 @@ class APIClient:
                 last_error = APIConnectionError(f"Timeout: {e}")
                 if attempt < self.retry - 1:
                     await asyncio.sleep(2**attempt)
+            except ServerError as e:
+                last_error = e
+                if attempt < self.retry - 1:
+                    await asyncio.sleep(2**attempt)
             except (AuthenticationError, NotFoundError, RateLimitError):
                 raise
 
-        # All retries failed - record failure
+        # All retries failed - record the logical request once
         if last_error:
             self._circuit_breaker.record_failure(last_error)
         raise last_error or APIConnectionError("Unknown error")

@@ -77,8 +77,8 @@ def test_env(tmp_path: Path, sample_task_data: dict) -> tuple[Path, Path]:
     """创建测试环境：缓存数据库 + 配置文件。"""
     # 创建预填充缓存
     db_path = tmp_path / "cache.db"
-    cache = CacheManager(db_path=db_path, ttl=3600)
-    cache.save_task(sample_task_data["task_id"], sample_task_data)
+    with CacheManager(db_path=db_path, ttl=3600) as cache:
+        cache.save_task(sample_task_data["task_id"], sample_task_data)
 
     # 创建配置文件
     config_path = tmp_path / "config.yaml"
@@ -120,7 +120,11 @@ output:
 def client(test_env: tuple[Path, Path]) -> TestClient:
     """创建配置好的 FastAPI TestClient。"""
     config_path, _ = test_env
-    app = create_app(valid_tokens=None, rate_limit_requests=100)
+    app = create_app(
+        valid_tokens=None,
+        rate_limit_requests=100,
+        allow_unauthenticated=True,
+    )
 
     # 覆盖依赖，使用测试配置
     def override_config_manager() -> ConfigManager:

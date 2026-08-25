@@ -8,6 +8,7 @@ Tests the three handler classes that split the monolithic pipeline:
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -91,13 +92,21 @@ class TestFetchHandler:
         handler = FetchHandler(api_client=mock_api, cache_manager=mock_cache, use_cache=True)
         assert handler._api_client is mock_api
 
+    @pytest.mark.parametrize("max_concurrency", [0, -1])
+    def test_init_rejects_non_positive_max_concurrency(self, max_concurrency):
+        """FetchHandler rejects non-positive concurrency limits immediately."""
+        from src.analyzer.handlers.fetch import FetchHandler
+
+        with pytest.raises(ValueError, match="^max_concurrency must be positive$"):
+            FetchHandler(max_concurrency=max_concurrency)
+
     @pytest.mark.asyncio
     async def test_fetch_task_from_api(self, sample_task):
         """FetchHandler fetches task from API when cache miss."""
         from src.analyzer.handlers.fetch import FetchHandler
 
         mock_api = MagicMock()
-        mock_api.get_task = AsyncMock(return_value=sample_task)
+        mock_api.get_full_task = AsyncMock(return_value=sample_task)
         mock_cache = MagicMock()
         mock_cache.load_task.return_value = None
 
@@ -105,7 +114,7 @@ class TestFetchHandler:
         result = await handler.fetch_task(12345)
 
         assert result is sample_task
-        mock_api.get_task.assert_called_once_with(12345)
+        mock_api.get_full_task.assert_called_once_with(12345)
 
     @pytest.mark.asyncio
     async def test_fetch_task_from_cache(self, sample_task):
@@ -119,8 +128,9 @@ class TestFetchHandler:
         handler = FetchHandler(api_client=mock_api, cache_manager=mock_cache, use_cache=True)
         result = await handler.fetch_task(12345)
 
+        assert result is not None
         assert result.task_id == 12345
-        mock_api.get_task.assert_not_called()
+        mock_api.get_full_task.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_fetch_task_no_cache(self, sample_task):
@@ -128,7 +138,7 @@ class TestFetchHandler:
         from src.analyzer.handlers.fetch import FetchHandler
 
         mock_api = MagicMock()
-        mock_api.get_task = AsyncMock(return_value=sample_task)
+        mock_api.get_full_task = AsyncMock(return_value=sample_task)
         mock_cache = MagicMock()
 
         handler = FetchHandler(api_client=mock_api, cache_manager=mock_cache, use_cache=False)
@@ -136,6 +146,39 @@ class TestFetchHandler:
 
         assert result is sample_task
         mock_cache.load_task.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_fetch_tasks_bounds_concurrency_and_preserves_success_order(self):
+        """Batch fetching limits active calls and keeps successful input order."""
+        from src.analyzer.handlers.fetch import FetchHandler
+        from src.api.client import APIClient
+
+        class AsyncFakeAPI(APIClient):
+            def __init__(self) -> None:
+                super().__init__(base_url="https://api.example.com")
+                self.active_calls = 0
+                self.max_active_calls = 0
+
+            async def get_full_task(self, task_id: int) -> TaskInfo:
+                self.active_calls += 1
+                self.max_active_calls = max(self.max_active_calls, self.active_calls)
+                await asyncio.sleep(0)
+                self.active_calls -= 1
+                if task_id == 2:
+                    raise RuntimeError("task fetch failed")
+                return TaskInfo(
+                    task_id=task_id,
+                    title=f"Task {task_id}",
+                    create_time=datetime.now(),
+                )
+
+        api = AsyncFakeAPI()
+        handler = FetchHandler(api_client=api, use_cache=False, max_concurrency=2)
+
+        results = await handler.fetch_tasks([1, 2, 3, 4])
+
+        assert [task.task_id for task in results] == [1, 3, 4]
+        assert api.max_active_calls == 2
 
 
 # --- AnalyzeHandler Tests ---
@@ -267,34 +310,41 @@ class TestPipelineOrchestrator:
         from src.analyzer.orchestrator import PipelineOrchestrator
 
         fetch = FetchHandler(api_client=MagicMock(), cache_manager=MagicMock())
-        fetch.fetch_task = AsyncMock(return_value=sample_task)
-
         analyze = AnalyzeHandler(llm_provider=None)
         report = ReportHandler()
-        report.check_rules = MagicMock(return_value=[])
-        report.generate_report = MagicMock(return_value="# Report")
 
-        orchestrator = PipelineOrchestrator(
-            fetch_handler=fetch,
-            analyze_handler=analyze,
-            report_handler=report,
-        )
+        with (
+            patch.object(
+                fetch, "fetch_task", new_callable=AsyncMock, return_value=sample_task
+            ) as mock_fetch,
+            patch.object(report, "check_rules", return_value=[]) as mock_check_rules,
+            patch.object(
+                report, "generate_report", return_value="# Report"
+            ) as mock_generate_report,
+        ):
+            orchestrator = PipelineOrchestrator(
+                fetch_handler=fetch,
+                analyze_handler=analyze,
+                report_handler=report,
+            )
 
-        from src.analyzer.pipeline import PipelineConfig
+            from src.analyzer.pipeline import PipelineConfig
 
-        config = PipelineConfig(
-            use_llm=False,
-            generate_labels=False,
-            analyze_root_cause=False,
-            check_rules=True,
-            generate_report=True,
-        )
+            config = PipelineConfig(
+                use_llm=False,
+                generate_labels=False,
+                analyze_root_cause=False,
+                check_rules=True,
+                generate_report=True,
+            )
 
-        result = await orchestrator.run_single(12345, config)
+            result = await orchestrator.run_single(12345, config)
 
-        assert result.task_id == 12345
-        assert result.error == ""
-        fetch.fetch_task.assert_called_once_with(12345)
+            assert result.task_id == 12345
+            assert result.error == ""
+            mock_fetch.assert_called_once_with(12345)
+            mock_check_rules.assert_called_once()
+            mock_generate_report.assert_called_once()
 
 
 # --- Backward Compatibility Tests ---

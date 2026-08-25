@@ -107,16 +107,18 @@ async def analyze_task(
 
         return response
 
-    except Exception as e:
-        logger.error(f"Error analyzing task {task_id}: {str(e)}")
+    except Exception as error:
+        logger.bind(task_id=task_id, exception_type=type(error).__name__).error(
+            "Task analysis failed"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": "AnalysisFailed",
-                "message": str(e),
+                "message": "Analysis failed due to an internal error",
                 "detail": {},
             },
-        ) from e
+        ) from error
 
 
 @router.post(
@@ -142,7 +144,7 @@ async def analyze_batch(
     Returns:
         BatchAnalyzeResponse: 分析结果
     """
-    task_ids = [str(task_id) for task_id in request.task_ids]
+    task_ids = request.task_ids
     logger.info(f"Starting batch analysis for tasks: {task_ids}")
     start_time = time.time()
 
@@ -160,7 +162,7 @@ async def analyze_batch(
 
         # 执行批量分析
         async with AnalysisPipeline(config_manager, pipeline_config) as pipeline:
-            results = await pipeline.run_batch([int(task_id) for task_id in task_ids])
+            results = await pipeline.run_batch(task_ids)
 
         analysis_time = time.time() - start_time
         logger.info(f"Batch analysis completed for {len(results)} tasks in {analysis_time:.2f}s")
@@ -171,7 +173,7 @@ async def analyze_batch(
         failed = 0
 
         for i, result in enumerate(results):
-            task_id = task_ids[i]
+            task_id = str(task_ids[i])
             response = convert_pipeline_result_to_response(task_id, result)
             responses.append(response)
             if response.status == "completed":
@@ -187,13 +189,15 @@ async def analyze_batch(
             analysis_time=analysis_time,
         )
 
-    except Exception as e:
-        logger.error(f"Error in batch analysis: {str(e)}")
+    except Exception as error:
+        logger.bind(task_ids=task_ids, exception_type=type(error).__name__).error(
+            "Batch analysis failed"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": "BatchAnalysisFailed",
-                "message": str(e),
+                "message": "Batch analysis failed due to an internal error",
                 "detail": {},
             },
-        ) from e
+        ) from error

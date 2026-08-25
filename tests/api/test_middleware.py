@@ -3,6 +3,7 @@
 import time
 
 from fastapi.testclient import TestClient
+from loguru import logger
 
 from src.api.middleware import RateLimiter, TokenValidator
 from src.api.server import create_app
@@ -18,15 +19,43 @@ class TestTokenValidator:
         assert validator.is_valid("token2") is True
         assert validator.is_valid("invalid") is False
 
-    def test_token_validator_with_no_tokens(self):
-        """测试 Token 验证器 - 无有效 Token（开发模式）"""
+    def test_token_validator_with_no_tokens_rejects_tokens_by_default(self):
+        """测试 Token 验证器 - 无有效 Token 时默认拒绝"""
         validator = TokenValidator()
+        assert validator.is_valid("any_token") is False
+
+    def test_token_validator_allows_tokens_with_explicit_unauthenticated_opt_in(self):
+        """测试 Token 验证器 - 显式开启无认证开发模式"""
+        validator = TokenValidator(allow_unauthenticated=True)
         assert validator.is_valid("any_token") is True
-        assert validator.is_valid("") is True
 
 
 class TestRateLimiter:
     """速率限制器测试"""
+
+    def test_rate_limiter_caps_identifiers_examined_per_cleanup_call(self, monkeypatch):
+        """测试速率限制 - 单次清理检查固定数量的标识符"""
+        examined_identifiers = 0
+
+        class TrackingTimestamps(list[float]):
+            def __iter__(self):
+                nonlocal examined_identifiers
+                examined_identifiers += 1
+                return super().__iter__()
+
+        now = 0.0
+        monkeypatch.setattr(time, "time", lambda: now)
+        limiter = RateLimiter(requests_per_minute=2)
+        for index in range(192):
+            identifier = f"stale-{index}"
+            limiter.is_allowed(identifier)
+            limiter.requests[identifier] = TrackingTimestamps(limiter.requests[identifier])
+
+        now = 61.0
+        limiter.is_allowed("trigger")
+
+        assert examined_identifiers <= 64
+        assert any(identifier.startswith("stale-") for identifier in limiter.requests)
 
     def test_rate_limiter_under_limit(self):
         """测试速率限制 - 未超限"""
@@ -72,6 +101,40 @@ class TestRateLimiter:
         assert allowed is True
         assert remaining == 0  # 新的窗口
 
+    def test_rate_limiter_evicts_high_cardinality_stale_identifiers(self, monkeypatch):
+        """测试速率限制 - 淘汰大量过期标识符"""
+        now = 0.0
+        monkeypatch.setattr(time, "time", lambda: now)
+        limiter = RateLimiter(requests_per_minute=2)
+        stale_identifiers = {f"stale-{index}" for index in range(1_000)}
+        for identifier in stale_identifiers:
+            limiter.is_allowed(identifier)
+
+        now = 61.0
+        for index in range(len(stale_identifiers)):
+            limiter.is_allowed(f"fresh-{index}")
+
+        assert stale_identifiers.isdisjoint(limiter.requests)
+
+    def test_rate_limiter_cleanup_preserves_active_identifier(self, monkeypatch):
+        """测试速率限制 - 清理时保留活跃标识符"""
+        now = 0.0
+        monkeypatch.setattr(time, "time", lambda: now)
+        limiter = RateLimiter(requests_per_minute=3)
+        limiter.is_allowed("stale")
+
+        now = 30.0
+        limiter.is_allowed("active")
+
+        now = 61.0
+        limiter.is_allowed("trigger")
+        allowed, remaining = limiter.is_allowed("active")
+
+        assert "stale" not in limiter.requests
+        assert "active" in limiter.requests
+        assert allowed is True
+        assert remaining == 1
+
 
 class TestMiddlewareSetup:
     """中间件配置测试"""
@@ -102,7 +165,7 @@ class TestMiddlewareSetup:
     def test_middleware_rate_limiting(self):
         """测试速率限制中间件"""
         # 设置严格的速率限制（1个请求/分钟）
-        app = create_app(rate_limit_requests=1)
+        app = create_app(rate_limit_requests=1, allow_unauthenticated=True)
 
         with TestClient(app) as client:
             # 第一个请求通过
@@ -112,6 +175,33 @@ class TestMiddlewareSetup:
             # 第二个请求被拒绝
             response = client.get("/clusters", headers={"X-API-Token": "test"})
             assert response.status_code == 429
+
+    def test_middleware_rejects_protected_endpoint_without_configured_tokens(self):
+        """测试未配置 Token 时受保护接口默认关闭"""
+        app = create_app()
+
+        with TestClient(app) as client:
+            response = client.get("/clusters")
+
+        assert response.status_code == 401
+
+    def test_middleware_rejects_unconfigured_token_by_default(self):
+        """测试未配置有效 Token 时拒绝任意 Token"""
+        app = create_app()
+
+        with TestClient(app) as client:
+            response = client.get("/clusters", headers={"X-API-Token": "unconfigured"})
+
+        assert response.status_code == 403
+
+    def test_middleware_allows_protected_endpoint_with_explicit_unauthenticated_opt_in(self):
+        """测试显式开启无认证开发模式后允许访问受保护接口"""
+        app = create_app(allow_unauthenticated=True)
+
+        with TestClient(app) as client:
+            response = client.get("/clusters")
+
+        assert response.status_code == 200
 
     def test_health_endpoint_no_auth(self):
         """测试健康检查接口无认证"""
@@ -150,10 +240,43 @@ class TestMiddlewareErrorHandling:
             response = client.get("/health")
             assert response.status_code == 200
 
-    def test_token_from_query_parameter(self):
-        """测试从查询参数获取 Token"""
+    def test_query_token_does_not_authenticate(self):
+        """测试查询参数中的 Token 不能用于认证"""
         app = create_app(valid_tokens={"query_token"})
 
         with TestClient(app) as client:
             response = client.get("/clusters?api_token=query_token")
-            assert response.status_code == 200
+
+        assert response.status_code == 401
+
+    def test_query_token_is_absent_from_application_logs(self):
+        """Test rejected query tokens do not appear in application logs."""
+        token = "query-token-sentinel"
+        messages: list[str] = []
+        sink_id = logger.add(messages.append, format="{message}")
+        app = create_app(valid_tokens={token})
+
+        try:
+            with TestClient(app) as client:
+                response = client.get(f"/clusters?api_token={token}")
+        finally:
+            logger.remove(sink_id)
+
+        assert response.status_code == 401
+        assert all(token not in message for message in messages)
+
+    def test_api_token_is_not_logged_when_rate_limited(self):
+        """测试速率限制日志不包含 API Token"""
+        token = "secret-api-token"
+        messages: list[str] = []
+        sink_id = logger.add(messages.append, format="{message}")
+        app = create_app(valid_tokens={token}, rate_limit_requests=0)
+
+        try:
+            with TestClient(app) as client:
+                response = client.get("/clusters", headers={"X-API-Token": token})
+        finally:
+            logger.remove(sink_id)
+
+        assert response.status_code == 429
+        assert all(token not in message for message in messages)

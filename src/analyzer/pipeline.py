@@ -22,7 +22,7 @@ from src.embedding.generator import EmbeddingGenerator
 from src.knowledge.manager import StandardsManager
 from src.preprocessor.models import ProcessedTask
 from src.preprocessor.processor import DataPreprocessor
-from src.report.generator import ReportGenerator
+from src.report.generator import ReportFormat, ReportGenerator
 from src.rules.engine import RulesEngine
 
 
@@ -51,7 +51,13 @@ class PipelineConfig:
     check_rules: bool = True
     match_standards: bool = True  # 故障结论与研发规范语义匹配
     generate_report: bool = True
+    report_format: ReportFormat = ReportFormat.MARKDOWN
     output_path: Path = field(default_factory=lambda: Path("./output"))
+    max_concurrency: int = 10
+
+    def __post_init__(self) -> None:
+        if self.max_concurrency < 1:
+            raise ValueError("max_concurrency must be positive")
 
 
 @dataclass
@@ -87,6 +93,7 @@ class AnalysisPipeline:
         self._api_client: APIClient | None = None
         self._cache_manager: CacheManager | None = None
         self._embedding_generator: EmbeddingGenerator | None = None
+        self._llm_providers: list[Any] = []
         self._cluster_analyzer: ClusterAnalyzer | None = None
         self._preprocessor = DataPreprocessor()
         self._label_generator: LabelGenerator | None = None
@@ -110,10 +117,46 @@ class AnalysisPipeline:
         await self.close()
 
     async def close(self) -> None:
-        """Close all async resources."""
-        if self._api_client:
-            await self._api_client.close()
-            self._api_client = None
+        """Close all owned resources."""
+        api_client, self._api_client = self._api_client, None
+        embedding_generator, self._embedding_generator = self._embedding_generator, None
+        llm_providers, self._llm_providers = self._llm_providers, []
+        cache_manager, self._cache_manager = self._cache_manager, None
+        first_error: BaseException | None = None
+
+        if api_client is not None:
+            try:
+                await api_client.close()
+            except BaseException as error:
+                first_error = error
+        if embedding_generator is not None:
+            try:
+                await embedding_generator.close()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+        for provider in llm_providers:
+            try:
+                await provider.close()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+        if cache_manager is not None:
+            try:
+                cache_manager.close()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+
+        if first_error is not None:
+            raise first_error
+
+    def _create_llm_provider(self, config: Any) -> Any:
+        """Create and track an LLM provider owned by this pipeline."""
+        provider = create_llm_provider(config)
+        if provider is not None:
+            self._llm_providers.append(provider)
+        return provider
 
     async def run_single(self, task_id: int) -> PipelineResult:
         """Run analysis pipeline for a single task."""
@@ -134,8 +177,12 @@ class AnalysisPipeline:
             await self._match_standards(task_data, result)
             self._check_and_generate_report(task_data, preprocessed, result)
 
-        except Exception as e:
-            result.error = str(e)
+        except Exception as error:
+            logger.bind(
+                task_id=task_id,
+                exception_type=type(error).__name__,
+            ).error("Analysis pipeline failed")
+            result.error = "Analysis failed due to an internal error"
 
         return result
 
@@ -232,11 +279,12 @@ class AnalysisPipeline:
     ) -> None:
         """Check rules and generate report if configured."""
         if self._pipeline_config.check_rules:
-            result.violations = self._check_rules(task_data.model_dump())
+            rule_violations = self._check_rules(task_data.model_dump())
+            result.violations = rule_violations + (result.violations or [])
 
         if self._pipeline_config.generate_report:
             result.report = self._generate_report(
-                task_data.model_dump(),
+                task_data.model_dump(mode="json"),
                 result.preprocessed or {},
                 result.labels,
                 result.root_causes,
@@ -303,7 +351,7 @@ class AnalysisPipeline:
             if self._pipeline_config.use_llm:
                 llm_config = self._config.get_config().llm
                 if llm_config.api_key:
-                    llm_provider = create_llm_provider(llm_config)
+                    llm_provider = self._create_llm_provider(llm_config)
 
             self._standards_matcher = StandardsMatcher(
                 standards_manager=standards_manager,
@@ -319,8 +367,14 @@ class AnalysisPipeline:
         """Run analysis pipeline for multiple tasks concurrently."""
         import asyncio
 
+        semaphore = asyncio.Semaphore(self._pipeline_config.max_concurrency)
+
+        async def run_with_limit(task_id: int) -> PipelineResult:
+            async with semaphore:
+                return await self.run_single(task_id)
+
         results = await asyncio.gather(
-            *[self.run_single(task_id) for task_id in task_ids],
+            *[run_with_limit(task_id) for task_id in task_ids],
             return_exceptions=False,
         )
         return list(results)
@@ -336,7 +390,13 @@ class AnalysisPipeline:
         """
         import asyncio
 
-        fetch_tasks = [self._fetch_task(task_id) for task_id in task_ids]
+        semaphore = asyncio.Semaphore(self._pipeline_config.max_concurrency)
+
+        async def fetch_with_limit(task_id: int) -> TaskInfo | None:
+            async with semaphore:
+                return await self._fetch_task(task_id)
+
+        fetch_tasks = [fetch_with_limit(task_id) for task_id in task_ids]
         fetched = await asyncio.gather(*fetch_tasks)
         tasks_data: list[TaskInfo] = [t for t in fetched if t is not None]
 
@@ -427,9 +487,11 @@ class AnalysisPipeline:
 
         使用 get_full_task 以同时获取代码变更（development）和生产信息（production）。
         """
+        import asyncio
+
         if self._pipeline_config.use_cache:
             cache = self._get_cache_manager()
-            cached = cache.load_task(task_id)
+            cached = await asyncio.to_thread(cache.load_task, task_id)
             if cached:
                 return TaskInfo(**cached)
 
@@ -438,7 +500,7 @@ class AnalysisPipeline:
 
         if self._pipeline_config.use_cache:
             cache = self._get_cache_manager()
-            cache.save_task(task_id, task.model_dump(mode="json"))
+            await asyncio.to_thread(cache.save_task, task_id, task.model_dump(mode="json"))
 
         return task
 
@@ -449,7 +511,7 @@ class AnalysisPipeline:
             if self._pipeline_config.use_llm:
                 llm_config = self._config.get_config().llm
                 if llm_config.api_key:
-                    llm_provider = create_llm_provider(llm_config)
+                    llm_provider = self._create_llm_provider(llm_config)
             self._code_change_analyzer = CodeChangeAnalyzer(llm_provider=llm_provider)
         return self._code_change_analyzer
 
@@ -509,7 +571,7 @@ class AnalysisPipeline:
         """Generate labels for task."""
         if self._label_generator is None:
             llm_config = self._config.get_config().llm
-            provider = create_llm_provider(llm_config) if llm_config.api_key else None
+            provider = self._create_llm_provider(llm_config) if llm_config.api_key else None
             self._label_generator = LabelGenerator(llm_provider=provider)
 
         if not self._label_generator.is_available:
@@ -538,7 +600,7 @@ class AnalysisPipeline:
         """Analyze root cause for task."""
         if self._root_cause_analyzer is None:
             llm_config = self._config.get_config().llm
-            provider = create_llm_provider(llm_config) if llm_config.api_key else None
+            provider = self._create_llm_provider(llm_config) if llm_config.api_key else None
             self._root_cause_analyzer = RootCauseAnalyzer(llm_provider=provider)
 
         if not self._root_cause_analyzer.is_available:
@@ -589,7 +651,7 @@ class AnalysisPipeline:
         """
         if self._deep_root_cause_analyzer is None:
             llm_config = self._config.get_config().llm
-            provider = create_llm_provider(llm_config) if llm_config.api_key else None
+            provider = self._create_llm_provider(llm_config) if llm_config.api_key else None
             if provider is not None:
                 adapter = _LLMClientAdapter(provider)
                 self._deep_root_cause_analyzer = DeepRootCauseAnalyzer(adapter)
@@ -716,7 +778,7 @@ class AnalysisPipeline:
         if not llm_config.api_key:
             return ""
 
-        provider = create_llm_provider(llm_config)
+        provider = self._create_llm_provider(llm_config)
         if provider is None:
             return ""
 
@@ -799,6 +861,7 @@ class AnalysisPipeline:
             labels=labels or [],
             root_causes=root_causes or [],
             suggestions=suggestions,
+            format=self._pipeline_config.report_format,
             violations=violations,
             code_change_analysis=code_change_analysis,
             standard_matches=standard_matches,

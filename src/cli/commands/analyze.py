@@ -1,13 +1,14 @@
 """analyze命令 - 分析故障数据"""
 
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from src.analyzer import AnalysisPipeline, PipelineConfig
+from src.analyzer import AnalysisPipeline, PipelineConfig, PipelineResult
 from src.cache import CacheManager
 from src.config import ConfigManager
 
@@ -50,7 +51,13 @@ def analyze_single(
         progress.add_task("正在分析...", total=None)
         import asyncio
 
-        result = asyncio.run(pipeline.run_single(task_id))
+        async def run_analysis() -> PipelineResult:
+            try:
+                return await pipeline.run_single(task_id)
+            finally:
+                await pipeline.close()
+
+        result = asyncio.run(run_analysis())
 
     if result.error:
         console.print(f"[red]分析失败: {result.error}[/red]")
@@ -107,9 +114,8 @@ def analyze_batch(
         raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
-    cache_manager = CacheManager(db_path=cache_path)
-
-    all_tasks = cache_manager.get_all_tasks()
+    with CacheManager(db_path=cache_path) as cache_manager:
+        all_tasks = cache_manager.get_all_tasks()
 
     if not all_tasks:
         console.print("[yellow]缓存中没有任务数据[/yellow]")
@@ -138,7 +144,13 @@ def analyze_batch(
         if cluster:
             import asyncio
 
-            result = asyncio.run(pipeline.run_clustering(task_ids))
+            async def run_clustering() -> dict[str, Any]:
+                try:
+                    return await pipeline.run_clustering(task_ids)
+                finally:
+                    await pipeline.close()
+
+            result = asyncio.run(run_clustering())
 
             if "error" in result:
                 console.print(f"[red]聚类分析失败: {result['error']}[/red]")
@@ -149,7 +161,13 @@ def analyze_batch(
         else:
             import asyncio
 
-            results = asyncio.run(pipeline.run_batch(task_ids))
+            async def run_batch() -> list[PipelineResult]:
+                try:
+                    return await pipeline.run_batch(task_ids)
+                finally:
+                    await pipeline.close()
+
+            results = asyncio.run(run_batch())
 
             console.print(f"[green]批量分析完成! 共处理 {len(results)} 个任务[/green]")
 
@@ -180,9 +198,8 @@ def analyze_clusters(
         raise typer.Exit(1) from None
 
     cache_path = Path(config.cache.db_path)
-    cache_manager = CacheManager(db_path=cache_path)
-
-    all_tasks = cache_manager.get_all_tasks()
+    with CacheManager(db_path=cache_path) as cache_manager:
+        all_tasks = cache_manager.get_all_tasks()
 
     if not all_tasks:
         console.print("[yellow]缓存中没有任务数据[/yellow]")
@@ -197,8 +214,15 @@ def analyze_clusters(
     pipeline_config = PipelineConfig(use_cache=True, use_llm=False)
     pipeline = AnalysisPipeline(config_manager, pipeline_config)
 
-    result = asyncio.run(pipeline.run_clustering(task_ids))
+    async def run_clustering() -> dict[str, Any]:
+        try:
+            return await pipeline.run_clustering(task_ids)
+        finally:
+            await pipeline.close()
 
+    result = asyncio.run(run_clustering())
+
+    tasks_by_cluster: dict[int, list[int]] = {}
     if "error" in result:
         console.print(f"[red]聚类分析失败: {result['error']}[/red]")
     else:
@@ -207,7 +231,6 @@ def analyze_clusters(
         console.print(f"  聚类数量: {result.get('cluster_count', 0)}")
         console.print(f"  噪声点: {result.get('noise_count', 0)}")
 
-        tasks_by_cluster: dict[int, list[int]] = {}
         for task in result.get("tasks", []):
             cluster_id = task.get("cluster_id", -1)
             if cluster_id not in tasks_by_cluster:

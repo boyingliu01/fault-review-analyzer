@@ -15,7 +15,10 @@ def temp_chroma_dir(tmp_path):
 
 @pytest.fixture
 def chroma_manager(temp_chroma_dir):
-    return ChromaManager(persist_directory=temp_chroma_dir)
+    return ChromaManager(
+        persist_directory=temp_chroma_dir,
+        fallback_dir=temp_chroma_dir.parent / "fallback_test",
+    )
 
 
 @pytest.fixture

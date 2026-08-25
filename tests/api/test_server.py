@@ -1,17 +1,32 @@
 """API 服务器测试"""
 
+import importlib.util
+from pathlib import Path
+from types import ModuleType
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from src.api import server
 from src.api.server import create_app
+
+
+def load_start_api_server() -> ModuleType:
+    """Load the standalone API launcher module."""
+    script_path = Path(__file__).parents[2] / "scripts" / "start_api_server.py"
+    spec = importlib.util.spec_from_file_location("test_start_api_server", script_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 @pytest.fixture
 def client_without_auth_require():
     """创建无认证的测试客户端"""
-    app = create_app(valid_tokens=None)
+    app = create_app(valid_tokens=None, allow_unauthenticated=True)
     return TestClient(app)
 
 
@@ -40,7 +55,7 @@ class TestHealthCheck:
         assert response.status_code == 200
         data = response.json()
         assert "Welcome" in data["message"]
-        assert "docs" in data
+        assert "docs" not in data
         assert "health" in data
 
 
@@ -87,27 +102,85 @@ class TestAuthMiddleware:
             assert response.status_code != 401
             assert response.status_code != 403
 
-    def test_valid_token_query_param(self, client_with_auth):
-        """测试通过 Query 参数传递有效 Token"""
-        with patch("src.api.routes.analyze.AnalysisPipeline") as mock_pipeline:
-            mock_instance = AsyncMock()
-            mock_instance.__aenter__.return_value = mock_instance
-            mock_instance.run_single.return_value = AsyncMock(
-                task_id=12345,
-                error="",
-                labels=[],
-                root_causes=[],
-                deep_root_causes={},
-                violations=[],
-                report="test report",
-            )
-            mock_pipeline.return_value = mock_instance
+    def test_valid_token_query_param_is_rejected(self, client_with_auth):
+        """测试 Query 参数中的有效 Token 不能用于认证"""
+        response = client_with_auth.post(
+            "/analyze?api_token=test-token-123", json={"task_id": "12345"}
+        )
 
-            response = client_with_auth.post(
-                "/analyze?api_token=test-token-123", json={"task_id": "12345"}
-            )
-            assert response.status_code != 401
-            assert response.status_code != 403
+        assert response.status_code == 401
+
+
+class TestServerEnvironment:
+    """服务器环境变量配置测试"""
+
+    def test_main_requires_authentication_when_opt_in_is_absent(self, monkeypatch):
+        """测试未设置环境变量时默认要求认证"""
+        monkeypatch.delenv("API_ALLOW_UNAUTHENTICATED", raising=False)
+
+        with (
+            patch("src.api.server.create_app") as mock_create_app,
+            patch("uvicorn.run"),
+        ):
+            server.main()
+
+        assert mock_create_app.call_args.kwargs["allow_unauthenticated"] is False
+
+    def test_main_disables_uvicorn_access_logging(self, monkeypatch):
+        """Test the module launcher disables query-bearing access logs."""
+        monkeypatch.setenv("API_ALLOW_UNAUTHENTICATED", "false")
+
+        with (
+            patch("src.api.server.create_app"),
+            patch("uvicorn.run") as mock_run,
+        ):
+            server.main()
+
+        assert mock_run.call_args.kwargs["access_log"] is False
+
+    def test_standalone_launcher_disables_uvicorn_access_logging(self, monkeypatch):
+        """Test the standalone launcher disables query-bearing access logs."""
+        start_api_server = load_start_api_server()
+        monkeypatch.setenv("API_ALLOW_UNAUTHENTICATED", "false")
+
+        with (
+            patch.object(start_api_server, "create_app"),
+            patch("uvicorn.run") as mock_run,
+        ):
+            start_api_server.main()
+
+        assert mock_run.call_args.kwargs["access_log"] is False
+
+    def test_main_enables_unauthenticated_mode_only_for_true(self, monkeypatch):
+        """测试环境变量 true 显式开启无认证模式"""
+        monkeypatch.setenv("API_ALLOW_UNAUTHENTICATED", "true")
+
+        with (
+            patch("src.api.server.create_app") as mock_create_app,
+            patch("uvicorn.run"),
+        ):
+            server.main()
+
+        assert mock_create_app.call_args.kwargs["allow_unauthenticated"] is True
+
+    def test_main_keeps_authentication_required_for_false(self, monkeypatch):
+        """测试环境变量 false 保持认证要求"""
+        monkeypatch.setenv("API_ALLOW_UNAUTHENTICATED", "false")
+
+        with (
+            patch("src.api.server.create_app") as mock_create_app,
+            patch("uvicorn.run"),
+        ):
+            server.main()
+
+        assert mock_create_app.call_args.kwargs["allow_unauthenticated"] is False
+
+    def test_main_rejects_invalid_unauthenticated_environment_value(self, monkeypatch):
+        """测试拒绝非 true/false 的无认证环境变量"""
+        monkeypatch.setenv("API_ALLOW_UNAUTHENTICATED", "yes")
+
+        with pytest.raises(ValueError, match="API_ALLOW_UNAUTHENTICATED"):
+            server.main()
 
 
 class TestAnalyzeEndpoints:

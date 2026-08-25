@@ -570,6 +570,7 @@ class TestLLMAnalyzeAsyncSafety:
 
         assert len(result) == 500
 
+    @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
     def test_async_provider_in_running_loop(self) -> None:
         """在已运行的事件循环中调用异步 provider 不崩溃。"""
         mock_provider = MagicMock()

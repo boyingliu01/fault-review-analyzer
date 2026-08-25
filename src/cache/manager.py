@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -11,13 +12,24 @@ class CacheManager:
     def __init__(self, db_path: Path | str, ttl: int = 86400):
         self.db_path = Path(db_path)
         self.ttl = ttl
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.RLock()
+        self._closed = False
+        with self._lock:
+            self._connection = sqlite3.connect(
+                self.db_path,
+                check_same_thread=False,
+                timeout=5.0,
+            )
+            self._connection.row_factory = sqlite3.Row
         self._init_db()
+        self.cleanup_expired()
 
     def _init_db(self) -> None:
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
+        with self._lock:
+            self._connection.execute("PRAGMA busy_timeout = 5000")
+            self._connection.execute("PRAGMA journal_mode=WAL")
+            self._connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS cache (
                     task_id INTEGER PRIMARY KEY,
@@ -27,17 +39,28 @@ class CacheManager:
                 )
             """
             )
-            conn.execute(
+            self._connection.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_expires_at ON cache(expires_at)
             """
             )
-            conn.commit()
+            self._connection.commit()
+
+    def close(self) -> None:
+        with self._lock:
+            if not self._closed:
+                self._connection.close()
+                self._closed = True
+
+    def __enter__(self) -> "CacheManager":
+        return self
+
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+        self.close()
 
     def get_task(self, task_id: int) -> dict[str, Any] | None:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
+        with self._lock, self._connection:
+            cursor = self._connection.execute(
                 "SELECT * FROM cache WHERE task_id = ?",
                 (task_id,),
             )
@@ -48,6 +71,10 @@ class CacheManager:
 
             expires_at = datetime.fromisoformat(row["expires_at"])
             if datetime.now() > expires_at:
+                self._connection.execute(
+                    "DELETE FROM cache WHERE task_id = ? AND expires_at = ?",
+                    (task_id, row["expires_at"]),
+                )
                 return None
 
             data = json.loads(row["data"])
@@ -60,8 +87,9 @@ class CacheManager:
         now = datetime.now()
         expires_at = now + timedelta(seconds=self.ttl)
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
+        # 连接上下文管理器保证成功时 commit、异常时 rollback，避免事务残留在共享连接上
+        with self._lock, self._connection:
+            self._connection.execute(
                 """
                 INSERT OR REPLACE INTO cache (task_id, data, created_at, expires_at)
                 VALUES (?, ?, ?, ?)
@@ -73,23 +101,20 @@ class CacheManager:
                     expires_at.isoformat(),
                 ),
             )
-            conn.commit()
 
     def invalidate(self, task_id: int | None = None) -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._lock, self._connection:
             if task_id is not None:
-                conn.execute("DELETE FROM cache WHERE task_id = ?", (task_id,))
+                self._connection.execute("DELETE FROM cache WHERE task_id = ?", (task_id,))
             else:
-                conn.execute("DELETE FROM cache")
-            conn.commit()
+                self._connection.execute("DELETE FROM cache")
 
     def invalidate_all(self) -> None:
         self.invalidate(None)
 
     def get_status(self, task_id: int) -> CacheStatus:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
+        with self._lock:
+            cursor = self._connection.execute(
                 "SELECT expires_at FROM cache WHERE task_id = ?",
                 (task_id,),
             )
@@ -105,9 +130,8 @@ class CacheManager:
             return CacheStatus.VALID
 
     def get_index(self) -> list[dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute("SELECT task_id, created_at, expires_at FROM cache")
+        with self._lock:
+            cursor = self._connection.execute("SELECT task_id, created_at, expires_at FROM cache")
             rows = cursor.fetchall()
 
             return [
@@ -120,27 +144,28 @@ class CacheManager:
             ]
 
     def get_stats(self) -> dict[str, Any]:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute("SELECT COUNT(*) FROM cache")
+        with self._lock:
+            cursor = self._connection.execute("SELECT COUNT(*) FROM cache")
             total = cursor.fetchone()[0]
 
             now = datetime.now().isoformat()
-            cursor = conn.execute(
+            cursor = self._connection.execute(
                 "SELECT COUNT(*) FROM cache WHERE expires_at > ?",
                 (now,),
             )
             valid = cursor.fetchone()[0]
 
-            return {
+            stats = {
                 "total_entries": total,
                 "valid_entries": valid,
                 "expired_entries": total - valid,
             }
+        self.cleanup_expired()
+        return stats
 
     def get_all_tasks(self) -> list[dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute("SELECT * FROM cache")
+        with self._lock:
+            cursor = self._connection.execute("SELECT * FROM cache")
             rows = cursor.fetchall()
 
             result = []
@@ -151,14 +176,14 @@ class CacheManager:
                     data = json.loads(row["data"])
                     result.append(data)
 
-            return result
+        self.cleanup_expired()
+        return result
 
     def cleanup_expired(self) -> int:
-        with sqlite3.connect(self.db_path) as conn:
-            now = datetime.now().isoformat()
-            cursor = conn.execute(
+        now = datetime.now().isoformat()
+        with self._lock, self._connection:
+            cursor = self._connection.execute(
                 "DELETE FROM cache WHERE expires_at < ?",
                 (now,),
             )
-            conn.commit()
             return cursor.rowcount
