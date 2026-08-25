@@ -61,7 +61,7 @@ def _make_feedback(**overrides):
         "reviewed_at": None,
     }
     defaults.update(overrides)
-    return Feedback(**defaults)
+    return Feedback(**defaults)  # type: ignore[arg-type]
 
 
 def _make_response(**overrides):
@@ -137,6 +137,25 @@ class TestCreateFeedback:
 
         response = client.post("/feedback", json=payload, headers=_headers())
         assert response.status_code == 500
+
+    def test_unexpected_exception_returns_generic_500(self, client, mock_feedback_manager):
+        """Unexpected exception returns 500 with redacted message, not raw str(e)."""
+        mock_feedback_manager.add_feedback.side_effect = RuntimeError("SECRET_DB_CONN_STRING")
+
+        payload = {
+            "task_id": "12345",
+            "feedback_type": "general",
+            "original_result": {"label": "bug"},
+            "rating": 4,
+            "comment": "Looks good",
+            "created_by": "tester",
+        }
+
+        response = client.post("/feedback", json=payload, headers=_headers())
+        assert response.status_code == 500
+        data = response.json()
+        assert "SECRET_DB_CONN_STRING" not in str(data)
+        assert data["detail"] == "An internal error occurred"
 
 
 # ---------------------------------------------------------------------------
