@@ -155,7 +155,7 @@ class TestGetReport:
             assert response.json()["detail"]["error"] == "InvalidTaskId"
 
     def test_server_error_returns_500(self, client):
-        """Generic exception during pipeline execution returns 500."""
+        """Generic exception during pipeline execution returns 500 with redacted message."""
         with patch("src.api.routes.reports.AnalysisPipeline") as mock_pipeline:
             mock_instance = AsyncMock()
             mock_instance.__aenter__.return_value = mock_instance
@@ -166,7 +166,8 @@ class TestGetReport:
             assert response.status_code == 500
             data = response.json()
             assert data["detail"]["error"] == "ReportFetchFailed"
-            assert "DB connection failed" in data["detail"]["message"]
+            assert "DB connection failed" not in data["detail"]["message"]
+            assert data["detail"]["message"] == "An internal error occurred"
 
     def test_pipeline_non_not_found_error_returns_500(self, client):
         """Pipeline error NOT containing 'not found' returns 500, not 404."""
