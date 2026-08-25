@@ -83,11 +83,15 @@ async def get_report(
                         "detail": {},
                     },
                 )
+            logger.error(
+                f"Report generation failed for task {task_id}: "
+                f"error_type=ReportGenerationFailed"
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail={
                     "error": "ReportGenerationFailed",
-                    "message": result.error,
+                    "message": "An internal error occurred",
                     "detail": {},
                 },
             )
@@ -114,12 +118,12 @@ async def get_report(
             },
         ) from e
     except Exception as e:
-        logger.error(f"Error fetching report for task {task_id}: {str(e)}")
+        logger.error(f"Error fetching report for task {task_id}: exception_type={type(e).__name__}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": "ReportFetchFailed",
-                "message": str(e),
+                "message": "An internal error occurred",
                 "detail": {},
             },
         ) from e
