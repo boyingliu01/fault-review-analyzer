@@ -34,6 +34,10 @@ API_CORS_HEADERS=Content-Type,X-API-Token  # 允许的请求头，逗号分隔
 
 # 速率限制配置
 API_RATE_LIMIT=60          # 每分钟请求限制
+
+# 文档与日志
+API_DOCS_ENABLED=false     # 默认禁用 /docs /redoc /openapi.json
+API_ACCESS_LOG=false       # 默认禁用 Uvicorn access_log
 ```
 
 ### 3. 启动服务器
@@ -52,11 +56,13 @@ python scripts/start_api_server.py
 
 ### 4. 访问 API 文档
 
-服务器启动后，可以通过以下地址访问 API 文档：
+API 文档端点默认关闭。需要查看文档时，设置 `API_DOCS_ENABLED=true` 后可通过以下地址访问：
 
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 - **OpenAPI JSON**: http://localhost:8000/openapi.json
+
+> **安全提示**：生产环境不应启用文档端点。`API_DOCS_ENABLED` 默认为 `false`。
 
 ## API 接口说明
 
@@ -100,6 +106,8 @@ X-API-Token: <your-token>
 ```
 
 ### 批量分析
+
+每次请求最多接受 **50 个去重后的 task ID**。超出限制将返回 `422 Unprocessable Entity`。重复的 task ID 会自动去重。
 
 ```http
 POST /analyze/batch
@@ -199,7 +207,7 @@ X-RateLimit-Remaining: 55
 import requests
 
 BASE_URL = "http://localhost:8000"
-API_TOKEN = "your-token"
+API_TOKEN = "<your-token>"
 
 # 设置公共 Headers
 headers = {
@@ -249,16 +257,16 @@ curl http://localhost:8000/health
 # 分析任务
 curl -X POST http://localhost:8000/analyze \
   -H "Content-Type: application/json" \
-  -H "X-API-Token: your-token" \
+  -H "X-API-Token: <your-token>" \
   -d '{"task_id": "11745664", "options": {"use_cache": true}}'
 
 # 获取聚类列表
 curl http://localhost:8000/clusters \
-  -H "X-API-Token: your-token"
+  -H "X-API-Token: <your-token>"
 
 # 获取报告
 curl "http://localhost:8000/reports/11745664?format=html" \
-  -H "X-API-Token: your-token"
+  -H "X-API-Token: <your-token>"
 ```
 
 ## 开发说明

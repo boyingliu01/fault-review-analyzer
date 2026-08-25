@@ -126,6 +126,8 @@
 | `API_CORS_ORIGINS` | 允许跨域访问的来源列表，逗号分隔 | - | 否 |
 | `API_CORS_METHODS` | 允许跨域访问的 HTTP 方法列表，逗号分隔 | GET, POST, OPTIONS | 否 |
 | `API_CORS_HEADERS` | 允许跨域访问的请求头列表，逗号分隔 | Content-Type, X-API-Token | 否 |
+| `API_DOCS_ENABLED` | 启用 /docs /redoc 文档端点 | false | 否 |
+| `API_ACCESS_LOG` | 启用 Uvicorn access_log | false | 否 |
 
 ### 配置文件
 
@@ -273,6 +275,10 @@ services:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - EMBEDDING_API_KEY=${EMBEDDING_API_KEY}
       - API_VALID_TOKENS=${API_VALID_TOKENS}
+      - API_ALLOW_UNAUTHENTICATED=false
+      - API_DOCS_ENABLED=false
+      - API_CORS_ORIGINS=${API_CORS_ORIGINS}
+      - API_RATE_LIMIT=60
     volumes:
       - ./data:/app/data
       - ./output:/app/output
@@ -293,13 +299,16 @@ docker run -d \
   --name fault-review-analyzer \
   -p 8000:8000 \
   -e API_BASE_URL=https://dev.iwhalecloud.com \
-  -e DEVCLOUD_TOKEN=your-token \
+  -e DEVCLOUD_TOKEN=<your-devcloud-token> \
   -e LLM_PROVIDER=openai \
   -e LLM_MODEL=gpt-4 \
-  -e LLM_API_KEY=your-api-key \
+  -e LLM_API_KEY=<your-llm-api-key> \
   -e EMBEDDING_PROVIDER=openai \
   -e EMBEDDING_MODEL=text-embedding-3-small \
-  -e EMBEDDING_API_KEY=your-api-key \
+  -e EMBEDDING_API_KEY=<your-embedding-api-key> \
+  -e API_VALID_TOKENS=<token-a>,<token-b> \
+  -e API_CORS_ORIGINS=https://app.example.com \
+  -e API_DOCS_ENABLED=false \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/output:/app/output \
   -v $(pwd)/logs:/app/logs \
@@ -350,6 +359,10 @@ data:
   EMBEDDING_PROVIDER: "openai"
   EMBEDDING_MODEL: "text-embedding-3-small"
   LOG_LEVEL: "INFO"
+  API_DOCS_ENABLED: "false"
+  API_ALLOW_UNAUTHENTICATED: "false"
+  API_CORS_ORIGINS: "https://app.example.com"
+  API_RATE_LIMIT: "60"
 ```
 
 创建 `k8s/secret.yaml`：
@@ -362,9 +375,9 @@ metadata:
   namespace: fault-review
 type: Opaque
 stringData:
-  DEVCLOUD_TOKEN: "your-devcloud-token"
-  LLM_API_KEY: "your-llm-api-key"
-  EMBEDDING_API_KEY: "your-embedding-api-key"
+  DEVCLOUD_TOKEN: "<your-devcloud-token>"
+  LLM_API_KEY: "<your-llm-api-key>"
+  EMBEDDING_API_KEY: "<your-embedding-api-key>"
   API_VALID_TOKENS: "<token-a>,<token-b>"
 ```
 
@@ -441,6 +454,26 @@ spec:
             secretKeyRef:
               name: fault-review-secret
               key: API_VALID_TOKENS
+        - name: API_DOCS_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: fault-review-config
+              key: API_DOCS_ENABLED
+        - name: API_ALLOW_UNAUTHENTICATED
+          valueFrom:
+            configMapKeyRef:
+              name: fault-review-config
+              key: API_ALLOW_UNAUTHENTICATED
+        - name: API_CORS_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: fault-review-config
+              key: API_CORS_ORIGINS
+        - name: API_RATE_LIMIT
+          valueFrom:
+            configMapKeyRef:
+              name: fault-review-config
+              key: API_RATE_LIMIT
         resources:
           requests:
             memory: "512Mi"

@@ -58,6 +58,25 @@ cp .env.example .env
 - `LLM_API_KEY`: LLM API密钥
 - `EMBEDDING_PROVIDER`: Embedding服务提供商
 
+### API 服务器配置
+
+启动 REST API 服务时需要额外配置（详见 [API 服务器文档](docs/API_SERVER_README.md)）：
+
+| 变量名 | 描述 | 默认值 |
+|-------|------|-------|
+| `API_VALID_TOKENS` | 合法 Token 列表（逗号分隔） | *(空)* |
+| `API_ALLOW_UNAUTHENTICATED` | 允许免认证访问（仅本地开发） | `false` |
+| `API_DOCS_ENABLED` | 启用 /docs /redoc 文档端点 | `false` |
+| `API_CORS_ORIGINS` | 允许的跨域来源（逗号分隔） | *(空)* |
+| `API_RATE_LIMIT` | 每分钟请求限制 | `60` |
+
+安全默认值：
+- **Fail-closed 认证**：未配置 Token 时默认拒绝所有请求，需显式设 `API_ALLOW_UNAUTHENTICATED=true` 才能免认证
+- **CORS 默认拒绝**：不配置 `API_CORS_ORIGINS` 则不允许任何跨域来源
+- **文档端点默认关闭**：`API_DOCS_ENABLED` 默认为 `false`，需手动开启
+- **批量上限**：`/analyze/batch` 每次最多 50 个去重后的 task ID
+- **access_log 默认关闭**：Uvicorn access_log 已禁用，避免泄露查询参数
+
 ## 开发
 
 ```bash
