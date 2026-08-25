@@ -86,6 +86,10 @@ asyncio_mode = "auto"
 addopts = "-v --tb=short --ignore=tests/e2e/ui"
 filterwarnings = [
     "ignore::DeprecationWarning",
+    "ignore::starlette.exceptions.StarletteDeprecationWarning",
+    "ignore:n_jobs value 1 overridden:UserWarning",
+    "ignore:n_neighbors is larger than the dataset:UserWarning",
+    "ignore:Spectral initialisation failed:UserWarning",
 ]
 markers = [
     "e2e: end-to-end tests",

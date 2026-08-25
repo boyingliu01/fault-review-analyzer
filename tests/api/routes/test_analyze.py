@@ -259,9 +259,7 @@ class TestAnalyzeBatch:
         response = client.post("/analyze/batch", json={}, headers=_headers())
         assert response.status_code == 422
 
-    def test_more_than_fifty_unique_task_ids_rejected_before_pipeline(
-        self, client, mock_pipeline
-    ):
+    def test_more_than_fifty_unique_task_ids_rejected_before_pipeline(self, client, mock_pipeline):
         """More than 50 unique task IDs are rejected before pipeline construction."""
         mock_cls, _ = mock_pipeline
 
