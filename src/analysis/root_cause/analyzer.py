@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict
+from typing import Any
 
 from loguru import logger
 
@@ -23,11 +24,11 @@ def _camel_to_snake(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
-def _convert_keys(data: dict) -> dict:
+def _convert_keys(data: Any) -> Any:
     """Recursively convert camelCase keys to snake_case."""
     if not isinstance(data, dict):
         return data
-    result = {}
+    result: dict[str, Any] = {}
     for key, value in data.items():
         snake_key = _camel_to_snake(key)
         if isinstance(value, dict):
@@ -44,7 +45,7 @@ def _convert_keys(data: dict) -> dict:
 class RootCauseAnalyzer:
     """根因分析器"""
 
-    def __init__(self, llm_client) -> None:
+    def __init__(self, llm_client: Any) -> None:
         """
         初始化根因分析器
 
