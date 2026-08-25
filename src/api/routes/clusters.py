@@ -79,16 +79,16 @@ async def get_clusters(
             clusters=[],
         )
 
-    except Exception as e:
-        logger.error(f"Error fetching clusters: {str(e)}")
+    except Exception as error:
+        logger.bind(exception_type=type(error).__name__).error("Cluster list fetch failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": "ClustersFetchFailed",
-                "message": str(e),
+                "message": "Failed to fetch clusters due to an internal error",
                 "detail": {},
             },
-        ) from e
+        ) from error
 
 
 @router.get(
@@ -154,16 +154,18 @@ async def get_cluster_detail(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Error fetching cluster {cluster_id}: {str(e)}")
+    except Exception as error:
+        logger.bind(cluster_id=cluster_id, exception_type=type(error).__name__).error(
+            "Cluster detail fetch failed"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": "ClusterDetailFetchFailed",
-                "message": str(e),
+                "message": "Failed to fetch cluster detail due to an internal error",
                 "detail": {},
             },
-        ) from e
+        ) from error
 
 
 def update_cluster_cache(cluster_results: dict[str, Any]) -> None:

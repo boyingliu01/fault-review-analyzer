@@ -2,6 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from loguru import logger
 
 from src.api.server import create_app
 
@@ -104,6 +105,30 @@ class TestGetClusters:
         assert cluster["keywords"] == ["dns", "tcp", "retry"]
         assert cluster["metadata"] == {"pattern": "intermittent"}
 
+    def test_unexpected_error_is_redacted_from_response_and_logs(self, client):
+        """Malformed cached data exposes only stable response and log metadata."""
+        import src.api.routes.clusters as cluster_routes
+
+        sentinel_secret = "SENTINEL-SECRET-clusters-list"
+        cluster_routes._cluster_cache = {0: {"size": sentinel_secret}}
+        log_messages: list[str] = []
+        sink_id = logger.add(log_messages.append, format="{message} {extra}")
+
+        try:
+            response = client.get("/clusters", headers=_headers())
+        finally:
+            logger.remove(sink_id)
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == {
+            "error": "ClustersFetchFailed",
+            "message": "Failed to fetch clusters due to an internal error",
+            "detail": {},
+        }
+        assert sentinel_secret not in response.text
+        assert any("ValidationError" in message for message in log_messages)
+        assert all(sentinel_secret not in message for message in log_messages)
+
 
 # ---------------------------------------------------------------------------
 # GET /clusters/{cluster_id}
@@ -170,6 +195,30 @@ class TestGetClusterDetail:
 
         response = client.get("/clusters/99", headers=_headers())
         assert response.status_code == 404
+
+    def test_unexpected_error_is_redacted_from_response_and_logs(self, client):
+        """Malformed detail data exposes only stable response and log metadata."""
+        import src.api.routes.clusters as cluster_routes
+
+        sentinel_secret = "SENTINEL-SECRET-cluster-detail"
+        cluster_routes._cluster_cache = {42: {"tasks": [sentinel_secret]}}
+        log_messages: list[str] = []
+        sink_id = logger.add(log_messages.append, format="{message} {extra}")
+
+        try:
+            response = client.get("/clusters/42", headers=_headers())
+        finally:
+            logger.remove(sink_id)
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == {
+            "error": "ClusterDetailFetchFailed",
+            "message": "Failed to fetch cluster detail due to an internal error",
+            "detail": {},
+        }
+        assert sentinel_secret not in response.text
+        assert any("AttributeError" in message and "42" in message for message in log_messages)
+        assert all(sentinel_secret not in message for message in log_messages)
 
 
 # ---------------------------------------------------------------------------
