@@ -82,3 +82,17 @@ def test_missing_merged_does_not_bypass_branch_mismatch(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     assert "completed sprint" not in result.stdout
+
+
+def test_matching_branch_with_unmerged_sprint_passes(tmp_path: Path) -> None:
+    result = _run_gate(tmp_path, False, branch="chore/handoff")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS" in result.stdout
+
+
+def test_legacy_state_without_merged_passes_on_matching_branch(tmp_path: Path) -> None:
+    result = _run_gate(tmp_path, None, branch="chore/handoff", include_merged=False)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS" in result.stdout

@@ -74,14 +74,24 @@ d = json.load(open(sys.argv[1]))
 print(d.get('phase', 0))
 " "$SPRINT_STATE_FILE")
 
-SPRINT_MERGED=$("$PYTHON" -c "
+# Legacy state files (pre-merged-field) default to false and fall through to
+# the normal checks; a present but non-boolean value is rejected (fail-closed).
+if ! SPRINT_MERGED=$("$PYTHON" -c "
 import json, sys
 d = json.load(open(sys.argv[1]))
-merged = d.get('isolation', {}).get('merged')
+isolation = d.get('isolation', {})
+if 'merged' not in isolation:
+    print('false')
+    raise SystemExit(0)
+merged = isolation['merged']
 if not isinstance(merged, bool):
-    raise SystemExit('isolation.merged must be a JSON boolean')
+    raise SystemExit(1)
 print('true' if merged else 'false')
-" "$SPRINT_STATE_FILE")
+" "$SPRINT_STATE_FILE"); then
+  echo "❌ Gate MS: isolation.merged in sprint-state.json must be a JSON boolean (true/false)."
+  echo "   Fix .sprint-state/sprint-state.json before pushing."
+  exit 1
+fi
 
 PHASE_HISTORY_COUNT=$("$PYTHON" -c "
 import json, sys
