@@ -7,13 +7,31 @@ Issue: #13 — Pipeline 拆分重构
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
+from loguru import logger
+
+from src.analysis.root_cause import ExistingFaultAnalysis, FaultAnalysisInput
+from src.analysis.root_cause import RootCauseAnalyzer as DeepRootCauseAnalyzer
 from src.analyzer.labeling import LabelGenerator
 from src.analyzer.reasoning import RootCauseAnalyzer
 
 if TYPE_CHECKING:
     from src.preprocessor.models import ProcessedTask
+
+
+class _LLMClientAdapter:
+    """Adapter that converts generate(system, user) to generate(prompt)."""
+
+    def __init__(self, provider: Any) -> None:
+        self._provider = provider
+
+    async def generate(self, prompt: str) -> str:
+        """Generate using the provider with combined system and user prompt."""
+        return str(
+            await self._provider.generate(system="You are a helpful assistant.", user=prompt)
+        )
 
 
 class AnalyzeHandler:
@@ -28,10 +46,13 @@ class AnalyzeHandler:
         llm_provider: Any | None = None,
         label_generator: LabelGenerator | None = None,
         root_cause_analyzer: RootCauseAnalyzer | None = None,
+        api_client: Any | None = None,
     ) -> None:
         self._llm_provider = llm_provider
         self._label_generator = label_generator
         self._root_cause_analyzer = root_cause_analyzer
+        self._deep_root_cause_analyzer: DeepRootCauseAnalyzer | None = None
+        self._api_client = api_client
 
     async def generate_labels(
         self,
@@ -109,12 +130,16 @@ class AnalyzeHandler:
         # Reset generators so they pick up the new provider
         self._label_generator = None
         self._root_cause_analyzer = None
+        self._deep_root_cause_analyzer = None
 
     async def analyze_root_cause_deep(
         self,
-        task_data: dict[str, Any],  # noqa: ARG002 — reserved for future integration
+        task_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Perform enhanced 5-layer deep root cause analysis.
+
+        Fetches existing fault analysis from the API (复盘结论), builds a
+        FaultAnalysisInput, and runs the DeepRootCauseAnalyzer.
 
         Args:
             task_data: Task data as dict.
@@ -122,7 +147,69 @@ class AnalyzeHandler:
         Returns:
             Deep root cause analysis result dict, or empty dict if unavailable.
         """
-        # Deep root cause analysis requires additional API calls and
-        # the DeepRootCauseAnalyzer. This is a placeholder that returns
-        # empty until the full integration is wired up.
-        return {}
+        analyzer = self._get_deep_root_cause_analyzer()
+        if analyzer is None:
+            return {}
+
+        task_no = str(task_data.get("task_no", task_data.get("taskId", "")))
+        if not task_no:
+            return {}
+
+        # 获取现有故障复盘结论（API 不可用时降级为空）
+        existing_analysis = ExistingFaultAnalysis()
+        if self._api_client is not None:
+            try:
+                existing_api_data = await self._api_client.get_fault_analysis(task_no)
+                existing_analysis = self._convert_api_to_existing_analysis(existing_api_data)
+            except Exception as e:
+                logger.warning(f"获取故障复盘结论失败，使用空结论: {e}")
+
+        fault_input = FaultAnalysisInput(
+            task_no=task_no,
+            title=task_data.get("title", ""),
+            description=task_data.get("description", ""),
+            task_src=task_data.get("task_src", ""),
+            created_date=task_data.get("created_date", task_data.get("createdDate", "")),
+            finish_date=task_data.get("finish_date", task_data.get("finishDate", "")),
+            product_module_id=task_data.get("product_module_id")
+            or task_data.get("productModuleId"),
+            product_version_id=task_data.get("product_version_id")
+            or task_data.get("productVersionId"),
+        )
+
+        try:
+            result = await analyzer.analyze(fault_input, existing_analysis)
+            return asdict(result)
+        except Exception as e:
+            logger.error(f"深度根因分析失败: {e}")
+            return {}
+
+    def _get_deep_root_cause_analyzer(self) -> DeepRootCauseAnalyzer | None:
+        """Get or create DeepRootCauseAnalyzer."""
+        if self._deep_root_cause_analyzer is not None:
+            return self._deep_root_cause_analyzer
+
+        if self._llm_provider is None:
+            return None
+
+        adapter = _LLMClientAdapter(self._llm_provider)
+        self._deep_root_cause_analyzer = DeepRootCauseAnalyzer(adapter)
+        return self._deep_root_cause_analyzer
+
+    def _convert_api_to_existing_analysis(self, api_data: dict[str, Any]) -> ExistingFaultAnalysis:
+        """Convert API response to ExistingFaultAnalysis model."""
+        dev_data = api_data.get("apiDevTaskAnalysis", {})
+        test_data = api_data.get("apiTestTaskAnalysis", {})
+
+        return ExistingFaultAnalysis(
+            dev_catalog=dev_data.get("catalog", ""),
+            dev_catalog_detail=dev_data.get("catalogDetail", ""),
+            dev_reason=dev_data.get("reason", ""),
+            dev_conclusion=dev_data.get("conclusion", ""),
+            dev_improve_stage=dev_data.get("improveStage", ""),
+            test_catalog=test_data.get("catalog", ""),
+            test_catalog_detail=test_data.get("catalogDetail", ""),
+            test_reason=test_data.get("reason", ""),
+            test_conclusion=test_data.get("conclusion", ""),
+            test_improve_stage=test_data.get("improveStage", ""),
+        )

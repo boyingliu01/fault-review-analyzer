@@ -6,6 +6,7 @@ import numpy as np
 from loguru import logger
 
 from src.analysis.code_change_analyzer import CodeChangeAnalyzer
+from src.analysis.improvement_recommender import ImprovementRecommender
 from src.analysis.root_cause import ExistingFaultAnalysis, FaultAnalysisInput
 from src.analysis.root_cause import RootCauseAnalyzer as DeepRootCauseAnalyzer
 from src.analysis.standards_matcher import StandardsMatcher
@@ -18,6 +19,7 @@ from src.api.models import TaskInfo
 from src.cache.manager import CacheManager
 from src.clustering.analyzer import ClusterAnalyzer
 from src.config.manager import ConfigManager
+from src.core.models import EmbeddingResult
 from src.embedding.generator import EmbeddingGenerator
 from src.knowledge.manager import StandardsManager
 from src.preprocessor.models import ProcessedTask
@@ -51,6 +53,7 @@ class PipelineConfig:
     check_rules: bool = True
     match_standards: bool = True  # 故障结论与研发规范语义匹配
     generate_report: bool = True
+    store_embeddings: bool = True  # 聚类时是否将向量持久化到 ChromaDB
     report_format: ReportFormat = ReportFormat.MARKDOWN
     output_path: Path = field(default_factory=lambda: Path("./output"))
     max_concurrency: int = 10
@@ -74,6 +77,7 @@ class PipelineResult:
     violations: list[dict] | None = None
     code_change_analysis: dict[str, Any] | None = None  # 代码变更分析结果
     standard_matches: list[dict] | None = None  # 规范匹配结果（violated/related）
+    improvements: list[dict] | None = None  # 改进建议与行动项
     cluster_id: int | None = None
     report: str = ""
     error: str = ""
@@ -104,6 +108,8 @@ class AnalysisPipeline:
         self._violation_detector: ViolationDetector | None = None
         self._standards_matcher: StandardsMatcher | None = None
         self._report_generator: ReportGenerator | None = None
+        self._chroma_manager: Any | None = None
+        self._improvement_recommender: ImprovementRecommender | None = None
 
     async def __aenter__(self) -> "AnalysisPipeline":
         return self
@@ -175,6 +181,7 @@ class AnalysisPipeline:
 
             await self._analyze_with_llm(task_data, preprocessed, result)
             await self._match_standards(task_data, result)
+            self._generate_improvements(result)
             self._check_and_generate_report(task_data, preprocessed, result)
 
         except Exception as error:
@@ -336,6 +343,57 @@ class AnalysisPipeline:
 
         return "\n".join(p for p in parts if p).strip()
 
+    def _generate_improvements(self, result: PipelineResult) -> None:
+        """基于根因和违规项生成改进建议与行动项（GAP G4）。
+
+        将高频根因映射到可落地的改进措施，作为流水线输出（PipelineResult.improvements）。
+        """
+        if result.improvements is not None:
+            return
+
+        # 收集根因文本
+        root_causes: list[str] = []
+        for rc in result.root_causes or []:
+            cause = rc.get("cause_type") or rc.get("description")
+            if cause:
+                root_causes.append(str(cause))
+
+        if not root_causes:
+            result.improvements = []
+            return
+
+        # 收集违规根因（带 rule_id 的违规项）
+        violation_causes: list[str] = []
+        for v in result.violations or []:
+            name = v.get("rule_name") or v.get("rule_id")
+            if name:
+                violation_causes.append(str(name))
+
+        recommender = self._get_improvement_recommender()
+        measures = recommender.recommend_measures(
+            root_causes=root_causes,
+            violation_causes=violation_causes or None,
+            top_n=5,
+        )
+
+        result.improvements = [
+            {
+                "root_cause": m.root_cause,
+                "measure": m.measure,
+                "acceptance_criteria": m.acceptance_criteria,
+                "expected_impact": m.expected_impact,
+                "priority": m.priority,
+                "category": m.category,
+            }
+            for m in measures
+        ]
+
+    def _get_improvement_recommender(self) -> ImprovementRecommender:
+        """Get or create ImprovementRecommender."""
+        if self._improvement_recommender is None:
+            self._improvement_recommender = ImprovementRecommender()
+        return self._improvement_recommender
+
     def _get_standards_matcher(self) -> StandardsMatcher:
         """Get or create StandardsMatcher（复用embedding与LLM配置）。"""
         if self._standards_matcher is None:
@@ -452,6 +510,18 @@ class AnalysisPipeline:
         cluster_result = cluster_analyzer.fit_predict(embeddings_array)
         labels_list = cluster_result.labels
 
+        # G1: 将向量持久化到 ChromaDB（失败时优雅降级，不阻塞聚类流程）
+        stored_count = 0
+        if self._pipeline_config.store_embeddings:
+            stored_count = self._store_cluster_embeddings(tasks_data, embeddings)
+
+        # G2: 为每个非噪声簇生成语义标签（需 LLM；无 LLM 时跳过）
+        cluster_labels: dict[int, str] = {}
+        if self._pipeline_config.use_llm and self._pipeline_config.generate_labels:
+            cluster_labels = await self._generate_cluster_labels(
+                tasks_data, processed_tasks, labels_list
+            )
+
         return {
             "tasks": [
                 {
@@ -467,10 +537,105 @@ class AnalysisPipeline:
             ],
             "cluster_count": len(set(labels_list)) - (1 if -1 in labels_list else 0),
             "noise_count": sum(1 for label in labels_list if label == -1),
+            "cluster_labels": cluster_labels,
             "total_requested": len(task_ids),
             "total_found": len(tasks_data),
+            "embeddings_stored": stored_count,
             "clustering_mode": "code_change_enhanced" if has_code_data else "text_only",
         }
+
+    def _store_cluster_embeddings(
+        self, tasks_data: list[TaskInfo], embeddings: list[list[float]]
+    ) -> int:
+        """将聚类向量的 embedding 持久化到 ChromaDB（GAP G1）。
+
+        Returns:
+            成功存储的向量数量。
+        """
+        chroma = self._get_chroma_manager()
+        if chroma is None:
+            return 0
+
+        embedding_results = []
+        for i, task in enumerate(tasks_data):
+            if i >= len(embeddings):
+                break
+            embedding_results.append(
+                EmbeddingResult(
+                    task_id=str(task.task_id),
+                    embedding=embeddings[i],
+                    text=f"{task.title or ''} {task.description or ''}".strip(),
+                    media_type="text",
+                    metadata={
+                        "title": task.title or "",
+                        "cluster_id": None,
+                    },
+                )
+            )
+
+        if not embedding_results:
+            return 0
+
+        try:
+            statuses = chroma.add_batch_embeddings(embedding_results)
+            return sum(1 for ok in statuses.values() if ok)
+        except Exception as e:
+            logger.warning(f"ChromaDB 批量写入失败，跳过向量存储: {e}")
+            return 0
+
+    async def _generate_cluster_labels(
+        self,
+        tasks_data: list[TaskInfo],
+        processed_tasks: list[Any],
+        labels_list: list[int],
+    ) -> dict[int, str]:
+        """为每个非噪声聚类簇生成语义标签（GAP G2）。
+
+        复用 LabelGenerator.generate_for_cluster；无 LLM provider 时返回空字典。
+
+        Returns:
+            dict[cluster_id, cluster_label]
+        """
+        if self._label_generator is None:
+            llm_config = self._config.get_config().llm
+            provider = self._create_llm_provider(llm_config) if llm_config.api_key else None
+            self._label_generator = LabelGenerator(llm_provider=provider)
+
+        if not self._label_generator.is_available:
+            return {}
+
+        # 按簇分组任务
+        cluster_members: dict[int, list[dict[str, Any]]] = {}
+        for i, label in enumerate(labels_list):
+            if label == -1:
+                continue  # 噪声点不生成簇标签
+            if i >= len(tasks_data):
+                continue
+            title = (
+                processed_tasks[i].metadata.get("title", "")
+                if i < len(processed_tasks)
+                else tasks_data[i].title or ""
+            )
+            cluster_members.setdefault(int(label), []).append(
+                {
+                    "cluster_id": int(label),
+                    "title": title,
+                    "description": tasks_data[i].description or "",
+                }
+            )
+
+        cluster_labels: dict[int, str] = {}
+        for cluster_id, members in cluster_members.items():
+            try:
+                result = await self._label_generator.generate_for_cluster(members)
+                if result.summary:
+                    cluster_labels[cluster_id] = result.summary
+                elif result.labels:
+                    cluster_labels[cluster_id] = result.labels[0].name
+            except Exception as e:
+                logger.warning(f"簇 {cluster_id} 标签生成失败: {e}")
+
+        return cluster_labels
 
     @staticmethod
     def _has_code_analysis(tasks_data: list[TaskInfo], index: int) -> bool:
@@ -562,6 +727,25 @@ class AnalysisPipeline:
                 metric=cluster_config.metric,
             )
         return self._cluster_analyzer
+
+    def _get_chroma_manager(self) -> Any:
+        """Get or create ChromaManager（用于向量持久化）。
+
+        使用默认持久化路径 ./data/chroma，启用本地降级缓存。
+        若 ChromaDB 初始化失败，返回 None（聚类流程优雅降级，不阻塞）。
+        """
+        if self._chroma_manager is None:
+            try:
+                from src.storage.chroma_manager import ChromaManager
+
+                self._chroma_manager = ChromaManager(
+                    persist_directory="./data/chroma",
+                    enable_fallback=True,
+                )
+            except Exception as e:
+                logger.warning(f"ChromaManager 初始化失败，跳过向量存储: {e}")
+                self._chroma_manager = None
+        return self._chroma_manager
 
     async def _generate_labels(
         self,
