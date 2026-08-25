@@ -212,8 +212,8 @@ class TestPipelineWithRealCache:
 
             # 验证数据已写入缓存
             cache_db = tmp_path / "cache.db"
-            cache_manager = CacheManager(db_path=cache_db, ttl=3600)
-            cached = cache_manager.get_task(30001)
+            with CacheManager(db_path=cache_db, ttl=3600) as cache_manager:
+                cached = cache_manager.get_task(30001)
             assert cached is not None
             assert cached["task_id"] == 30001 or cached.get("title") is not None
 
@@ -227,8 +227,8 @@ class TestPipelineWithRealCache:
         """Pipeline 应能从缓存读取数据而不调用 API。"""
         # 先写入缓存
         cache_db = tmp_path / "cache.db"
-        cache_manager = CacheManager(db_path=cache_db, ttl=3600)
-        cache_manager.save_task(30001, sample_task_info.model_dump(mode="json"))
+        with CacheManager(db_path=cache_db, ttl=3600) as cache_manager:
+            cache_manager.save_task(30001, sample_task_info.model_dump(mode="json"))
 
         pipeline_config = PipelineConfig(
             use_cache=True,
@@ -268,18 +268,17 @@ class TestPipelineBatchWithCache:
         """批量运行应处理所有任务。"""
         # 预缓存两个任务
         cache_db = tmp_path / "cache.db"
-        cache_manager = CacheManager(db_path=cache_db, ttl=3600)
-
-        for tid, title in [(30010, "任务A"), (30011, "任务B")]:
-            task = TaskInfo(
-                task_id=tid,
-                title=title,
-                description=f"描述{title}",
-                status="resolved",
-                priority="medium",
-                create_time=datetime(2024, 8, 1),
-            )
-            cache_manager.save_task(tid, task.model_dump(mode="json"))
+        with CacheManager(db_path=cache_db, ttl=3600) as cache_manager:
+            for tid, title in [(30010, "任务A"), (30011, "任务B")]:
+                task = TaskInfo(
+                    task_id=tid,
+                    title=title,
+                    description=f"描述{title}",
+                    status="resolved",
+                    priority="medium",
+                    create_time=datetime(2024, 8, 1),
+                )
+                cache_manager.save_task(tid, task.model_dump(mode="json"))
 
         pipeline_config = PipelineConfig(
             use_cache=True,
