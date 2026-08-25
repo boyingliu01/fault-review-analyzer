@@ -277,7 +277,7 @@ class ChromaManager:
             return False
 
         try:
-            return self._retry_operation(_do_add, "add_embedding", _fallback_add)
+            return bool(self._retry_operation(_do_add, "add_embedding", _fallback_add))
         except ChromaDBError as e:
             logger.error(f"添加向量失败: {e}")
             return False
@@ -346,7 +346,7 @@ class ChromaManager:
                         fallback_results[id_] = success
                 return fallback_results
 
-            return self._retry_operation(_do_batch_add, "add_batch_embeddings", _fallback_batch_add)
+            return dict(self._retry_operation(_do_batch_add, "add_batch_embeddings", _fallback_batch_add))
 
         except Exception as e:
             logger.error(f"批量添加向量失败: {e}")
@@ -377,23 +377,32 @@ class ChromaManager:
             try:
                 if isinstance(emb, EmbeddingResult):
                     task_id = emb.task_id
+                    success = self.add_embedding(emb, collection_name)
                 elif isinstance(emb, dict):
                     task_id = emb.get("task_id", f"task_{len(results)}")
+                    embedding_obj = EmbeddingResult(
+                        task_id=task_id,
+                        embedding=emb.get("embedding", []),
+                        text=emb.get("text", ""),
+                        media_type=emb.get("metadata", {}).get("media_type", "text"),
+                        metadata=emb.get("metadata", {}),
+                    )
+                    success = self.add_embedding(embedding_obj, collection_name)
                 else:
                     task_id = f"task_{len(results)}"
+                    success = False
 
-                success = self.add_embedding(emb, collection_name)
                 results[task_id] = {
                     "success": success,
                     "source": "chroma" if self._connection_healthy else "fallback",
                 }
             except Exception as e:
-                results[task_id] = {
+                results[task_id] = {  # type: ignore[possibly-unbound]
                     "success": False,
                     "error": str(e),
                     "source": "failed",
                 }
-                logger.warning(f"添加任务 {task_id} 失败: {e}")
+                logger.warning(f"添加任务 {task_id} 失败: {e}")  # type: ignore[possibly-unbound]
 
         return results
 

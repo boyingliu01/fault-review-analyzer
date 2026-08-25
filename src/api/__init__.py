@@ -62,7 +62,7 @@ try:
     ]
 except ImportError:
     # FastAPI 相关依赖可能未安装
-    _api_server_all: list[str] = []
+    _api_server_all = []  # type: ignore[assignment]
 
 __all__ = [
     "APIClient",
