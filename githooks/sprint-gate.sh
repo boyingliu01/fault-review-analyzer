@@ -74,6 +74,25 @@ d = json.load(open(sys.argv[1]))
 print(d.get('phase', 0))
 " "$SPRINT_STATE_FILE")
 
+# Legacy state files (pre-merged-field) default to false and fall through to
+# the normal checks; a present but non-boolean value is rejected (fail-closed).
+if ! SPRINT_MERGED=$("$PYTHON" -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+isolation = d.get('isolation', {})
+if 'merged' not in isolation:
+    print('false')
+    raise SystemExit(0)
+merged = isolation['merged']
+if not isinstance(merged, bool):
+    raise SystemExit(1)
+print('true' if merged else 'false')
+" "$SPRINT_STATE_FILE"); then
+  echo "❌ Gate MS: isolation.merged in sprint-state.json must be a JSON boolean (true/false)."
+  echo "   Fix .sprint-state/sprint-state.json before pushing."
+  exit 1
+fi
+
 PHASE_HISTORY_COUNT=$("$PYTHON" -c "
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -84,6 +103,11 @@ print(len(completed))
 
 # ── Pre-push checks ──
 if [ "$MODE" = "pre-push" ]; then
+  if [ "$SPRINT_MERGED" = "true" ]; then
+    echo "✅ Gate MS: No active sprint; completed sprint is already merged. PASS."
+    exit 0
+  fi
+
   ERRORS=0
 
   # Check 1: Branch must match sprint isolation branch

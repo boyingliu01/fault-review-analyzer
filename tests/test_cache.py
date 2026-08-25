@@ -1,5 +1,8 @@
+import sqlite3
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from typing import Any
 
 import pytest
 
@@ -11,7 +14,9 @@ class TestCacheManager:
     @pytest.fixture
     def cache_manager(self, temp_dir):
         db_path = temp_dir / "cache.db"
-        return CacheManager(db_path=db_path, ttl=60)
+        cache_manager = CacheManager(db_path=db_path, ttl=60)
+        yield cache_manager
+        cache_manager.close()
 
     def test_save_and_load_cache(self, cache_manager):
         task_data = {
@@ -31,17 +36,38 @@ class TestCacheManager:
         assert loaded["task_id"] == 12345
         assert loaded["title"] == "SQL查询导致OOM"
 
+    def test_shared_manager_supports_cross_thread_operations(
+        self, cache_manager: CacheManager
+    ) -> None:
+        def save_and_load(task_id: int) -> dict[str, Any]:
+            cache_manager.save_task(task_id, {"task_id": task_id})
+            loaded = cache_manager.get_task(task_id)
+            assert loaded is not None
+            return loaded
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            results = list(executor.map(save_and_load, range(20)))
+
+        assert {result["task_id"] for result in results} == set(range(20))
+
+    def test_close_is_idempotent(self, cache_manager):
+        cache_manager.close()
+
+        cache_manager.close()
+
+        with pytest.raises(sqlite3.ProgrammingError):
+            cache_manager.get_task(1)
+
     def test_cache_ttl(self, cache_manager):
-        cache_manager = CacheManager(db_path=cache_manager.db_path, ttl=1)
+        with CacheManager(db_path=cache_manager.db_path, ttl=1) as ttl_cache_manager:
+            task_data = {"task_id": 12345, "title": "Test"}
+            ttl_cache_manager.save_task(12345, task_data)
 
-        task_data = {"task_id": 12345, "title": "Test"}
-        cache_manager.save_task(12345, task_data)
+            assert ttl_cache_manager.get_task(12345) is not None
 
-        assert cache_manager.get_task(12345) is not None
+            time.sleep(2)
 
-        time.sleep(2)
-
-        assert cache_manager.get_task(12345) is None
+            assert ttl_cache_manager.get_task(12345) is None
 
     def test_cache_invalidation(self, cache_manager):
         task_data = {"task_id": 12345, "title": "Test"}
@@ -83,12 +109,11 @@ class TestCacheManager:
 
     def test_cache_status_expired(self, temp_dir):
         db_path = temp_dir / "cache_expired.db"
-        cache_manager = CacheManager(db_path=db_path, ttl=1)
+        with CacheManager(db_path=db_path, ttl=1) as cache_manager:
+            cache_manager.save_task(12345, {"task_id": 12345})
+            time.sleep(2)
 
-        cache_manager.save_task(12345, {"task_id": 12345})
-        time.sleep(2)
-
-        assert cache_manager.get_status(12345) == CacheStatus.EXPIRED
+            assert cache_manager.get_status(12345) == CacheStatus.EXPIRED
 
     def test_update_existing_cache(self, cache_manager):
         cache_manager.save_task(12345, {"task_id": 12345, "title": "Old Title"})
@@ -130,28 +155,26 @@ class TestCacheManager:
 
     def test_cache_cleanup(self, temp_dir):
         db_path = temp_dir / "cache_cleanup.db"
-        cache_manager = CacheManager(db_path=db_path, ttl=1)
+        with CacheManager(db_path=db_path, ttl=1) as cache_manager:
+            cache_manager.save_task(1, {"task_id": 1})
+            cache_manager.save_task(2, {"task_id": 2})
+            time.sleep(2)
 
-        cache_manager.save_task(1, {"task_id": 1})
-        cache_manager.save_task(2, {"task_id": 2})
-        time.sleep(2)
+            cleaned = cache_manager.cleanup_expired()
 
-        cleaned = cache_manager.cleanup_expired()
-
-        assert cleaned == 2
+            assert cleaned == 2
 
     def test_cache_stats_with_expired(self, temp_dir):
         db_path = temp_dir / "cache_stats.db"
-        cache_manager = CacheManager(db_path=db_path, ttl=1)
+        with CacheManager(db_path=db_path, ttl=1) as cache_manager:
+            cache_manager.save_task(1, {"task_id": 1})
+            cache_manager.save_task(2, {"task_id": 2})
+            time.sleep(2)
 
-        cache_manager.save_task(1, {"task_id": 1})
-        cache_manager.save_task(2, {"task_id": 2})
-        time.sleep(2)
+            stats = cache_manager.get_stats()
 
-        stats = cache_manager.get_stats()
-
-        assert stats["total_entries"] == 2
-        assert stats["expired_entries"] == 2
+            assert stats["total_entries"] == 2
+            assert stats["expired_entries"] == 2
 
 
 class TestCacheModels:

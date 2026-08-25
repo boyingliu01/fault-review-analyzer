@@ -26,10 +26,15 @@ class FetchHandler:
         api_client: APIClient | None = None,
         cache_manager: CacheManager | None = None,
         use_cache: bool = True,
+        max_concurrency: int = 10,
     ) -> None:
+        if max_concurrency <= 0:
+            raise ValueError("max_concurrency must be positive")
+
         self._api_client = api_client
         self._cache_manager = cache_manager
         self._use_cache = use_cache
+        self._max_concurrency = max_concurrency
 
     async def fetch_task(self, task_id: int) -> TaskInfo | None:
         """Fetch a single task from cache or API.
@@ -40,18 +45,24 @@ class FetchHandler:
         Returns:
             TaskInfo if found, None otherwise.
         """
+        import asyncio
+
         if self._use_cache and self._cache_manager is not None:
-            cached = self._cache_manager.load_task(task_id)
+            cached = await asyncio.to_thread(self._cache_manager.load_task, task_id)
             if cached:
                 return TaskInfo(**cached)
 
         if self._api_client is None:
             return None
 
-        task = await self._api_client.get_task(task_id)
+        task = await self._api_client.get_full_task(task_id)
 
         if self._use_cache and self._cache_manager is not None:
-            self._cache_manager.save_task(task_id, task.model_dump(mode="json"))
+            await asyncio.to_thread(
+                self._cache_manager.save_task,
+                task_id,
+                task.model_dump(mode="json"),
+            )
 
         return task
 
@@ -66,8 +77,14 @@ class FetchHandler:
         """
         import asyncio
 
+        semaphore = asyncio.Semaphore(self._max_concurrency)
+
+        async def fetch_with_limit(task_id: int) -> TaskInfo | None:
+            async with semaphore:
+                return await self.fetch_task(task_id)
+
         results = await asyncio.gather(
-            *[self.fetch_task(tid) for tid in task_ids],
+            *[fetch_with_limit(tid) for tid in task_ids],
             return_exceptions=True,
         )
         return [t for t in results if isinstance(t, TaskInfo)]

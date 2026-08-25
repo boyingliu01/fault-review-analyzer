@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from loguru import logger
 
 from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig, PipelineResult
 from src.api.models import TaskInfo
@@ -223,7 +224,7 @@ class TestAnalysisPipelineRefactored:
         result = PipelineResult(task_id=12345)
 
         mock_processed = MagicMock()
-        mock_preprocessed_dict = {"segments": []}
+        mock_preprocessed_dict: dict[str, list] = {"segments": []}
         result.preprocessed = mock_preprocessed_dict
 
         pipeline._check_and_generate_report(sample_task_info, mock_processed, result)
@@ -237,14 +238,20 @@ class TestAnalysisPipelineRefactored:
         self, mock_generate_report, mock_check_rules, config_manager, sample_task_info
     ):
         """Test _check_and_generate_report with both checks enabled."""
-        sample_violations = [
-            {
-                "rule_id": "R001",
-                "rule_name": "Test Rule",
-                "severity": "high",
-                "message": "Test message",
-            }
-        ]
+        rule_violation = {
+            "rule_id": "R001",
+            "rule_name": "Test Rule",
+            "severity": "high",
+            "message": "Test message",
+        }
+        code_violation = {
+            "rule_id": "CODE001",
+            "rule_name": "Code Change Rule",
+            "severity": "medium",
+            "message": "Code change message",
+        }
+        sample_violations = [rule_violation]
+        expected_violations = [rule_violation, code_violation]
         sample_report_content = "Test Report Content"
 
         mock_check_rules.return_value = sample_violations
@@ -252,20 +259,21 @@ class TestAnalysisPipelineRefactored:
 
         pipeline_config = PipelineConfig(check_rules=True, generate_report=True)
         pipeline = AnalysisPipeline(config_manager, pipeline_config)
-        result = PipelineResult(task_id=12345)
+        result = PipelineResult(task_id=12345, violations=[code_violation])
 
         mock_processed = MagicMock()
-        mock_preprocessed_dict = {"segments": []}
+        mock_preprocessed_dict: dict[str, list] = {"segments": []}
         result.preprocessed = mock_preprocessed_dict
         result.labels = []
         result.root_causes = []
 
         pipeline._check_and_generate_report(sample_task_info, mock_processed, result)
 
-        assert result.violations == sample_violations
+        assert result.violations == expected_violations
         assert result.report == sample_report_content
         mock_check_rules.assert_called_once()
         mock_generate_report.assert_called_once()
+        assert mock_generate_report.call_args.kwargs["violations"] == expected_violations
 
     @pytest.mark.asyncio
     @patch("src.analyzer.pipeline.AnalysisPipeline._fetch_task_data")
@@ -312,15 +320,23 @@ class TestAnalysisPipelineRefactored:
 
     @pytest.mark.asyncio
     @patch("src.analyzer.pipeline.AnalysisPipeline._fetch_task_data")
-    async def test_run_single_handles_exception(
+    async def test_run_single_redacts_unexpected_exception(
         self, mock_fetch_data, config_manager, pipeline_config
     ):
-        """Test run_single handles exceptions gracefully."""
-        test_error = "Test error message"
-        mock_fetch_data.side_effect = Exception(test_error)
+        """Test run_single redacts unexpected exception details from results and logs."""
+        sentinel_secret = "SENTINEL-SECRET-analysis-failure"
+        mock_fetch_data.side_effect = RuntimeError(sentinel_secret)
+        log_messages: list[str] = []
+        sink_id = logger.add(log_messages.append, format="{message} {extra}")
 
         pipeline = AnalysisPipeline(config_manager, pipeline_config)
-        result = await pipeline.run_single(12345)
+        try:
+            result = await pipeline.run_single(12345)
+        finally:
+            logger.remove(sink_id)
 
         assert result.task_id == 12345
-        assert result.error == test_error
+        assert result.error == "Analysis failed due to an internal error"
+        assert sentinel_secret not in result.error
+        assert any("RuntimeError" in message and "12345" in message for message in log_messages)
+        assert all(sentinel_secret not in message for message in log_messages)

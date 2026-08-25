@@ -23,11 +23,21 @@ pip install -e ".[dev]"
 API_HOST=0.0.0.0          # 监听地址
 API_PORT=8000             # 监听端口
 
-# 认证配置（可选）
-API_VALID_TOKENS=token1,token2,token3  # 有效的 API Token 列表
+# 认证配置
+API_VALID_TOKENS=<token-a>,<token-b>    # 有效的 API Token 列表
+API_ALLOW_UNAUTHENTICATED=false        # 仅本地开发可设为 true
+
+# CORS 配置
+API_CORS_ORIGINS=https://app.example.com  # 允许的来源，逗号分隔
+API_CORS_METHODS=GET,POST,OPTIONS          # 允许的方法，逗号分隔
+API_CORS_HEADERS=Content-Type,X-API-Token  # 允许的请求头，逗号分隔
 
 # 速率限制配置
 API_RATE_LIMIT=60          # 每分钟请求限制
+
+# 文档与日志
+API_DOCS_ENABLED=false     # 默认禁用 /docs /redoc /openapi.json
+API_ACCESS_LOG=false       # 默认禁用 Uvicorn access_log
 ```
 
 ### 3. 启动服务器
@@ -46,11 +56,13 @@ python scripts/start_api_server.py
 
 ### 4. 访问 API 文档
 
-服务器启动后，可以通过以下地址访问 API 文档：
+API 文档端点默认关闭。需要查看文档时，设置 `API_DOCS_ENABLED=true` 后可通过以下地址访问：
 
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 - **OpenAPI JSON**: http://localhost:8000/openapi.json
+
+> **安全提示**：生产环境不应启用文档端点。`API_DOCS_ENABLED` 默认为 `false`。
 
 ## API 接口说明
 
@@ -95,6 +107,8 @@ X-API-Token: <your-token>
 
 ### 批量分析
 
+每次请求最多接受 **50 个去重后的 task ID**。超出限制将返回 `422 Unprocessable Entity`。重复的 task ID 会自动去重。
+
 ```http
 POST /analyze/batch
 Content-Type: application/json
@@ -136,21 +150,20 @@ X-API-Token: <your-token>
 
 ### Token 认证
 
-API 支持通过 HTTP Header 或查询参数传递 Token：
+受保护的 API 路由只接受通过 HTTP Header 传递 Token，不支持将 Token 放在 URL 查询参数中：
 
 **方式一: Header 传递**
 ```http
-X-API-Token: your-secret-token
-```
-
-**方式二: 查询参数传递**
-```http
-GET /clusters?api_token=your-secret-token
+X-API-Token: <your-token>
 ```
 
 ### 开发模式
 
-如果没有配置 `API_VALID_TOKENS` 环境变量，服务器将运行在开发模式下，允许所有请求（无需认证）。
+服务器默认拒绝未认证请求，即使没有配置 `API_VALID_TOKENS`。仅在本地开发时，显式设置 `API_ALLOW_UNAUTHENTICATED=true` 才会允许免认证访问。不要在生产环境启用此选项。
+
+### CORS
+
+CORS 默认不允许任何来源。通过 `API_CORS_ORIGINS` 显式配置允许的来源，并按需设置 `API_CORS_METHODS` 和 `API_CORS_HEADERS`。不要使用通配符来源开放生产 API。
 
 ## 速率限制
 
@@ -194,7 +207,7 @@ X-RateLimit-Remaining: 55
 import requests
 
 BASE_URL = "http://localhost:8000"
-API_TOKEN = "your-token"
+API_TOKEN = "<your-token>"
 
 # 设置公共 Headers
 headers = {
@@ -244,16 +257,16 @@ curl http://localhost:8000/health
 # 分析任务
 curl -X POST http://localhost:8000/analyze \
   -H "Content-Type: application/json" \
-  -H "X-API-Token: your-token" \
+  -H "X-API-Token: <your-token>" \
   -d '{"task_id": "11745664", "options": {"use_cache": true}}'
 
 # 获取聚类列表
 curl http://localhost:8000/clusters \
-  -H "X-API-Token: your-token"
+  -H "X-API-Token: <your-token>"
 
 # 获取报告
 curl "http://localhost:8000/reports/11745664?format=html" \
-  -H "X-API-Token: your-token"
+  -H "X-API-Token: <your-token>"
 ```
 
 ## 开发说明

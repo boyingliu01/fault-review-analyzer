@@ -1,4 +1,6 @@
+import asyncio
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,6 +17,7 @@ class TestPipelineConfig:
         assert config.analyze_root_cause is True
         assert config.check_rules is True
         assert config.generate_report is True
+        assert config.max_concurrency == 10
 
     def test_custom_config(self):
         config = PipelineConfig(
@@ -35,6 +38,10 @@ class TestPipelineConfig:
     def test_output_path_custom(self):
         config = PipelineConfig(output_path=Path("./custom_output"))
         assert config.output_path == Path("./custom_output")
+
+    def test_max_concurrency_must_be_positive(self):
+        with pytest.raises(ValueError, match="max_concurrency must be positive"):
+            PipelineConfig(max_concurrency=0)
 
 
 class TestPipelineResult:
@@ -62,8 +69,12 @@ class TestPipelineResult:
         )
 
         assert result.task_id == 12345
-        assert result.task_data["title"] == "Test"
-        assert len(result.labels) == 1
+        task_data = result.task_data
+        labels = result.labels
+        assert task_data is not None
+        assert labels is not None
+        assert task_data["title"] == "Test"
+        assert len(labels) == 1
         assert result.report == "# Report"
 
     def test_result_with_error(self):
@@ -368,8 +379,108 @@ class TestAnalysisPipeline:
         assert pipeline._api_client is None
 
     @pytest.mark.asyncio
+    async def test_pipeline_close_closes_and_clears_cache(self, mock_config, pipeline_config):
+        pipeline = AnalysisPipeline(config=mock_config, pipeline_config=pipeline_config)
+        mock_cache_manager = MagicMock()
+        pipeline._cache_manager = mock_cache_manager
+
+        await pipeline.close()
+
+        mock_cache_manager.close.assert_called_once()
+        assert pipeline._cache_manager is None
+
+    @pytest.mark.asyncio
+    async def test_pipeline_close_releases_every_owned_resource_once(
+        self, mock_config, pipeline_config
+    ):
+        pipeline = AnalysisPipeline(config=mock_config, pipeline_config=pipeline_config)
+        mock_api_client = MagicMock(close=AsyncMock())
+        mock_embedding_generator = MagicMock(close=AsyncMock())
+        mock_llm_provider = MagicMock(close=AsyncMock())
+        mock_cache_manager = MagicMock()
+        pipeline._api_client = mock_api_client
+        pipeline._embedding_generator = mock_embedding_generator
+        pipeline._llm_providers = [mock_llm_provider]
+        pipeline._cache_manager = mock_cache_manager
+
+        await pipeline.close()
+        await pipeline.close()
+
+        mock_api_client.close.assert_awaited_once()
+        mock_embedding_generator.close.assert_awaited_once()
+        mock_llm_provider.close.assert_awaited_once()
+        mock_cache_manager.close.assert_called_once()
+        assert pipeline._api_client is None
+        assert pipeline._embedding_generator is None
+        assert pipeline._llm_providers == []
+        assert pipeline._cache_manager is None
+
+    @pytest.mark.asyncio
+    async def test_pipeline_close_attempts_all_resources_after_first_async_cancellation(
+        self, mock_config, pipeline_config
+    ):
+        pipeline = AnalysisPipeline(config=mock_config, pipeline_config=pipeline_config)
+        cancellation = asyncio.CancelledError()
+        later_failure = RuntimeError("embedding close failed")
+        mock_api_client = MagicMock(close=AsyncMock(side_effect=cancellation))
+        mock_embedding_generator = MagicMock(close=AsyncMock(side_effect=later_failure))
+        mock_llm_provider = MagicMock(close=AsyncMock())
+        mock_cache_manager = MagicMock()
+        pipeline._api_client = mock_api_client
+        pipeline._embedding_generator = mock_embedding_generator
+        pipeline._llm_providers = [mock_llm_provider]
+        pipeline._cache_manager = mock_cache_manager
+
+        with pytest.raises(asyncio.CancelledError) as raised:
+            await pipeline.close()
+
+        assert raised.value is cancellation
+        mock_api_client.close.assert_awaited_once()
+        mock_embedding_generator.close.assert_awaited_once()
+        mock_llm_provider.close.assert_awaited_once()
+        mock_cache_manager.close.assert_called_once()
+        assert pipeline._api_client is None
+        assert pipeline._embedding_generator is None
+        assert pipeline._llm_providers == []
+        assert pipeline._cache_manager is None
+
+        await pipeline.close()
+
+    @pytest.mark.asyncio
+    async def test_pipeline_close_continues_after_middle_provider_failure(
+        self, mock_config, pipeline_config
+    ):
+        pipeline = AnalysisPipeline(config=mock_config, pipeline_config=pipeline_config)
+        provider_failure = RuntimeError("provider close failed")
+        mock_api_client = MagicMock(close=AsyncMock())
+        mock_embedding_generator = MagicMock(close=AsyncMock())
+        first_provider = MagicMock(close=AsyncMock())
+        failing_provider = MagicMock(close=AsyncMock(side_effect=provider_failure))
+        last_provider = MagicMock(close=AsyncMock())
+        mock_cache_manager = MagicMock()
+        pipeline._api_client = mock_api_client
+        pipeline._embedding_generator = mock_embedding_generator
+        pipeline._llm_providers = [first_provider, failing_provider, last_provider]
+        pipeline._cache_manager = mock_cache_manager
+
+        with pytest.raises(RuntimeError) as raised:
+            await pipeline.close()
+
+        assert raised.value is provider_failure
+        mock_api_client.close.assert_awaited_once()
+        mock_embedding_generator.close.assert_awaited_once()
+        first_provider.close.assert_awaited_once()
+        failing_provider.close.assert_awaited_once()
+        last_provider.close.assert_awaited_once()
+        mock_cache_manager.close.assert_called_once()
+        assert pipeline._api_client is None
+        assert pipeline._embedding_generator is None
+        assert pipeline._llm_providers == []
+        assert pipeline._cache_manager is None
+
+    @pytest.mark.asyncio
     async def test_run_single_preprocess_raises_exception(self, mock_config, pipeline_config):
-        """Preprocess raises exception → caught, result.error set."""
+        """Preprocess raises exception → caught, internal details redacted."""
         from datetime import datetime
 
         from src.api.models import TaskInfo
@@ -399,7 +510,7 @@ class TestAnalysisPipeline:
                     result = await pipeline.run_single(12345)
 
         assert result.task_id == 12345
-        assert result.error == "Bad data"
+        assert result.error == "Analysis failed due to an internal error"
 
     @pytest.mark.asyncio
     async def test_run_single_llm_not_available(self, mock_config):
@@ -502,6 +613,69 @@ class TestAnalysisPipeline:
             results = await pipeline.run_batch([])
 
         assert results == []
+
+    @pytest.mark.asyncio
+    async def test_run_batch_bounds_active_run_single_calls(self, mock_config):
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=PipelineConfig(max_concurrency=2),
+        )
+        release = asyncio.Event()
+        limit_reached = asyncio.Event()
+        active_calls = 0
+        max_active_calls = 0
+        started_task_ids: list[int] = []
+
+        async def run_single(task_id: int) -> PipelineResult:
+            nonlocal active_calls, max_active_calls
+            active_calls += 1
+            max_active_calls = max(max_active_calls, active_calls)
+            started_task_ids.append(task_id)
+            if active_calls == 2:
+                limit_reached.set()
+            try:
+                await release.wait()
+                return PipelineResult(task_id=task_id)
+            finally:
+                active_calls -= 1
+
+        with patch.object(pipeline, "run_single", side_effect=run_single):
+            batch_task = asyncio.create_task(pipeline.run_batch([1, 2, 3, 4]))
+            await asyncio.wait_for(limit_reached.wait(), timeout=1)
+
+            assert max_active_calls == 2
+            assert started_task_ids == [1, 2]
+
+            release.set()
+            await batch_task
+
+    @pytest.mark.asyncio
+    async def test_run_batch_preserves_input_order(self, mock_config):
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=PipelineConfig(max_concurrency=3),
+        )
+        releases = {task_id: asyncio.Event() for task_id in (1, 2, 3)}
+        all_started = asyncio.Event()
+        started_count = 0
+
+        async def run_single(task_id: int) -> PipelineResult:
+            nonlocal started_count
+            started_count += 1
+            if started_count == 3:
+                all_started.set()
+            await releases[task_id].wait()
+            return PipelineResult(task_id=task_id)
+
+        with patch.object(pipeline, "run_single", side_effect=run_single):
+            batch_task = asyncio.create_task(pipeline.run_batch([1, 2, 3]))
+            await asyncio.wait_for(all_started.wait(), timeout=1)
+            releases[3].set()
+            releases[2].set()
+            releases[1].set()
+            results = await batch_task
+
+        assert [result.task_id for result in results] == [1, 2, 3]
 
     @pytest.mark.asyncio
     async def test_run_batch_partial_failure(self, mock_config, pipeline_config):
@@ -618,7 +792,7 @@ class TestAnalysisPipeline:
         )
 
         task_data = {"task_id": 12345, "title": "Test", "description": ""}
-        preprocessed = {"segments": []}
+        preprocessed: dict[str, Any] = {"segments": []}
 
         report = pipeline._generate_report(task_data, preprocessed, None, None)
 
@@ -663,7 +837,7 @@ class TestAnalysisPipeline:
 
     @pytest.mark.asyncio
     async def test_run_single_exception_mid_pipeline(self, mock_config, pipeline_config):
-        """Exception during check_rules → caught, error set on result."""
+        """Exception during check_rules → caught, internal details redacted."""
         from datetime import datetime
 
         from src.api.models import TaskInfo
@@ -695,4 +869,4 @@ class TestAnalysisPipeline:
                     result = await pipeline.run_single(12345)
 
         assert result.task_id == 12345
-        assert "Rules engine unavailable" in result.error
+        assert result.error == "Analysis failed due to an internal error"

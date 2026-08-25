@@ -98,8 +98,8 @@ def sample_task_data() -> dict:
 def populated_cache(tmp_path: Path, sample_task_data: dict) -> Path:
     """创建预填充数据的缓存数据库，返回其路径。"""
     db_path = tmp_path / "cache.db"
-    cache = CacheManager(db_path=db_path, ttl=3600)
-    cache.save_task(sample_task_data["task_id"], sample_task_data)
+    with CacheManager(db_path=db_path, ttl=3600) as cache:
+        cache.save_task(sample_task_data["task_id"], sample_task_data)
     return db_path
 
 

@@ -62,9 +62,11 @@ async def create_feedback(
             raise HTTPException(status_code=500, detail="Failed to create feedback")
 
         return created
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error creating feedback: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error(f"Error creating feedback: exception_type={type(e).__name__}")
+        raise HTTPException(status_code=500, detail="An internal error occurred") from e
 
 
 @router.get("/{feedback_id}", response_model=FeedbackResponse)

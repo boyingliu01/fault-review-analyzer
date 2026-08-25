@@ -96,6 +96,18 @@ class TestEmbeddingGenerator:
         results = await generator.embed_batch([])
         assert results == []
 
+    @pytest.mark.asyncio
+    async def test_close_releases_client_once(self, generator):
+        mock_client = MagicMock()
+        mock_client.close = AsyncMock()
+        generator._client = mock_client
+
+        await generator.close()
+        await generator.close()
+
+        mock_client.close.assert_awaited_once()
+        assert generator._client is None
+
     def test_cosine_similarity_zero_vector(self, generator):
         vec1 = np.array([0.0, 0.0, 0.0])
         vec2 = np.array([1.0, 0.0, 0.0])

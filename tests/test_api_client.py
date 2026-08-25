@@ -5,8 +5,15 @@ import httpx
 import pytest
 
 from src.api.client import APIClient
-from src.api.exceptions import APIConnectionError, APIError, AuthenticationError, NotFoundError
-from src.api.models import CommitInfo, ProductionInfo, TaskInfo
+from src.api.exceptions import (
+    APIConnectionError,
+    APIError,
+    AuthenticationError,
+    NotFoundError,
+    RateLimitError,
+    ServerError,
+)
+from src.api.models import CommitInfo, DevelopmentInfo, ProductionInfo, TaskInfo
 
 
 class TestAPIClient:
@@ -78,6 +85,87 @@ class TestAPIClient:
             assert result.task_id == 12345
 
     @pytest.mark.asyncio
+    async def test_retries_transient_server_errors_until_success(self, api_client):
+        api_client.retry = 6
+        responses = [MagicMock(status_code=500) for _ in range(5)]
+        responses.append(MagicMock(status_code=200))
+        responses[-1].json.return_value = {"result": "recovered"}
+
+        api_client.ensure_client()
+        with (
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch.object(api_client._client, "request", side_effect=responses) as mock_request,
+            patch.object(
+                api_client.circuit_breaker,
+                "record_success",
+                wraps=api_client.circuit_breaker.record_success,
+            ) as mock_success,
+            patch.object(
+                api_client.circuit_breaker,
+                "record_failure",
+                wraps=api_client.circuit_breaker.record_failure,
+            ) as mock_failure,
+        ):
+            result = await api_client._request("GET", "/health")
+
+        assert result == {"result": "recovered"}
+        assert mock_request.call_count == 6
+        assert [call.args[0] for call in mock_sleep.await_args_list] == [1, 2, 4, 8, 16]
+        mock_success.assert_called_once_with()
+        mock_failure.assert_not_called()
+        assert api_client.circuit_breaker._failure_count == 0
+        assert api_client.circuit_breaker.is_closed
+
+    @pytest.mark.asyncio
+    async def test_exhausted_server_error_retries_raise_last_error(self, api_client):
+        responses = [MagicMock(status_code=503) for _ in range(api_client.retry)]
+
+        api_client.ensure_client()
+        with (
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch.object(api_client._client, "request", side_effect=responses) as mock_request,
+            pytest.raises(ServerError, match="Server error: 503") as exc_info,
+        ):
+            await api_client._request("GET", "/health")
+
+        assert exc_info.value.status_code == 500
+        assert mock_request.call_count == api_client.retry
+        assert [call.args[0] for call in mock_sleep.await_args_list] == [1, 2]
+        assert api_client.circuit_breaker._failure_count == 1
+
+    @pytest.mark.asyncio
+    async def test_exhausted_connection_retries_record_one_failure(self, api_client):
+        api_client.ensure_client()
+        with (
+            patch("asyncio.sleep", new_callable=AsyncMock),
+            patch.object(
+                api_client._client,
+                "request",
+                side_effect=httpx.ConnectError("Connection error"),
+            ),
+            pytest.raises(APIConnectionError, match="Connection error"),
+        ):
+            await api_client._request("GET", "/health")
+
+        assert api_client.circuit_breaker._failure_count == 1
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_records_one_non_retryable_failure(self, api_client):
+        api_client.ensure_client()
+        with (
+            patch.object(
+                api_client._client,
+                "request",
+                return_value=MagicMock(status_code=429),
+            ) as mock_request,
+            pytest.raises(RateLimitError),
+        ):
+            await api_client._request("GET", "/health")
+
+        assert mock_request.call_count == 1
+        assert api_client.circuit_breaker._failure_count == 1
+
+    @pytest.mark.asyncio
     async def test_error_handling_401(self, api_client):
         with patch("httpx.AsyncClient.request") as mock_request:
             mock_request.return_value = MagicMock(
@@ -88,6 +176,8 @@ class TestAPIClient:
             async with api_client:
                 with pytest.raises(AuthenticationError):
                     await api_client._request("GET", "/task/12345")
+
+        assert api_client.circuit_breaker._failure_count == 0
 
     @pytest.mark.asyncio
     async def test_error_handling_404(self, api_client):
@@ -100,6 +190,8 @@ class TestAPIClient:
             async with api_client:
                 with pytest.raises(NotFoundError):
                     await api_client._request("GET", "/task/99999")
+
+        assert api_client.circuit_breaker._failure_count == 0
 
     @pytest.mark.asyncio
     async def test_get_commits(self, api_client):
@@ -287,10 +379,7 @@ class TestAPIDataModels:
             status="open",
             priority="low",
             create_time=datetime(2024, 1, 1),
-            development={
-                "commits": [],
-                "code_reviews": [],
-            },
+            development=DevelopmentInfo(),
         )
 
         assert task.development is not None
@@ -303,11 +392,10 @@ class TestAPIDataModels:
             status="open",
             priority="low",
             create_time=datetime(2024, 1, 1),
-            production={
-                "incident_time": datetime(2024, 1, 1),
-                "symptoms": "Test symptom",
-                "logs": [],
-            },
+            production=ProductionInfo(
+                incident_time=datetime(2024, 1, 1),
+                symptoms="Test symptom",
+            ),
         )
 
         assert task.production is not None
@@ -529,6 +617,8 @@ class TestAPIClientExtended:
 
             with pytest.raises(APIConnectionError):  # Should raise APIConnectionError
                 await api_client._request("GET", "/test")
+
+        assert api_client.circuit_breaker._failure_count == 1
 
     @pytest.mark.asyncio
     async def test_request_api_error(self, api_client):

@@ -1,21 +1,27 @@
 """API 认证中间件"""
 
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Final
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+_CLEANUP_BATCH_SIZE: Final = 64
+
 
 class RateLimiter:
     """速率限制器"""
 
-    def __init__(self, requests_per_minute: int = 60):
+    def __init__(self, requests_per_minute: int = 60) -> None:
         self.requests_per_minute = requests_per_minute
         self.requests: dict[str, list[float]] = defaultdict(list)
+        self._cleanup_queue: deque[str] = deque()
+        self._queued_identifiers: set[str] = set()
+        self._cleanup_remaining = 0
+        self._next_cleanup_at = time.time() + 60
 
     def is_allowed(self, identifier: str) -> tuple[bool, int]:
         """
@@ -30,6 +36,27 @@ class RateLimiter:
         now = time.time()
         one_minute_ago = now - 60
 
+        if now >= self._next_cleanup_at:
+            self._cleanup_remaining = len(self._cleanup_queue)
+            self._next_cleanup_at = now + 60
+
+        identifiers_to_check = min(_CLEANUP_BATCH_SIZE, self._cleanup_remaining)
+        for _ in range(identifiers_to_check):
+            stored_identifier = self._cleanup_queue.popleft()
+            self._queued_identifiers.remove(stored_identifier)
+            self._cleanup_remaining -= 1
+            timestamps = self.requests.get(stored_identifier)
+            if timestamps is not None:
+                active_timestamps = [
+                    timestamp for timestamp in timestamps if timestamp > one_minute_ago
+                ]
+                if active_timestamps:
+                    self.requests[stored_identifier] = active_timestamps
+                    self._cleanup_queue.append(stored_identifier)
+                    self._queued_identifiers.add(stored_identifier)
+                else:
+                    del self.requests[stored_identifier]
+
         # 清理一分钟前的记录
         self.requests[identifier] = [t for t in self.requests[identifier] if t > one_minute_ago]
 
@@ -39,6 +66,9 @@ class RateLimiter:
 
         # 记录当前请求
         self.requests[identifier].append(now)
+        if identifier not in self._queued_identifiers:
+            self._cleanup_queue.append(identifier)
+            self._queued_identifiers.add(identifier)
         remaining = self.requests_per_minute - len(self.requests[identifier])
         return True, remaining
 
@@ -46,21 +76,24 @@ class RateLimiter:
 class TokenValidator:
     """Token 验证器"""
 
-    def __init__(self, valid_tokens: set[str] | None = None):
+    def __init__(
+        self,
+        valid_tokens: set[str] | None = None,
+        allow_unauthenticated: bool = False,
+    ) -> None:
         self.valid_tokens = valid_tokens or set()
+        self.allow_unauthenticated = allow_unauthenticated
 
     def is_valid(self, token: str) -> bool:
         """验证 token 是否有效"""
-        if not self.valid_tokens:
-            # 如果没有配置有效 token，则允许所有请求（开发模式）
-            return True
-        return token in self.valid_tokens
+        return self.allow_unauthenticated or token in self.valid_tokens
 
 
 def setup_middleware(
     app: FastAPI,
     token_validator: TokenValidator | None = None,
     rate_limiter: RateLimiter | None = None,
+    allow_unauthenticated: bool = False,
 ) -> None:
     """
     设置中间件
@@ -69,6 +102,7 @@ def setup_middleware(
         app: FastAPI 应用实例
         token_validator: Token 验证器
         rate_limiter: 速率限制器
+        allow_unauthenticated: 是否显式允许无认证访问
     """
     if token_validator is None:
         token_validator = TokenValidator()
@@ -83,10 +117,10 @@ def setup_middleware(
         if request.url.path == "/health" or request.url.path == "/":
             return await call_next(request)
 
-        # 从 Header 或 Query 参数获取 Token
-        token = request.headers.get("X-API-Token") or request.query_params.get("api_token")
+        # 从 Header 获取 Token
+        token = request.headers.get("X-API-Token")
 
-        if not token:
+        if not token and not allow_unauthenticated:
             logger.warning(f"Missing API token for request: {request.url.path}")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -99,7 +133,7 @@ def setup_middleware(
             )
 
         # 验证 Token
-        if not token_validator.is_valid(token):
+        if token and not token_validator.is_valid(token):
             logger.warning(f"Invalid API token for request: {request.url.path}")
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -116,7 +150,7 @@ def setup_middleware(
         allowed, remaining = rate_limiter.is_allowed(identifier)
 
         if not allowed:
-            logger.warning(f"Rate limit exceeded for: {identifier}")
+            logger.warning(f"Rate limit exceeded for request: {request.url.path}")
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={

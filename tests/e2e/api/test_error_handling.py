@@ -67,14 +67,13 @@ class TestAuthFailure:
         data = response.json()
         assert "Invalid API token" in data.get("message", "")
 
-    def test_query_param_valid_token_accepted(self, client_auth: TestClient):
-        """通过 query 参数传递有效 token 应通过认证。"""
+    def test_query_param_valid_token_returns_401(self, client_auth: TestClient):
+        """通过 query 参数传递有效 token 应视为缺少认证。"""
         response = client_auth.post(
             "/analyze?api_token=valid-token-123",
             json={"task_id": "12345", "options": {"use_cache": False, "use_llm": False}},
         )
-        # 可能因 API 调用失败（无真实 API），但不应是 401/403
-        assert response.status_code not in (401, 403)
+        assert response.status_code == 401
 
     def test_header_token_priority_over_query_param(self, client_auth: TestClient):
         """Header token 和 query token 同时存在时应正常工作。"""
@@ -143,9 +142,7 @@ class TestServerErrorResponse:
         # 应返回错误状态码（404=not found 或 500=server error）
         assert response.status_code >= 400
 
-    def test_invalid_task_id_format_in_get_returns_400(
-        self, client_auth: TestClient
-    ):
+    def test_invalid_task_id_format_in_get_returns_400(self, client_auth: TestClient):
         """GET /reports/{task_id} 中无效 task_id 格式应返回 400。"""
         response = client_auth.get(
             "/reports/not-a-number",
@@ -154,13 +151,12 @@ class TestServerErrorResponse:
         # 无效格式应返回 400 或 422（FastAPI 验证错误）
         assert response.status_code in (400, 422)
 
-    def test_valid_token_query_param_accepted_on_protected_routes(self, client_auth: TestClient):
-        """通过 query 参数传递有效 token 应对 GET 路由生效。"""
+    def test_valid_token_query_param_returns_401_on_protected_routes(self, client_auth: TestClient):
+        """通过 query 参数传递有效 token 应视为缺少认证。"""
         response = client_auth.get(
             "/reports/12345?api_token=valid-token-123",
         )
-        # 可能返回 200 或 404（任务不存在），但不应是 401/403
-        assert response.status_code not in (401, 403)
+        assert response.status_code == 401
 
     def test_health_endpoint_error_response_structure(self, client_auth: TestClient):
         """/health 端点在任何情况下都应返回 JSON 并有 status 字段。"""

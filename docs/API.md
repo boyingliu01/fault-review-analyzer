@@ -8,28 +8,23 @@
 
 - **基础 URL**: `http://localhost:8000`（本地开发环境）
 - **API 版本**: 0.1.0
-- **认证方式**: API Token 认证
+- **认证方式**: 通过 `X-API-Token` 请求头进行 API Token 认证
 - **内容类型**: `application/json`
 
 ## 认证
 
 ### Token 认证
 
-API 支持通过 HTTP Header 或查询参数传递 Token 进行认证。
+受保护的 API 路由只接受通过 `X-API-Token` 请求头传递的 Token。Token 不得放在 URL 查询参数中。
 
 #### 方式一：Header 传递
 ```http
 X-API-Token: <your-token>
 ```
 
-#### 方式二：查询参数传递
-```http
-GET /clusters?api_token=<your-token>
-```
+#### 开发环境免认证
 
-#### 开发模式
-
-如果没有配置 `API_VALID_TOKENS` 环境变量，服务器将运行在开发模式下，允许所有请求（无需认证）。
+服务器默认拒绝未认证请求，即使没有配置 `API_VALID_TOKENS`。仅在本地开发时，显式设置 `API_ALLOW_UNAUTHENTICATED=true` 才会允许免认证访问。不要在生产环境启用此选项。
 
 ## 速率限制
 
@@ -463,7 +458,11 @@ curl "http://localhost:8000/reports/11745664?format=html" \
 | API_HOST | 服务器监听地址 | 0.0.0.0 |
 | API_PORT | 服务器监听端口 | 8000 |
 | API_VALID_TOKENS | 有效的 API Token 列表（逗号分隔） | 无 |
+| API_ALLOW_UNAUTHENTICATED | 是否允许免认证访问，仅用于本地开发 | false |
 | API_RATE_LIMIT | 每分钟请求限制 | 60 |
+| API_CORS_ORIGINS | 允许跨域访问的来源列表（逗号分隔） | 无 |
+| API_CORS_METHODS | 允许跨域访问的 HTTP 方法列表（逗号分隔） | GET, POST, OPTIONS |
+| API_CORS_HEADERS | 允许跨域访问的请求头列表（逗号分隔） | Content-Type, X-API-Token |
 
 ### 启动命令
 
