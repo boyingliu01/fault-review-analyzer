@@ -109,12 +109,11 @@ class TestCacheManager:
 
     def test_cache_status_expired(self, temp_dir):
         db_path = temp_dir / "cache_expired.db"
-        cache_manager = CacheManager(db_path=db_path, ttl=1)
+        with CacheManager(db_path=db_path, ttl=1) as cache_manager:
+            cache_manager.save_task(12345, {"task_id": 12345})
+            time.sleep(2)
 
-        cache_manager.save_task(12345, {"task_id": 12345})
-        time.sleep(2)
-
-        assert cache_manager.get_status(12345) == CacheStatus.EXPIRED
+            assert cache_manager.get_status(12345) == CacheStatus.EXPIRED
 
     def test_update_existing_cache(self, cache_manager):
         cache_manager.save_task(12345, {"task_id": 12345, "title": "Old Title"})
@@ -156,28 +155,26 @@ class TestCacheManager:
 
     def test_cache_cleanup(self, temp_dir):
         db_path = temp_dir / "cache_cleanup.db"
-        cache_manager = CacheManager(db_path=db_path, ttl=1)
+        with CacheManager(db_path=db_path, ttl=1) as cache_manager:
+            cache_manager.save_task(1, {"task_id": 1})
+            cache_manager.save_task(2, {"task_id": 2})
+            time.sleep(2)
 
-        cache_manager.save_task(1, {"task_id": 1})
-        cache_manager.save_task(2, {"task_id": 2})
-        time.sleep(2)
+            cleaned = cache_manager.cleanup_expired()
 
-        cleaned = cache_manager.cleanup_expired()
-
-        assert cleaned == 2
+            assert cleaned == 2
 
     def test_cache_stats_with_expired(self, temp_dir):
         db_path = temp_dir / "cache_stats.db"
-        cache_manager = CacheManager(db_path=db_path, ttl=1)
+        with CacheManager(db_path=db_path, ttl=1) as cache_manager:
+            cache_manager.save_task(1, {"task_id": 1})
+            cache_manager.save_task(2, {"task_id": 2})
+            time.sleep(2)
 
-        cache_manager.save_task(1, {"task_id": 1})
-        cache_manager.save_task(2, {"task_id": 2})
-        time.sleep(2)
+            stats = cache_manager.get_stats()
 
-        stats = cache_manager.get_stats()
-
-        assert stats["total_entries"] == 2
-        assert stats["expired_entries"] == 2
+            assert stats["total_entries"] == 2
+            assert stats["expired_entries"] == 2
 
 
 class TestCacheModels:

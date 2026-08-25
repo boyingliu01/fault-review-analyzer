@@ -4,6 +4,7 @@
 """
 
 import sqlite3
+from collections.abc import Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -15,10 +16,11 @@ from src.cache.models import CacheStatus
 
 
 @pytest.fixture
-def cache_manager(tmp_path: Path) -> CacheManager:
+def cache_manager(tmp_path: Path) -> Iterator[CacheManager]:
     """使用临时路径创建真实的 CacheManager。"""
     db_path = tmp_path / "test_cache.db"
-    return CacheManager(db_path=db_path, ttl=3600)
+    with CacheManager(db_path=db_path, ttl=3600) as manager:
+        yield manager
 
 
 @pytest.fixture
@@ -115,21 +117,22 @@ class TestCacheManagerRealSQLite:
         """TTL 过期后状态应为 EXPIRED，且 get_task 返回 None。"""
         # 使用极短 TTL
         db_path = tmp_path / "short_ttl.db"
-        manager = CacheManager(db_path=db_path, ttl=1)
+        with CacheManager(db_path=db_path, ttl=1) as manager:
+            manager.save_task(10008, {"task_id": 10008, "title": "test"})
 
-        manager.save_task(10008, {"task_id": 10008, "title": "test"})
+            # 手动修改数据库中的 expires_at 为过去时间
+            past_time = (datetime.now() - timedelta(hours=1)).isoformat()
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    "UPDATE cache SET expires_at = ? WHERE task_id = ?", (past_time, 10008)
+                )
+                conn.commit()
 
-        # 手动修改数据库中的 expires_at 为过去时间
-        past_time = (datetime.now() - timedelta(hours=1)).isoformat()
-        with sqlite3.connect(db_path) as conn:
-            conn.execute("UPDATE cache SET expires_at = ? WHERE task_id = ?", (past_time, 10008))
-            conn.commit()
+            status = manager.get_status(10008)
+            assert status == CacheStatus.EXPIRED
 
-        status = manager.get_status(10008)
-        assert status == CacheStatus.EXPIRED
-
-        result = manager.get_task(10008)
-        assert result is None
+            result = manager.get_task(10008)
+            assert result is None
 
     def test_get_stats(self, cache_manager: CacheManager) -> None:
         """get_stats 应返回正确的统计信息。"""
@@ -155,30 +158,30 @@ class TestCacheManagerRealSQLite:
     def test_cleanup_expired(self, tmp_path: Path) -> None:
         """cleanup_expired 应只删除过期条目。"""
         db_path = tmp_path / "cleanup_test.db"
-        manager = CacheManager(db_path=db_path, ttl=3600)
+        with CacheManager(db_path=db_path, ttl=3600) as manager:
+            manager.save_task(10013, {"task_id": 10013, "title": "valid"})
+            manager.save_task(10014, {"task_id": 10014, "title": "expired"})
 
-        manager.save_task(10013, {"task_id": 10013, "title": "valid"})
-        manager.save_task(10014, {"task_id": 10014, "title": "expired"})
+            # 将 10014 标记为过期
+            past_time = (datetime.now() - timedelta(hours=1)).isoformat()
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    "UPDATE cache SET expires_at = ? WHERE task_id = ?",
+                    (past_time, 10014),
+                )
+                conn.commit()
 
-        # 将 10014 标记为过期
-        past_time = (datetime.now() - timedelta(hours=1)).isoformat()
-        with sqlite3.connect(db_path) as conn:
-            conn.execute(
-                "UPDATE cache SET expires_at = ? WHERE task_id = ?",
-                (past_time, 10014),
-            )
-            conn.commit()
+            deleted = manager.cleanup_expired()
+            assert deleted == 1
 
-        deleted = manager.cleanup_expired()
-        assert deleted == 1
-
-        assert manager.get_task(10013) is not None
-        assert manager.get_task(10014) is None
+            assert manager.get_task(10013) is not None
+            assert manager.get_task(10014) is None
 
     def test_db_file_created_on_init(self, tmp_path: Path) -> None:
         """CacheManager 初始化时应创建数据库文件。"""
         db_path = tmp_path / "subdir" / "cache.db"
-        CacheManager(db_path=db_path, ttl=60)  # 初始化触发文件创建
+        with CacheManager(db_path=db_path, ttl=60):  # 初始化触发文件创建
+            pass
 
         assert db_path.exists()
         # 验证表已创建

@@ -87,7 +87,8 @@ class CacheManager:
         now = datetime.now()
         expires_at = now + timedelta(seconds=self.ttl)
 
-        with self._lock:
+        # 连接上下文管理器保证成功时 commit、异常时 rollback，避免事务残留在共享连接上
+        with self._lock, self._connection:
             self._connection.execute(
                 """
                 INSERT OR REPLACE INTO cache (task_id, data, created_at, expires_at)
@@ -100,15 +101,13 @@ class CacheManager:
                     expires_at.isoformat(),
                 ),
             )
-            self._connection.commit()
 
     def invalidate(self, task_id: int | None = None) -> None:
-        with self._lock:
+        with self._lock, self._connection:
             if task_id is not None:
                 self._connection.execute("DELETE FROM cache WHERE task_id = ?", (task_id,))
             else:
                 self._connection.execute("DELETE FROM cache")
-            self._connection.commit()
 
     def invalidate_all(self) -> None:
         self.invalidate(None)
@@ -182,10 +181,9 @@ class CacheManager:
 
     def cleanup_expired(self) -> int:
         now = datetime.now().isoformat()
-        with self._lock:
+        with self._lock, self._connection:
             cursor = self._connection.execute(
                 "DELETE FROM cache WHERE expires_at < ?",
                 (now,),
             )
-            self._connection.commit()
             return cursor.rowcount
