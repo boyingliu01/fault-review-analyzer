@@ -56,7 +56,8 @@ class ClusterAnalyzer:
             # 归一化后用欧氏距离等价于余弦距离，且 HDBSCAN 对欧氏距离更高效
             norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
             norms = np.where(norms == 0, 1, norms)
-            embeddings_to_use = embeddings / norms
+            with np.errstate(divide="ignore", invalid="ignore"):
+                embeddings_to_use = embeddings / norms
             metric_to_use = "euclidean"
         else:
             metric_to_use = self.metric
@@ -81,7 +82,8 @@ class ClusterAnalyzer:
             # ward 连接要求欧氏距离；归一化后欧氏等价余弦，结果一致
             norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
             norms = np.where(norms == 0, 1, norms)
-            embeddings_to_use = embeddings / norms
+            with np.errstate(divide="ignore", invalid="ignore"):
+                embeddings_to_use = embeddings / norms
 
         n_clusters = max(1, len(embeddings) // self.min_cluster_size)
 

@@ -63,9 +63,7 @@ def test_enabled_documentation_accepts_valid_token(path: str) -> None:
 @pytest.mark.parametrize("path", _DOCS_PATHS)
 def test_enabled_documentation_allows_explicit_unauthenticated_mode(path: str) -> None:
     # Given
-    client = TestClient(
-        create_app(allow_unauthenticated=True, api_docs_enabled=True)
-    )
+    client = TestClient(create_app(allow_unauthenticated=True, api_docs_enabled=True))
 
     # When
     response = client.get(path)
@@ -83,9 +81,7 @@ def test_root_advertises_documentation_only_when_enabled(
     advertises_docs: bool,
 ) -> None:
     # Given
-    client = TestClient(
-        create_app(allow_unauthenticated=True, api_docs_enabled=api_docs_enabled)
-    )
+    client = TestClient(create_app(allow_unauthenticated=True, api_docs_enabled=api_docs_enabled))
 
     # When
     response = client.get("/")

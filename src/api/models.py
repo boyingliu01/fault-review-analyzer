@@ -72,6 +72,8 @@ class DesignInfo(BaseModel):
 
 
 class TestingInfo(BaseModel):
+    __test__ = False  # avoid pytest collecting this as a test class
+
     test_cases: list[str] = Field(default_factory=list, description="测试用例")
     test_results: list[str] = Field(default_factory=list, description="测试结果")
     defects: list[str] = Field(default_factory=list, description="缺陷记录")

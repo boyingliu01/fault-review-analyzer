@@ -84,8 +84,7 @@ async def get_report(
                     },
                 )
             logger.error(
-                f"Report generation failed for task {task_id}: "
-                f"error_type=ReportGenerationFailed"
+                f"Report generation failed for task {task_id}: error_type=ReportGenerationFailed"
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
