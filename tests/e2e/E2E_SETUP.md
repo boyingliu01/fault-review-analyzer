@@ -61,10 +61,8 @@ LLM_MAX_TOKENS=4096
 import pandas as pd
 
 # 创建示例数据
-df = pd.DataFrame({
-    '故障单号': [11745664, 11748712, 11750001, 11750002, 11750003]
-})
-df.to_excel('data/测试用故障单号列表.xlsx', index=False)
+df = pd.DataFrame({"故障单号": [11745664, 11748712, 11750001, 11750002, 11750003]})
+df.to_excel("data/测试用故障单号列表.xlsx", index=False)
 ```
 
 ### 3. Playwright 浏览器安装
