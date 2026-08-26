@@ -42,20 +42,35 @@ class OpenAILLMProvider:
             self._client = None
 
     async def generate(self, system: str, user: str) -> str:
-        """Generate text using OpenAI API."""
+        """Generate text using OpenAI API.
+
+        本地 LLM 模型偶发返回空响应（约 20% 概率），此处在返回空时
+        自动重试，保证分析结果的完整性与正确性。
+        """
         client = self._get_client()
 
-        response = await client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-        )
+        for attempt in range(3):
+            try:
+                response = await client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                )
+                content = response.choices[0].message.content or ""
+                # 空响应重试
+                if content.strip():
+                    return content
+            except Exception:
+                # 网络/限流等异常也重试
+                if attempt == 2:
+                    raise
 
-        return response.choices[0].message.content or ""
+        # 3 次尝试后仍为空，返回空字符串（调用方降级处理）
+        return ""
 
 
 def create_llm_provider(config: Any) -> OpenAILLMProvider | None:

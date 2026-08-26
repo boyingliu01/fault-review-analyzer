@@ -127,12 +127,22 @@ class RootCauseAnalyzer:
         )
 
         provider = self._get_provider()
-        response = await provider.generate(
-            system=system_prompt,
-            user=user_prompt,
-        )
 
-        return self._parse_response(task_id, response)
+        # 本地 LLM 偶发返回空/不完整 JSON，解析失败时重试，保证根因分析完整性
+        result: RootCauseAnalysisResult | None = None
+        for attempt in range(2):
+            response = await provider.generate(
+                system=system_prompt,
+                user=user_prompt,
+            )
+            parsed = self._parse_response(task_id, response)
+            if parsed.root_causes:
+                return parsed
+            # 解析失败或根因为空，重试（本地模型偶发输出不完整）
+            result = parsed
+
+        assert result is not None
+        return result
 
     async def analyze_batch(
         self,
