@@ -1,0 +1,262 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "研发云开放API",
+    "description": "研发云开放API是为开发者量身打造的一套强大接口体系，旨在通过标准化接口打通研发云平台的核心能力，让用户能够基于此开发各类 AI 程序，实现研发流程的自动化与智能化，大幅提升研发效率。",
+    "version": "0.1.0",
+    "termsOfService": "API-Token申请和使用方式详见文档 https://docs.iwhalecloud.com/doi/z9LT/circle/si1xFZ6m?single=true&head=false",
+    "contact": {
+      "name": "研发平台团队"
+    }
+  },
+  "host": "",
+  "basePath": "/",
+  "schemes": [],
+  "consumes": [
+    "*/*"
+  ],
+  "produces": [
+    "*/*"
+  ],
+  "paths": {
+    "/devspace/rpc/v3/task-branch/{taskNo}/changes/content": {
+      "post": {
+        "tags": [
+          "代码分支"
+        ],
+        "summary": "根据任务单号查询代码变动详细内容",
+        "description": "查询任务分支代码变更详情，包括分支信息、变动文件清单及可选的文件内容差异",
+        "operationId": "qryApiTaskChangeContentRespDtoByTaskNo",
+        "parameters": [
+          {
+            "name": "taskNo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Operate-User-Code",
+            "in": "header",
+            "description": "使用系统Token需要添加调用接口的操作人工号，个人Token不需要添加"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiTaskChangeContentReqDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMessageApiTaskChangeContentRespDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMessageObject"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMessageObject"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "ApiTaskChangeContentReqDto": {
+      "type": "object",
+      "description": "任务单代码变动内容请求体",
+      "properties": {
+        "withContent": {
+          "type": "boolean",
+          "default": "false",
+          "description": "是否返回特性分支上该文件的内容:包括原始内容，修改之后的最新内容和差异内容",
+          "refType": null
+        }
+      }
+    },
+    "ResponseMessageApiTaskChangeContentRespDto": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/components/schemas/ApiTaskChangeContentRespDto"
+        },
+        "code": {
+          "type": "string"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "finalMessage": {
+          "type": "string"
+        }
+      }
+    },
+    "ResponseMessageObject": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object"
+        },
+        "code": {
+          "type": "string"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "finalMessage": {
+          "type": "string"
+        }
+      }
+    },
+    "ApiTaskChangeContentRespDto": {
+      "type": "object",
+      "description": "任务单代码变动内容返回体",
+      "properties": {
+        "branchInfo": {
+          "$ref": "#/components/schemas/ApiFeatureBranchCommitRangeRespDto",
+          "description": "代码分支基本信息",
+          "refType": "ApiFeatureBranchCommitRangeRespDto"
+        },
+        "changeFileDetailList": {
+          "type": "array",
+          "description": "变动文件详情列表",
+          "items": {
+            "$ref": "#/components/schemas/ApiTaskChangeFileDetailDto"
+          },
+          "refType": "ApiTaskChangeFileDetailDto"
+        }
+      }
+    },
+    "ApiFeatureBranchCommitRangeRespDto": {
+      "type": "object",
+      "description": "查询代码分支的提交信息请求返回体",
+      "properties": {
+        "productModuleId": {
+          "type": "integer",
+          "format": "int32",
+          "description": "应用模块ID",
+          "refType": null
+        },
+        "productModuleName": {
+          "type": "string",
+          "description": "应用模块名称",
+          "refType": null
+        },
+        "repoId": {
+          "type": "integer",
+          "format": "int32",
+          "description": "仓库ID",
+          "refType": null
+        },
+        "repoName": {
+          "type": "string",
+          "description": "仓库名称",
+          "refType": null
+        },
+        "repoUrl": {
+          "type": "string",
+          "description": "仓库地址",
+          "refType": null
+        },
+        "branchName": {
+          "type": "string",
+          "description": "特性分支名称",
+          "refType": null
+        },
+        "baseBranchName": {
+          "type": "string",
+          "description": "来源分支名称",
+          "refType": null
+        },
+        "headCommitId": {
+          "type": "string",
+          "description": "特性分支创建的初始CommitId",
+          "refType": null
+        },
+        "lastCommitId": {
+          "type": "string",
+          "description": "特性分支最新的CommitId",
+          "refType": null
+        }
+      }
+    },
+    "ApiTaskChangeFileDetailDto": {
+      "type": "object",
+      "description": "任务单变动文件详情",
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "文件路径",
+          "refType": null
+        },
+        "operType": {
+          "type": "string",
+          "description": "变动类型：added-新增，modified-修改，removed-删除",
+          "refType": null
+        },
+        "headContent": {
+          "type": "string",
+          "description": "修改前的文件内容",
+          "refType": null
+        },
+        "latestContent": {
+          "type": "string",
+          "description": "修改后的文件内容",
+          "refType": null
+        },
+        "headCommitId": {
+          "type": "string",
+          "description": "修改前的CommitId",
+          "refType": null
+        },
+        "latestCommitId": {
+          "type": "string",
+          "description": "修改后的CommitId",
+          "refType": null
+        },
+        "diffContent": {
+          "type": "string",
+          "description": "文件差异内容（Unified Diff格式）",
+          "refType": null
+        }
+      }
+    }
+  }
+}

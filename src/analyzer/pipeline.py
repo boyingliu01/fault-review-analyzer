@@ -19,7 +19,6 @@ from src.api.models import TaskInfo
 from src.cache.manager import CacheManager
 from src.clustering.analyzer import ClusterAnalyzer
 from src.config.manager import ConfigManager
-from src.core.models import EmbeddingResult
 from src.embedding.generator import EmbeddingGenerator
 from src.knowledge.manager import StandardsManager
 from src.preprocessor.models import ProcessedTask
@@ -53,7 +52,6 @@ class PipelineConfig:
     check_rules: bool = True
     match_standards: bool = True  # 故障结论与研发规范语义匹配
     generate_report: bool = True
-    store_embeddings: bool = True  # 聚类时是否将向量持久化到 ChromaDB
     report_format: ReportFormat = ReportFormat.MARKDOWN
     output_path: Path = field(default_factory=lambda: Path("./output"))
     max_concurrency: int = 10
@@ -109,7 +107,6 @@ class AnalysisPipeline:
         self._violation_detector: ViolationDetector | None = None
         self._standards_matcher: StandardsMatcher | None = None
         self._report_generator: ReportGenerator | None = None
-        self._chroma_manager: Any | None = None
         self._improvement_recommender: ImprovementRecommender | None = None
 
     async def __aenter__(self) -> "AnalysisPipeline":
@@ -541,11 +538,6 @@ class AnalysisPipeline:
         cluster_result = cluster_analyzer.fit_predict(embeddings_array)
         labels_list = cluster_result.labels
 
-        # G1: 将向量持久化到 ChromaDB（失败时优雅降级，不阻塞聚类流程）
-        stored_count = 0
-        if self._pipeline_config.store_embeddings:
-            stored_count = self._store_cluster_embeddings(tasks_data, embeddings)
-
         # G2: 为每个非噪声簇生成语义标签（需 LLM；无 LLM 时跳过）
         cluster_labels: dict[int, str] = {}
         if self._pipeline_config.use_llm and self._pipeline_config.generate_labels:
@@ -585,48 +577,8 @@ class AnalysisPipeline:
             "cluster_labels": cluster_labels,
             "total_requested": len(task_ids),
             "total_found": len(tasks_data),
-            "embeddings_stored": stored_count,
             "clustering_mode": "code_change_enhanced" if has_code_data else "text_only",
         }
-
-    def _store_cluster_embeddings(
-        self, tasks_data: list[TaskInfo], embeddings: list[list[float]]
-    ) -> int:
-        """将聚类向量的 embedding 持久化到 ChromaDB（GAP G1）。
-
-        Returns:
-            成功存储的向量数量。
-        """
-        chroma = self._get_chroma_manager()
-        if chroma is None:
-            return 0
-
-        embedding_results = []
-        for i, task in enumerate(tasks_data):
-            if i >= len(embeddings):
-                break
-            embedding_results.append(
-                EmbeddingResult(
-                    task_id=str(task.task_id),
-                    embedding=embeddings[i],
-                    text=f"{task.title or ''} {task.description or ''}".strip(),
-                    media_type="text",
-                    metadata={
-                        "title": task.title or "",
-                        "cluster_id": None,
-                    },
-                )
-            )
-
-        if not embedding_results:
-            return 0
-
-        try:
-            statuses = chroma.add_batch_embeddings(embedding_results)
-            return sum(1 for ok in statuses.values() if ok)
-        except Exception as e:
-            logger.warning(f"ChromaDB 批量写入失败，跳过向量存储: {e}")
-            return 0
 
     async def _generate_cluster_labels(
         self,
@@ -773,25 +725,6 @@ class AnalysisPipeline:
                 metric=cluster_config.metric,
             )
         return self._cluster_analyzer
-
-    def _get_chroma_manager(self) -> Any:
-        """Get or create ChromaManager（用于向量持久化）。
-
-        使用默认持久化路径 ./data/chroma，启用本地降级缓存。
-        若 ChromaDB 初始化失败，返回 None（聚类流程优雅降级，不阻塞）。
-        """
-        if self._chroma_manager is None:
-            try:
-                from src.storage.chroma_manager import ChromaManager
-
-                self._chroma_manager = ChromaManager(
-                    persist_directory="./data/chroma",
-                    enable_fallback=True,
-                )
-            except Exception as e:
-                logger.warning(f"ChromaManager 初始化失败，跳过向量存储: {e}")
-                self._chroma_manager = None
-        return self._chroma_manager
 
     async def _generate_labels(
         self,

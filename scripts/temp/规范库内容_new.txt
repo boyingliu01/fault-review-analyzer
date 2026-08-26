@@ -1,0 +1,8407 @@
+Java语⾔编码规范
+1. 前⾔
+编码规范对于程序员⽽⾔尤为重要，有以下⼏个原因：
+⼀个软件的⽣命周期中，80%的花费在于维护。
+⼏乎没有任何⼀个软件，在其整个⽣命周期中，均由最初的开发⼈员来维护。
+编码规范可以改善软件的可读性，可以让程序员尽快⽽彻底地理解新的代码。
+编码规范可以促使程序员遵循最佳实践与设计模式，避免常⻅错误和潜在漏洞，从源头保障软件质量，提
+升产品可靠性。
+1.1. 适⽤对象
+浩鲸科技 JAVA 开发⼈员
+1.2. ⽬的
+为了持续、稳定地开发出⾼质量，健壮的软件系统，为了保证团队中成员的编码质量，特制定本⽂档。⽤于规
+范团队内部开发过程，增加程序的健壮性，便于后续测试及代码维护，最终提⾼软件产品的⽣产⼒。
+1.3. 申明
+在本编码规范⽂档中，部分示例代码使⽤了类似
+等语句⽤于展示代码逻辑和规范要点。需明
+System.out.println
+确的是，在实际的 Java 开发场景下，这类语句并不符合本编码规范要求。它们仅作为示例辅助⼿段，⽤于突
+出规范所针对的特定代码问题，对表达规范的正反例具有直观展示作⽤，旨在帮助读者更清晰地理解规范要
+点。在实际项⽬开发中，请严格遵循本编码规范，避免使⽤此类不符合规范的语句，优先采⽤封装的Logger
+输出信息，以确保代码质量、可维护性和规范性。
+2. 编程惯例
+2.1. 集合处理
+2.1.1. 【J000000】强制：关于 hashCode 和 equals 的处理，只要覆写 equals，就必
+须覆写 hashCode
+关于 hashCode 和 equals 的处理，应该遵循如下规则：
+浩鲸云计算科技股份有限公司 版权所有
+第 1/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+只要覆写 equals，就必须覆写 hashCode。
+因为 Set 存储的是不重复的对象，依据 hashCode 和 equals 进⾏判断，所以 Set 存储的对象必须覆写这
+两个⽅法。
+如果⾃定义对象作为 Map 的键，那么必须覆写 hashCode 和 equals。
+说明 ：String 已覆写 hashCode 和 equals ⽅法，所以我们可以愉快地使⽤ String 对象作为 key 来使⽤。
+正例：
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+class CustomUser {
+    private String username;
+    private int age;
+    public CustomUser(String username, int age) {
+        this.username = username;
+        this.age = age;
+    }
+    // 覆写 equals ⽅法
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        CustomUser that = (CustomUser) o;
+        return age == that.age && username.equals(that.username);
+    }
+    // 覆写 hashCode ⽅法
+    @Override
+    public int hashCode() {
+        int result = username.hashCode();
+        result = 31 * result + age;
+        return result;
+    }
+}
+public class HashCodeEqualsExample {
+    public static void main(String[] args) {
+        CustomUser user1 = new CustomUser("Alice", 25);
+        CustomUser user2 = new CustomUser("Alice", 25);
+        // 使⽤ Set 存储⾃定义对象
+        Set<CustomUser> userSet = new HashSet<>();
+        userSet.add(user1);
+        userSet.add(user2);
+        System.out.println("Set 中的元素数量: " + userSet.size());  // 1
+浩鲸云计算科技股份有限公司 版权所有
+第 2/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+        // 使⽤⾃定义对象作为 Map 的键
+        Map<CustomUser, String> userMap = new HashMap<>();
+        userMap.put(user1, "User info");
+        System.out.println("通过 user2 从 Map 中获取的值: " + userMap.get(user2));  // User info
+    }
+}
+反例：
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+class BadCustomUser {
+    private String username;
+    private int age;
+    public BadCustomUser(String username, int age) {
+        this.username = username;
+        this.age = age;
+    }
+    // 仅覆写 equals ⽅法，未覆写 hashCode ⽅法
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        BadCustomUser that = (BadCustomUser) o;
+        return age == that.age && username.equals(that.username);
+    }
+}
+public class BadHashCodeEqualsExample {
+    public static void main(String[] args) {
+        BadCustomUser user1 = new BadCustomUser("Bob", 30);
+        BadCustomUser user2 = new BadCustomUser("Bob", 30);
+        // 使⽤ Set 存储⾃定义对象
+        Set<BadCustomUser> badUserSet = new HashSet<>();
+        badUserSet.add(user1);
+        badUserSet.add(user2);
+        System.out.println("错误的 Set 元素数量: " + badUserSet.size());  // 2
+        // 使⽤⾃定义对象作为 Map 的键
+        Map<BadCustomUser, String> badUserMap = new HashMap<>();
+        badUserMap.put(user1, "User details");
+        System.out.println("通过 user2 从错误的 Map 中获取的值: " + badUserMap.get(user2));  // null
+    }
+}
+浩鲸云计算科技股份有限公司 版权所有
+第 3/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+检查⼯具：
+CheckStyle：Definition of 'equals()' without corresponding definition of 'hashCode()'. (17:5) 
+[EqualsHashCode]
+SpotBugs：HE_USE_OF_UNHASHABLE_CLASS (Use of class without a hashCode() method in a 
+hashed data structure)
+PMD：OverrideBothEqualsAndHashcode
+2.1.2. 【J000001】强制：ArrayList 的 subList 结果不可强转成 ArrayList
+否则会抛出ClassCastException 异 常，即 java.util.ArrayList$SubList cannot be cast to java.util.ArrayList。
+说明 ：subList 返回的是 ArrayList 的内部类 SubList，并不是 ArrayList ⽽是 ArrayList 的⼀个视图，对于 
+SubList ⼦列表的所有操作最终会反映到原列表上。
+正例：
+import java.util.ArrayList;
+import java.util.List;
+public class CorrectSubListUsage {
+    public static void main(String[] args) {
+        ArrayList<Integer> originalList = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            originalList.add(i);
+        }
+        // 使⽤ `List` 接⼝来接收 `subList` 的返回结果
+        List<Integer> subList = originalList.subList(2, 5);
+        // 对⼦列表进⾏操作
+        subList.set(0, 20);
+        // 输出原列表和⼦列表，验证修改会反映到原列表上
+        System.out.println("原列表: " + originalList);
+        System.out.println("⼦列表: " + subList);
+    }
+}
+反例：
+import java.util.ArrayList;
+public class IncorrectSubListUsage {
+    public static void main(String[] args) {
+        ArrayList<Integer> originalList = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            originalList.add(i);
+浩鲸云计算科技股份有限公司 版权所有
+第 4/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+        }
+        try {
+            // 错误：将 subList 结果强转为 ArrayList
+            ArrayList<Integer> subList = (ArrayList<Integer>) originalList.subList(2, 5);
+        } catch (ClassCastException e) {
+            System.out.println("捕获到 ClassCastException 异常: " + e.getMessage());
+        }
+    }
+}
+检查⼯具：⽆
+2.1.3. 【J000002】强制：使⽤ Map 的⽅法 keySet()/values()/entrySet()返回集合对象
+时，不可以对其进⾏添加元素操作
+说明： 
+ 接⼝提供了三个⽅法：
+、
+ 和 
+，分别⽤于返回 
+ 中键的集合、值
+Map
+keySet()
+values()
+entrySet()
+Map
+的集合以及键值对的集合。需要注意的是，这些⽅法返回的集合对象是 
+ 的视图，⽽不是独⽴的集合。它
+Map
+们反映了 
+ 当前的状态。对这些视图集合的修改操作（除了移除元素）通常是不允许的，因为这些操作可
+Map
+能会破坏 
+ 的内部结构和⼀致性。如果尝试对这些视图集合进⾏添加元素的操作，会抛出 
+Map
+UnsupportedO
+ 异常。
+perationException
+正例：
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+public class CorrectMapViewUsage {
+    public static void main(String[] args) {
+        Map<String, Integer> map = new HashMap<>();
+        map.put("apple", 1);
+        map.put("banana", 2);
+        // 获取键的集合视图
+        Set<String> keySet = map.keySet();
+        // 可以进⾏遍历操作
+        for (String key : keySet) {
+            System.out.println("Key: " + key);
+        }
+        // 可以进⾏移除操作
+        keySet.remove("apple");
+        System.out.println("移除 apple 后 Map 的内容: " + map);
+    }
+}
+反例：
+浩鲸云计算科技股份有限公司 版权所有
+第 5/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+public class IncorrectMapViewUsage {
+    public static void main(String[] args) {
+        Map<String, Integer> map = new HashMap<>();
+        map.put("apple", 1);
+        map.put("banana", 2);
+        // 获取键的集合视图
+        Set<String> keySet = map.keySet();
+        try {
+            // 错误：尝试向视图集合中添加元素
+            keySet.add("cherry");
+        } catch (UnsupportedOperationException e) {
+            System.out.println("捕获到 UnsupportedOperationException 异常: " + e.getMessage());
+        }
+    }
+}
+检查⼯具：⽆
+2.1.4. 【J000003】强制：不可对 Collections 类返回的不可变列表进⾏添加或删除元素
+操作
+说明： 
+ 类提供了⼀系列实⽤⽅法，⽤于操作集合，其中像 
+、
+ 等⽅法会
+Collections
+emptyList()
+singletonList()
+返回不可变的列表对象。不可变列表意味着这些列表的内容在创建之后就不能被修改，即不能对其进⾏添加或
+者删除元素的操作。
+这是因为这些不可变列表的设计⽬的是为了提供⼀种安全、轻量级且不可变的集合表示，它们在内存使⽤和线
+程安全⽅⾯有⼀定优势。如果对这些不可变列表进⾏添加或删除元素的操作，会抛出 UnsupportedOperationEx
+ 异常，因为这些操作违背了不可变列表的设计原则。
+ception
+正例：
+import java.util.Collections;
+import java.util.List;
+public class CorrectUsageOfCollections {
+    public static void main(String[] args) {
+        // 获取不可变的空列表
+        List<String> emptyList = Collections.emptyList();
+        // 可以安全地使⽤该列表进⾏只读操作，如遍历
+        for (String element : emptyList) {
+            System.out.println(element);
+        }
+浩鲸云计算科技股份有限公司 版权所有
+第 6/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+        // 获取不可变的单元素列表
+        List<String> singletonList = Collections.singletonList("single");
+        // 进⾏只读操作
+        System.out.println(singletonList.get(0));
+    }
+}
+在正例中，我们只是对 
+ 类返回的不可变列表进⾏了只读操作，如遍历和获取元素，没有尝试对其
+Collections
+进⾏添加或删除元素的操作，因此不会抛出异常。
+反例：
+import java.util.Collections;
+import java.util.List;
+public class IncorrectUsageOfCollections {
+    public static void main(String[] args) {
+        // 获取不可变的空列表
+        List<String> emptyList = Collections.emptyList();
+        try {
+            // 错误：尝试向不可变列表中添加元素
+            emptyList.add("newElement");
+        } catch (UnsupportedOperationException e) {
+            System.out.println("捕获到 UnsupportedOperationException 异常: " + e.getMessage());
+        }
+        // 获取不可变的单元素列表
+        List<String> singletonList = Collections.singletonList("single");
+        try {
+            // 错误：尝试从不可变列表中删除元素
+            singletonList.remove(0);
+        } catch (UnsupportedOperationException e) {
+            System.out.println("捕获到 UnsupportedOperationException 异常: " + e.getMessage());
+        }
+    }
+}
+在反例中，我们尝试对 
+ 类返回的不可变列表进⾏添加和删除元素的操作，这会触发 
+Collections
+Unsupported
+ 异常，代码中通过捕获该异常来展示错误情况。
+OperationException
+检查⼯具：⽆
+2.1.5. 【J000004】强制：在 subList 场景中，⾼度注意对原集合元素的增加或删除，均
+会导致⼦列表的遍历、增加、删除产⽣ ConcurrentModificationException 异常
+说明： 
+ 等集合的 
+ ⽅法会返回原集合的⼀个⼦列表视图。这个⼦列表视图和原集合是紧密关
+ArrayList
+subList
+联的，它们共享底层的数据结构。当对原集合进⾏元素的增加或删除操作时，会改变原集合的结构，⽽⼦列表
+的迭代器仍然保留着原有的结构信息。
+浩鲸云计算科技股份有限公司 版权所有
+第 7/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+由于⼦列表的迭代器期望原集合的结构保持不变，⼀旦原集合的结构发⽣改变，⼦列表在进⾏遍历、增加、删
+除操作时，迭代器会检测到这种结构的不⼀致，从⽽抛出 
+ 异常。这是 Java 
+ConcurrentModificationException
+集合框架为了保证数据的⼀致性和避免并发修改问题⽽设计的⼀种机制。
+正例：
+import java.util.ArrayList;
+import java.util.List;
+public class CorrectSubListUsage {
+    public static void main(String[] args) {
+        ArrayList<Integer> originalList = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            originalList.add(i);
+        }
+        // 获取⼦列表
+        List<Integer> subList = originalList.subList(2, 5);
+        // 只对⼦列表进⾏操作，不改变原集合结构
+        subList.set(0, 20);
+        System.out.println("⼦列表: " + subList);
+        System.out.println("原列表: " + originalList);
+    }
+}
+在正例中，我们仅对⼦列表进⾏操作，没有对原集合进⾏元素的增加或删除，所以不会触发 ConcurrentModifi
+ 异常。
+cationException
+反例：
+import java.util.ArrayList;
+import java.util.List;
+public class IncorrectSubListUsage {
+    public static void main(String[] args) {
+        ArrayList<Integer> originalList = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            originalList.add(i);
+        }
+        // 获取⼦列表
+        List<Integer> subList = originalList.subList(2, 5);
+        // 对原集合进⾏元素删除操作
+        originalList.remove(3);
+        try {
+            // 尝试遍历⼦列表，会抛出 ConcurrentModificationException 异常
+浩鲸云计算科技股份有限公司 版权所有
+第 8/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+            for (Integer num : subList) {
+                System.out.println(num);
+            }
+        } catch (ConcurrentModificationException e) {
+            System.out.println("捕获到 ConcurrentModificationException 异常: " + e.getMessage());
+        }
+    }
+}
+在反例中，我们对原集合进⾏了元素删除操作，之后尝试遍历⼦列表，此时⼦列表的迭代器检测到原集合结构
+发⽣了改变，就会抛出 
+ 异常。
+ConcurrentModificationException
+检查⼯具：⽆
+2.1.6. 【J000005】强制：使⽤集合转数组的⽅法，必须使⽤集合的 toArray(T[] array)，
+传⼊的是类型完全⼀致、⻓度为 0 的空数组
+反例：直接使⽤ toArray ⽆参⽅法存在问题，此⽅法返回值只能是 Object[]类，若强转其它类型数组将出现 
+ClassCastException 错误。
+：
+正例
+List<String> list = new ArrayList<>(2);
+list.add("guan");
+list.add("bao");
+String[] array = list.toArray(new String[0]);
+说明 ：使⽤ toArray 带参⽅法，数组空间⼤⼩的 length：
+等于 0，动态创建与 size 相同的数组，性能最好。
+⼤于 0 但⼩于 size，重新创建⼤⼩等于 size 的数组，增加 GC 负担。
+等于 size，在⾼并发情况下，数组创建完成之后，size 正在变⼤的情况下，负⾯影响与上相同。
+⼤于 size，空间浪费，且在 size 处插⼊ null 值，存在 NPE 隐患。
+检查⼯具：⽆
+2.1.7. 【J000006】强制：在使⽤ Collection 接⼝任何实现类的 addAll()⽅法时，都要对
+输⼊的集合参数进⾏NPE 判断
+说明： 
+ 接⼝的实现类（如 
+、
+ 等）都提供了 
+ ⽅法，⽤于将另⼀个集合
+Collection
+ArrayList
+HashSet
+addAll()
+中的所有元素添加到当前集合中。以 
+ 的 
+ ⽅法为例，其内部第⼀⾏代码通常是 
+ArrayList
+addAll()
+Object[] a = 
+，这⾥的 
+ 就是传⼊的集合参数。如果这个参数为 
+，调⽤ 
+ 时就会抛出 
+c.toArray();
+c
+null
+c.toArray()
+NullPoint
+（NPE）。为了避免这种异常的发⽣，在调⽤ 
+ ⽅法之前，应该对输⼊的集合参数进⾏ 
+erException
+addAll()
+n
+ 判断。
+ull
+正例：
+浩鲸云计算科技股份有限公司 版权所有
+第 9/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+public class CorrectAddAllUsage {
+    public static void main(String[] args) {
+        List<String> targetList = new ArrayList<>();
+        targetList.add("element1");
+        targetList.add("element2");
+        Collection<String> sourceCollection = null;
+        // 对输⼊的集合参数进⾏ NPE 判断
+        if (sourceCollection != null) {
+            targetList.addAll(sourceCollection);
+        }
+        System.out.println("⽬标列表的内容: " + targetList);
+    }
+}
+在正例中，我们在调⽤ 
+ ⽅法之前，先对 
+ 进⾏了 
+ 判断，当它不为 
+ 时才调
+addAll()
+sourceCollection
+null
+null
+⽤ 
+ ⽅法，这样就避免了 
+ 的发⽣。
+addAll()
+NullPointerException
+反例：
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+public class IncorrectAddAllUsage {
+    public static void main(String[] args) {
+        List<String> targetList = new ArrayList<>();
+        targetList.add("element1");
+        targetList.add("element2");
+        Collection<String> sourceCollection = null;
+        try {
+            // 错误：未对输⼊的集合参数进⾏ NPE 判断
+            targetList.addAll(sourceCollection);
+        } catch (NullPointerException e) {
+            System.out.println("捕获到 NullPointerException 异常: " + e.getMessage());
+        }
+    }
+}
+在反例中，我们没有对 
+ 进⾏ 
+ 判断就直接调⽤ 
+ ⽅法，这会导致 
+sourceCollection
+null
+addAll()
+NullPointerExce
+ 异常，代码中通过捕获该异常来展示错误情况。
+ption
+浩鲸云计算科技股份有限公司 版权所有
+第 10/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+检查⼯具：⽆
+2.1.8. 【J000007】强制：使⽤⼯具类 Arrays.asList()把数组转换成集合时，不能使⽤其
+修改集合相关的⽅法，它的 add/remove/clear ⽅法会抛出 
+UnsupportedOperationException 异常
+说明：asList 的返回对象是⼀个 Arrays 内部类，并没有实现集合的修改⽅法。Arrays.asList 体现的是适配器
+模式，只是转换接⼝，后台的数据仍是数组。
+正例 ：
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+public class CorrectArraysAsListUsage {
+    public static void main(String[] args) {
+        String[] str = new String[]{"yang", "hao"};
+        // 先使⽤ Arrays.asList() 转换，再创建⼀个新的可修改的集合
+        List<String> list = new ArrayList<>(Arrays.asList(str));
+        // 可以安全地对新集合进⾏修改操作
+        list.add("yangguanbao");
+        System.out.println("修改后的集合内容: " + list);
+        // 原数组不受影响
+        System.out.println("原数组内容: " + Arrays.toString(str));
+    }
+}
+在正例中，我们先使⽤ 
+ ⽅法将数组转换为集合，然后创建⼀个新的 
+ 并将转换后的集
+Arrays.asList()
+ArrayList
+合作为参数传⼊，这样就得到了⼀个可修改的集合，避免了使⽤ 
+ 返回的不可修改集合带来的问
+Arrays.asList()
+题。
+反例 ：
+import java.util.Arrays;
+import java.util.List;
+public class IncorrectArraysAsListUsage {
+    public static void main(String[] args) {
+        String[] str = new String[]{"yang", "hao"};
+        List<String> list = Arrays.asList(str);
+        try {
+            // 错误：调⽤ add ⽅法会抛出 UnsupportedOperationException 异常
+            list.add("yangguanbao");
+        } catch (UnsupportedOperationException e) {
+浩鲸云计算科技股份有限公司 版权所有
+第 11/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+            System.out.println("捕获到 UnsupportedOperationException 异常: " + e.getMessage());
+        }
+        // 修改原数组
+        str[0] = "changed";
+        // 集合中的元素也会被修改
+        System.out.println("修改原数组后，集合的内容: " + list);
+    }
+}
+在反例中，直接使⽤ 
+ 返回的集合进⾏ 
+ 操作，会抛出 
+ 异
+Arrays.asList()
+add
+UnsupportedOperationException
+常。同时，对原数组元素的修改会反映到集合中，体现了它们底层数据的共享性。
+检查⼯具：⽆
+2.1.9. 【J000008】强制：在⽆泛型限制定义的集合赋值给泛型限制的集合时，在使⽤
+集合元素时，需要进⾏instanceof 判断，避免抛出 ClassCastException 异常
+说明：泛型是在 JDK5 后才出现，考虑到向前兼容，编译器是允许⾮泛型集合与泛型集合互相赋值。
+反例：
+List<String> generics = null;
+List notGenerics = new ArrayList(10);
+notGenerics.add(new Object());
+notGenerics.add(new Integer(1));
+generics = notGenerics;
+// 此处抛出 ClassCastException 异常
+String string = generics.get(0);
+正例：
+List<String> generics = null;
+List notGenerics = new ArrayList(10);
+notGenerics.add(new Object());
+notGenerics.add(new Integer(1));
+generics = notGenerics;
+if (generics.get(0) instanceof String) {
+    String string = generics.get(0);
+}
+在JDK16以上，使⽤instanceof模式匹配可以简化类型检查和转换的代码
+这种模式匹配⽅式减少了代码的冗余，并使得类型检查更加直观。
+正例：
+浩鲸云计算科技股份有限公司 版权所有
+第 12/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+AbstractObject obj = origin;
+if (obj instanceof InheritanceObject inheritance) {
+    // TODO 此时inheritance对象已经是InheritanceObject了
+}
+检查⼯具：⽆
+2.1.10. 【J000009】强制：不要在列表遍历的循环⾥进⾏元素的 remove/add 操作。
+remove 元素请使⽤ iterator ⽅式，如果并发操作，需要对 iterator 对象加锁
+说明 ：在 Java 中，当使⽤增强 
+ 循环（
+ 循环）遍历列表时，其底层是基于迭代器实现的。在遍
+for
+for-each
+历过程中，如果直接对列表进⾏ 
+ 或 
+ 操作，会改变列表的结构，⽽迭代器并不知道这种结构的变
+remove
+add
+化。迭代器在遍历过程中会维护⼀个预期的列表结构，当发现实际结构与预期结构不⼀致时，就会抛出 Conc
+ 异常，这是 Java 为了保证遍历的安全性⽽设计的机制。
+urrentModificationException
+⽽使⽤迭代器的 
+ ⽅法则可以避免这个问题。迭代器的 
+ ⽅法会在删除元素的同时，正确地更
+remove
+remove
+新迭代器的状态，使其与列表的新结构保持⼀致。
+如果在多线程环境下进⾏并发操作，即使使⽤迭代器的 
+ ⽅法，也可能会出现问题，因为多个线程可
+remove
+能同时修改列表结构。此时，需要对迭代器对象加锁，以确保同⼀时间只有⼀个线程可以对列表进⾏修改操
+作，从⽽保证线程安全。
+正例：
+List<String> list = new ArrayList<>(); 
+list.add("1"); 
+list.add("2"); 
+Iterator<String> iterator = list.iterator(); 
+while (iterator.hasNext()) { 
+        String item = iterator.next(); 
+        if ("1".equals(item)) {
+                iterator.remove(); 
+        } 
+}
+反例:
+for (String item : list) { 
+        if ("1".equals(item)) { 
+                list.remove(item); 
+        } 
+}
+检查⼯具：⽆
+浩鲸云计算科技股份有限公司 版权所有
+第 13/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+2.1.11. 【J000010】强制：在 JDK7 版本及以上，Comparator 实现类要满⾜如下三个
+条件，不然 Arrays.sort，Collections.sort ⽅法在排序过程中可能会出现混乱
+说明 ：三个条件如下
+1） 
+：x，y 的⽐较结果和 y，x 的⽐较结果相反。
+反对称性
+2） 
+：x>y，y>z，则 x>z。
+传递性
+3） 
+：x=y，则 x，z ⽐较结果和 y，z ⽐较结果相同。
+⼀致性
+反例 ：下例中没有处理相等的情况，交换两个对象判断结果并不互反，不符合第⼀个条件，在实际使⽤中可
+能会出现异常。
+new Comparator<Student>() { 
+    @Override 
+    public int compare(Student o1, Student o2) { 
+        return o1.getId() > o2.getId() ? 1 : 0; 
+    } 
+};
+检查⼯具：⽆
+2.1.12. 【J000011】强制：⾼度注意 Map 类集合 K/V 能不能存储 null 值的情况
+如下表格：
+集合类
+Key
+Value
+Super
+说明
+Hashtable
+不允许为 
+null
+不允许为 
+null
+Dictionary
+线程安全
+ConcurrentHashMa
+p
+不允许为 
+null
+不允许为 
+null
+AbstractMa
+p
+锁分段技术（JDK8:
+CAS）
+TreeMap
+不允许为 
+null
+允许为 null
+AbstractMa
+p
+线程不安全
+HashMap
+允许为 null
+允许为 null
+AbstractMa
+p
+线程不安全
+反例 ：由于 HashMap 的⼲扰，很多⼈认为 ConcurrentHashMap 是可以置⼊ null 值，⽽事实上，存储null 值
+时会抛出 NPE 异常。
+检查⼯具：⽆
+2.1.13. 【J000012】推荐：合理利⽤好集合的有序性(sort)和稳定性(order)，避免集合的
+⽆序性(unsort)和不稳定性(unorder)带来的负⾯影响
+浩鲸云计算科技股份有限公司 版权所有
+第 14/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+说明：有序性是指遍历的结果是按某种⽐较规则依次排列的。稳定性指集合每次遍历的元素次序是⼀定的。
+如：ArrayList 是 order/unsort；HashMap 是 unorder/unsort；TreeSet 是 order/sort。
+检查⼯具：⽆
+2.1.14. 【J000013】推荐：在JDK9以上，推荐使⽤List.of()、Set.of()、Map.of()和Map.
+ofEntries()等⼯⼚⽅法创建不可变集合。这种⽅式可以使代码更加简洁，并且提⾼性
+能。
+说明：不可变集合意味着程序不能向集合中添加元素，也不能从集合中删除元素。
+正例：
+Set<String> languages = Set.of("java", "python", "c++", "go", "rust");
+检查⼯具：⽆
+2.2. 并发处理
+2.2.1. 【J000014】强制：获取单例对象需要保证线程安全，其中的⽅法也要保证线程
+安全
+此规范有必考题。
+说明：资源驱动类、⼯具类、单例⼯⼚类都需要注意。
+ 故障警示! 本规范制定源⾃严重⽣产故障（单号：3786355）。
+在3786355故障案例中，在核⼼业务类的static代码块中调⽤单例⼯⼚类获取缓存对象，因为单例⼯
+⼚类没有保证线程安全，导致static代码块获取到尚未完成初始化的单例缓存对象，导致业务配置读
+取失败的故障。
+反例：
+public static ConfigItemCache instance() {  
+    if (null == instance) {  
+        synchronized (ConfigItemCache.class) {  
+            if (null == instance) {  
+                instance = new ConfigItemCache();  // 此处，instance 对象尚未完成初始化，可能会被其它线程获取到，
+产⽣数据错误
+                instance.init();  
+                instance.registerCacheRefreshListener();  
+            }  
+        }  
+    }  
+浩鲸云计算科技股份有限公司 版权所有
+第 15/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+    return instance;  
+}
+正例：
+public static ConfigItemCache instance() {  
+    if (null == instance) {  
+        synchronized (ConfigItemCache.class) {  
+            if (null == instance) {  
+                ConfigItemCache tempInstance = new ConfigItemCache();  
+                tempInstance.init();  
+                tempInstance.registerCacheRefreshListener();  
+                instance = tempInstance;  // 此处，instance 对象已经完成初始化
+            }  
+        }  
+    }  
+    return instance;  
+}
+检查⼯具：
+Spotbugs: DC_PARTIALLY_CONSTRUCTED (Possible exposure of partially initialized object)
+2.2.2. 【J000015】强制：线程资源必须通过线程池提供，不允许在应⽤中⾃⾏显式创
+建线程
+说明：使⽤线程池的好处是减少在创建和销毁线程上所花的时间以及系统资源的开销，解决资源不⾜的问题。
+如果不使⽤线程池，有可能造成系统创建⼤量同类线程⽽导致消耗完内存或者“过度切换”的问题。
+反例 ：
+public class ExplicitThreadCreation {
+    public static void main(String[] args) {
+        // ⾃⾏显式创建 100 个线程
+        for (int i = 0; i < 100; i++) {
+            new Thread(() -> {
+                System.out.println("Thread " + Thread.currentThread().getName() + " is running.");
+                try {
+                    // 模拟任务执⾏耗时
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        }
+    }
+}
+浩鲸云计算科技股份有限公司 版权所有
+第 16/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+检查⼯具：
+PMD：multithreading:DoNotUseThreads
+2.2.3. 【J000016】强制：线程池不允许使⽤Executors去创建，⽽是通过
+ThreadPoolExecutor的⽅式
+说明 ：在使⽤线程池时，不建议使⽤ 
+ ⼯具类来创建线程池，⽽应直接使⽤ 
+ 类
+Executors
+ThreadPoolExecutor
+进⾏创建。这是因为使⽤ 
+ 能让开发者更加明确线程池的运⾏规则，进⽽规避资源耗尽的
+ThreadPoolExecutor
+⻛险。
+Executors  ⼯具类提供了⼀些便捷的⽅法来创建不同类型的线程池，然⽽这些⽅法返回的线程池对象存在明显
+的弊端：
+ 和 
+FixedThreadPool
+SingleThreadPool  ：这两种线程池允许的请求队列⻓度为 
+。当系
+Integer.MAX_VALUE
+统中有⼤量请求涌⼊时，由于请求队列可以⽆限增⻓，会堆积⼤量的请求任务。随着请求数量的不断增
+加，队列会占⽤越来越多的内存，最终可能导致内存溢出（OOM）。
+ 和 
+CachedThreadPool
+ScheduledThreadPool  ：这两种线程池允许创建的线程数量为 Integer.MAX_VALUE
+。在⾼并发场景下，如果有⼤量的任务提交，线程池会不断地创建新线程来处理这些任务。由于线程的创
+建需要消耗系统资源，当创建的线程数量达到⾮常⼤的数值时，会消耗⼤量的内存，同样可能导致 
+OOM。
+通过直接使⽤ 
+ 类，开发者可以根据实际业务需求，精确地配置线程池的核⼼线程数、最
+ThreadPoolExecutor
+⼤线程数、线程空闲时间、任务队列类型等参数，从⽽更好地控制线程池的⾏为，避免出现资源耗尽的问题。
+正例 ：
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+public class ThreadPoolExecutorExample {
+    public static void main(String[] args) {
+        // 创建⼀个 ThreadPoolExecutor 实例
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                2, // 核⼼线程数
+                5, // 最⼤线程数
+                60, // 线程空闲时间
+                TimeUnit.SECONDS, // 时间单位
+                new ArrayBlockingQueue<>(10) // 任务队列
+        );
+        // 提交任务到线程池
+        for (int i = 0; i < 10; i++) {
+            final int taskId = i;
+            executor.submit(() -> {
+                System.out.println("Task " + taskId + " is being executed by " + Thread.currentThread().getName());
+                try {
+                    // 模拟任务执⾏耗时
+浩鲸云计算科技股份有限公司 版权所有
+第 17/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        // 关闭线程池
+        executor.shutdown();
+    }
+}
+在正例中，我们直接使⽤ 
+ 类创建了⼀个线程池，明确指定了核⼼线程数为 2，最⼤线程
+ThreadPoolExecutor
+数为 5，线程空闲时间为 60 秒，使⽤ 
+ 作为任务队列，队列容量为 10。这样可以根据实
+ArrayBlockingQueue
+际需求灵活控制线程池的资源使⽤，避免资源耗尽的⻛险。
+反例 ：
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+public class ExecutorsExample {
+    public static void main(String[] args) {
+        // 使⽤ Executors 创建 FixedThreadPool
+        ExecutorService fixedThreadPool = Executors.newFixedThreadPool(2);
+        // 模拟⼤量任务提交
+        for (int i = 0; i < Integer.MAX_VALUE; i++) {
+            final int taskId = i;
+            fixedThreadPool.submit(() -> {
+                System.out.println("Task " + taskId + " is being executed by " + Thread.currentThread().getName());
+                try {
+                    // 模拟任务执⾏耗时
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        // 关闭线程池
+        fixedThreadPool.shutdown();
+    }
+}
+在反例中，我们使⽤ 
+ ⼯具类创建了⼀个 
+。由于 
+ 的请求队列⻓度
+Executors
+FixedThreadPool
+FixedThreadPool
+为 
+，当模拟⼤量任务提交时，会导致请求队列⽆限增⻓，最终可能引发 OOM 异常。
+Integer.MAX_VALUE
+检查⼯具：⽆
+浩鲸云计算科技股份有限公司 版权所有
+第 18/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+2.2.4. 【J00001601】强制：合理配置线程池的拒绝策略，核⼼业务线程提交可能发⽣
+阻塞的异步任务时，禁⽌使⽤ CallerRunsPolicy 作为线程池拒绝策略
+ 故障警示! 本规范制定源⾃严重⽣产故障（单号：3796201）。
+在3796201故障案例中，业务侧启⽤线程池异步写⽂件（拉取OSS配置并记录⽇志）。当底层存储
+出现异常引发 I/O ⻓时间阻塞时，由于线程池队列打满且拒绝策略配置为 
+，导致⽹
+CallerRunsPolicy
+关核⼼处理线程被迫同步执⾏耗时的写操作⽽全部阻塞卡死，连接数迅速耗尽，最终引发⼤⾯积订
+单卡单的重⼤⽣产故障。
+在使⽤线程池执⾏异步任务时，如果线程池队列已满且达到最⼤线程数，会触发拒绝策略。如果配置为 Calle
+（由调⽤线程执⾏任务），被拒绝的任务将直接在提交任务的线程中执⾏。
+rRunsPolicy
+禁⽌场景：如果提交任务的线程是 Web 容器请求线程（如 Tomcat）、RPC 处理线程（如 Dubbo）、
+或 MQ 消息消费核⼼线程，⼀旦异步任务发⽣I/O 等待、⽹络超时、数据库等待、锁等待等⻓时间阻塞，
+会导致这些业务线程被直接占⽤卡死。若⼤量任务被拒绝，可能导致请求堆积、超时，严重时引发雪崩。
+允许场景（背压机制）：在后台定时任务扫描、离线数据批处理等场景下，业务线程仅负责拉取任务并提
+交到线程池，此时使⽤ 
+ 可以起到天然的**背压（Backpressure）**作⽤。当队列满时，
+CallerRunsPolicy
+扫描线程亲⾃执⾏任务，从⽽暂停扫描，避免将内存撑爆。这种场景下即使有慢 IO 也是安全的，属于合
+理且推荐的⽤法。
+对于不允许被阻塞的核⼼业务线程，建议采⽤以下策略处理：
+使⽤ 
+（默认配置），并在提交任务处捕获 
+ 进⾏降级处理或告警。
+AbortPolicy
+RejectedExecutionException
+对于允许丢弃的⾮核⼼任务，可以使⽤ 
+ 或 
+。
+DiscardPolicy
+DiscardOldestPolicy
+如果任务不能丢失，应当将任务持久化到数据库或可靠的消息队列（MQ）中进⾏重试，⽽不是让业务线
+程代为阻塞执⾏。
+正例 ：
+import java.util.concurrent.*;
+public class ThreadPoolRejectPolicyExample {
+    // 线程池作为类的静态成员变量或 Spring Bean 单例，避免每次请求都创建
+    private static final ThreadPoolExecutor EXECUTOR = new ThreadPoolExecutor(
+            2, 5, 60, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(100),
+            new ThreadPoolExecutor.AbortPolicy() // 正例：拒绝时抛出异常，由调⽤⽅处理，不阻塞核⼼请求线程
+    );
+    // 假设此⽅法运⾏在 Tomcat 请求线程或 Dubbo ⼯作线程中
+    public void handleWebRequest() {
+        try {
+            EXECUTOR.submit(() -> {
+                // 模拟耗时或 IO 写⼊操作
+            });
+        } catch (RejectedExecutionException e) {
+            // 捕获拒绝异常，进⾏告警、降级或写⼊本地/MQ重试，保障核⼼请求线程正常运⾏
+浩鲸云计算科技股份有限公司 版权所有
+第 19/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+            System.err.println("任务被拒绝，触发降级或告警逻辑：" + e.getMessage());
+        }
+    }
+}
+反例 ：
+import java.util.concurrent.*;
+public class BadThreadPoolRejectPolicyExample {
+    // 线程池作为类的静态成员变量或 Spring Bean 单例，避免每次请求都创建
+    private static final ThreadPoolExecutor EXECUTOR = new ThreadPoolExecutor(
+            2, 5, 60, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(100),
+            new ThreadPoolExecutor.CallerRunsPolicy() // 反例：队列满时退回 Tomcat/Dubbo 线程执⾏
+    );
+    // 假设此⽅法运⾏在 Tomcat 请求线程或 Dubbo ⼯作线程中
+    public void handleWebRequest() {
+        // 如果此时线程池已满，且任务涉及慢IO，Tomcat请求线程将被迫同步执⾏该慢IO任务
+        // 若发⽣⼤⾯积并发，所有 Tomcat 请求线程将被彻底卡死，引发服务宕机
+        EXECUTOR.submit(() -> {
+            // 模拟发⽣IO阻塞的操作
+            try {
+                Thread.sleep(10000); 
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+}
+检查⼯具：⽆
+2.2.5. 【J000017】强制：SimpleDateFormat 是线程不安全的类，⼀般不要定义为
+static变量，如果定义为static，必须加锁，或者使⽤DateUtils⼯具类
+说明 ：
+ 类在多线程环境下存在线程安全问题。这是因为它内部维护了⼀个⽤于格式化和解
+SimpleDateFormat
+析⽇期的状态，当多个线程同时使⽤同⼀个 
+ 实例进⾏⽇期操作时，可能会导致状态的混
+SimpleDateFormat
+乱，从⽽产⽣错误的结果。
+如果将 
+ 定义为 
+ 变量，意味着多个线程会共享这个实例，线程安全问题会更加突出。
+SimpleDateFormat
+static
+为了避免这种情况，可以采取以下⼏种⽅式：
+使⽤ 
+ ⼯具类，它通常提供了线程安全的⽇期处理⽅法。
+DateUtils
+若定义为 
+ 变量，需要在使⽤时进⾏加锁操作，确保同⼀时间只有⼀个线程能够访问和修改其内部
+static
+状态。
+浩鲸云计算科技股份有限公司 版权所有
+第 20/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+3.  使⽤ 
+ 来为每个线程提供独⽴的 
+ 实例。
+ 会为每个线程创建⼀
+ThreadLocal
+SimpleDateFormat
+ThreadLocal
+个副本，这样每个线程在操作⽇期时使⽤的是⾃⼰的 
+ 实例，从⽽避免了线程安全问
+SimpleDateFormat
+题。
+对于 JDK8 及以上版本的应⽤，推荐使⽤新的⽇期和时间 API，如 
+ 代替 
+，
+ 代替 
+Instant
+Date
+LocalDateTime
+，
+ 代替 
+。这些新的 API 具有简单、美观、强⼤、不可变且线
+Calendar
+DateTimeFormatter
+SimpleDateFormat
+程安全的特点，能够更好地满⾜现代应⽤对⽇期和时间处理的需求。
+正例 ：
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+// 使⽤ ThreadLocal 的示例
+class ThreadLocalDateFormatExample {
+    private static final ThreadLocal<DateFormat> df = new ThreadLocal<DateFormat>() {
+        @Override
+        protected DateFormat initialValue() {
+            return new SimpleDateFormat("yyyy-MM-dd");
+        }
+    };
+    public static String formatDate(Date date) {
+        return df.get().format(date);
+    }
+    public static Date parseDate(String str) throws ParseException {
+        return df.get().parse(str);
+    }
+}
+// 使⽤ JDK8 新⽇期 API 的示例
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+class Jdk8DateApiExample {
+    public static String formatDate() {
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        return now.format(formatter);
+    }
+    public static Instant parseDate(String str) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        LocalDateTime ldt = LocalDateTime.parse(str, formatter);
+浩鲸云计算科技股份有限公司 版权所有
+第 21/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+        return ldt.atZone(ZoneId.systemDefault()).toInstant();
+    }
+}
+public class DateFormatThreadSafetyExample {
+    public static void main(String[] args) {
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        // 使⽤ ThreadLocal 的示例
+        executorService.submit(() -> {
+            try {
+                Date date = new Date();
+                System.out.println("ThreadLocal 示例 - 格式化⽇期: " + ThreadLocalDateFormatExample.formatDate
+(date));
+                Date parsedDate = ThreadLocalDateFormatExample.parseDate("2024-01-01");
+                System.out.println("ThreadLocal 示例 - 解析⽇期: " + parsedDate);
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+        });
+        // 使⽤ JDK8 新⽇期 API 的示例
+        executorService.submit(() -> {
+            System.out.println("JDK8 新⽇期 API 示例 - 格式化⽇期: " + Jdk8DateApiExample.formatDate());
+            Instant parsedInstant = Jdk8DateApiExample.parseDate("2024-01-01 12:00:00");
+            System.out.println("JDK8 新⽇期 API 示例 - 解析⽇期: " + parsedInstant);
+        });
+        executorService.shutdown();
+    }
+}
+在上述正例中，
+ 类使⽤ 
+ 为每个线程提供独⽴的 
+ThreadLocalDateFormatExample
+ThreadLocal
+SimpleDateForma
+ 实例，避免了线程安全问题。
+ 类展示了如何使⽤ JDK8 新的⽇期和时间 API 进⾏⽇期
+t
+Jdk8DateApiExample
+的格式化和解析，这些 API 是线程安全的。
+反例 ：
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+public class UnsafeDateFormatExample {
+    private static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    public static String formatDate(Date date) {
+        return sdf.format(date);
+    }
+    public static Date parseDate(String str) {
+浩鲸云计算科技股份有限公司 版权所有
+第 22/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+1.  
+        try {
+            return sdf.parse(str);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    public static void main(String[] args) {
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        for (int i = 0; i < 5; i++) {
+            executorService.submit(() -> {
+                Date date = new Date();
+                System.out.println("不安全示例 - 格式化⽇期: " + formatDate(date));
+                Date parsedDate = parseDate("2024-01-01");
+                System.out.println("不安全示例 - 解析⽇期: " + parsedDate);
+            });
+        }
+        executorService.shutdown();
+    }
+}
+在反例中，
+ 被定义为 
+ 变量，多个线程共享同⼀个 
+ 实例。在多线程环境下，可
+sdf
+static
+SimpleDateFormat
+能会因为线程安全问题导致⽇期格式化和解析出现错误的结果。
+检查⼯具：
+SpotBugs：Multithreaded correctness (Static use of type Calendar or DateFormat) 
+STCAL_INVOKE_ON_STATIC_DATE_FORMAT_INSTANCE (Call to static DateFormat)
+PMD：
+：Be sure to specify a Locale when creating 
+SimpleDateFormatNeedsLocale
+SimpleDateFormat instances to ensure that locale-appropriate formatting is used.
+2.2.6. 【J000018】强制：⾼并发时，同步调⽤应该去考量锁的性能损耗
+说明 ：在⾼并发场景下，同步调⽤涉及到锁的使⽤，⽽锁的使⽤会带来⼀定的性能损耗。因为当⼀个线程获
+取到锁后，其他需要该锁的线程就会被阻塞，等待锁的释放，这会导致线程上下⽂切换，增加系统的开销。因
+此，在设计同步代码时，需要仔细考量锁的性能影响，采取合适的策略来减少锁带来的性能损耗。
+以下是⼀些具体的优化策略：
+缩⼩锁的范围 ：尽可能使加锁的代码块⼯作量尽可能⼩。因为锁的持有时间越⻓，其他线程等待的时间
+就越久，会降低系统的并发性能。所以，只对那些真正需要同步的代码进⾏加锁，避免在锁代码块中执⾏
+⼀些耗时的操作，例如调⽤ RPC（远程过程调⽤）⽅法。RPC ⽅法通常涉及⽹络通信，执⾏时间较⻓，
+将其放在锁代码块中会导致锁的持有时间变⻓，影响系统的并发处理能⼒。
+浩鲸云计算科技股份有限公司 版权所有
+第 23/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+2.  
+3.  
+4.  
+优先使⽤⽆锁数据结构 ：⽆锁数据结构（如 
+、
+ 等）通过使⽤ CAS
+ConcurrentHashMap
+AtomicInteger
+（⽐较并交换）等技术，避免了锁的使⽤，从⽽减少了线程阻塞和上下⽂切换的开销，在⾼并发场景下具
+有更好的性能。所以，在满⾜业务需求的前提下，优先选择⽆锁数据结构来替代使⽤锁的实现。
+细化锁的粒度 ：能锁区块，就不要锁整个⽅法体。将锁的范围缩⼩到需要同步的最⼩代码块，⽽不是对
+整个⽅法进⾏加锁。这样可以使更多的线程能够同时执⾏⽅法中的其他代码，提⾼系统的并发性能。
+选择合适的锁类型 ：能⽤对象锁，就不要⽤类锁。对象锁是针对对象实例的，不同的对象实例可以有不
+同的锁，多个线程可以同时访问不同对象实例的同步代码块；⽽类锁是针对类的，同⼀时刻只有⼀个线程
+能够访问类的同步代码块。所以，在不需要对整个类进⾏同步的情况下，优先使⽤对象锁。
+正例 ：
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+// 示例类，展示锁的优化使⽤
+class LockOptimizationExample {
+    private final ConcurrentMap<String, Integer> concurrentMap = new ConcurrentHashMap<>();
+    private final Object objectLock = new Object();
+    // ⽆锁数据结构的使⽤
+    public void updateConcurrentMap(String key, int value) {
+        concurrentMap.put(key, value);
+    }
+    // 细化锁的粒度，只对关键部分加锁
+    public int calculateSum(int[] array) {
+        int sum = 0;
+        // 先进⾏⾮同步的计算
+        for (int i = 0; i < array.length - 1; i++) {
+            sum += array[i];
+        }
+        // 对最后⼀个元素的计算进⾏同步，不考虑业务合理性，仅做示例
+        synchronized (objectLock) {
+            sum += array[array.length - 1];
+        }
+        return sum;
+    }
+}
+public class Main {
+    public static void main(String[] args) {
+        LockOptimizationExample example = new LockOptimizationExample();
+        example.updateConcurrentMap("key1", 10);
+        int[] array = {1, 2, 3, 4, 5};
+        int sum = example.calculateSum(array);
+        System.out.println("计算结果: " + sum);
+    }
+}
+浩鲸云计算科技股份有限公司 版权所有
+第 24/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+在正例中，使⽤了 
+ 这个⽆锁数据结构来进⾏数据的更新操作，避免了锁的使⽤。在 
+ConcurrentHashMap
+calc
+ ⽅法中，只对最后⼀个元素的计算进⾏了加锁，缩⼩了锁的范围，提⾼了并发性能。
+ulateSum
+反例 ：
+import java.util.HashMap;
+import java.util.Map;
+// 示例类，展示不合理的锁使⽤
+class BadLockUsageExample {
+    private final Map<String, Integer> map = new HashMap<>();
+    // 锁整个⽅法体，范围过⼤
+    public synchronized void updateMap(String key, int value) {
+        // 模拟 RPC 调⽤
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        map.put(key, value);
+    }
+}
+public class BadMain {
+    public static void main(String[] args) {
+        BadLockUsageExample example = new BadLockUsageExample();
+        example.updateMap("key1", 10);
+    }
+}
+在反例中，
+ ⽅法使⽤了 
+ 关键字对整个⽅法进⾏加锁，锁的范围过⼤。并且在锁代码
+updateMap
+synchronized
+块中模拟了⼀个 RPC 调⽤，导致锁的持有时间变⻓，会严重影响系统的并发性能。
+检查⼯具：
+PMD：AvoidSynchronizedAtMethodLevel
+2.2.7. 【J000019】强制：对多个资源、数据库表、对象同时加锁时，需要保持⼀致的
+加锁顺序，否则可能会造成死锁
+说明：线程⼀需要对表A、B、C依次全部加锁后才可以进⾏更新操作，那么线程⼆的加锁顺序也必须是A、
+B、C，否则可能出现死锁。
+检查⼯具：⽆
+2.2.8. 【J000020】强制：并发修改同⼀记录时，避免更新丢失，需要加锁。要么在应
+⽤层加锁，要么在缓存加锁，要么在数据库层使⽤乐观锁，使⽤version作为更新依据
+浩鲸云计算科技股份有限公司 版权所有
+第 25/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+4.  
+说明：如果每次访问冲突概率⼩于20%，推荐使⽤乐观锁，否则使⽤悲观锁。乐观锁的重试次数不得⼩于3
+次。
+检查⼯具：⽆
+2.2.9. 【J000021】强制：禁⽌使⽤ Timer 和 TimerTask 调度多任务，避免因未捕获单
+个任务异常⽽导致所有任务终⽌
+此规范有必考题。
+ 故障警示! 本规范制定源⾃严重⽣产故障（单号：3787793）。
+在3787793故障案例中，通过 Timer 提交了多个任务，包含了内存清理的任务，当应⽤繁忙内存资
+源不⾜的时候，会导致某些定时任务失败以及整个Timer定时任务的退出，数据⽆法得到及时清理，
+引发了OOM的故障。
+禁⽌直接使⽤ 
+ 调度任务
+Timer
+原因：
+ 单线程执⾏所有 
+，若任⼀任务抛出未捕获异常，整个 
+ 线程终⽌，
+Timer
+TimerTask
+Timer
+其
+。
+他任务将不再执⾏
+替代⽅案：使⽤ 
+（基于线程池），其任务异常仅影响当前任务，不扩散⾄
+ScheduledExecutorService
+其他任务。
+正例：使⽤  ScheduledExecutorService
+  // 创建线程池（⽀持多线程并⾏）
+  ScheduledExecutorService executor = Executors.newScheduledThreadPool(4);
+  // 提交任务，即使 task2 抛出异常，task1 仍正常执⾏
+  executor.scheduleAtFixedRate(this::task1, 0, 1, TimeUnit.SECONDS);
+  executor.scheduleAtFixedRate(this::task2, 0, 2, TimeUnit.SECONDS);
+反例：
+ 导致任务链式终⽌
+Timer
+  Timer timer = new Timer();
+  timer.schedule(new TimerTask() {
+      @Override
+      public void run() {
+          throw new RuntimeException("Task1 异常"); // 未捕获异常，Timer 线程终⽌
+      }
+  }, 0, 1000);
+  timer.schedule(new TimerTask() { // 此任务永远不会执⾏
+      @Override
+      public void run() { /* ... */ }
+  }, 0, 1000);
+异常处理要求
+浩鲸云计算科技股份有限公司 版权所有
+第 26/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+5.  
+1.  
+强制：在任务逻辑内部捕获所有异常，并记录⽇志，禁⽌异常抛出⾄线程池。
+推荐：通过 
+ 包裹任务代码，结合监控告警：
+try-catch
+executor.scheduleAtFixedRate(() -> {
+    try {
+        // 业务逻辑
+    } catch (Exception e) {
+        logger.error("定时任务执⾏失败", e); // 记录异常，任务继续运⾏
+    }
+}, 0, 1, TimeUnit.SECONDS);
+线程池配置
+必须根据任务类型（CPU 密集型/IO 密集型）合理设置线程池⼤⼩，避免资源耗尽：
+        // 正例：指定线程池⼤⼩（建议 CPU 核数 + 1）
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(
+            Runtime.getRuntime().availableProcessors() + 1
+        );
+检查⼯具：
+Spotbugs:FORBID_TIMER (通过⾃定义插件WhaleCloud Spotbugs Plugin实现)
+2.2.10. 【J000022】强制：使⽤Lock类加锁时，必须确保锁范围内的所有代码都受到 
+try-finally 的保护，以确保在必要时释放锁
+建议在try代码块之前调⽤lock⽅法，避免由于加锁失败导致finally调⽤unlock抛出异常。
+正例
+Lock l = ...;
+l.lock();
+try {
+  // access the resource protected by this lock
+} finally {
+  l.unlock();
+}
+检查⼯具：⽆
+浩鲸云计算科技股份有限公司 版权所有
+第 27/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+2.2.11. 【J000023】强制：HashMap在容量不够进⾏resize时由于⾼并发可能出现死循
+环，导致CPU飙升，在多线程访问Map的场景下可以使⽤其它数据结构或加锁来规避此
+⻛险
+说明：此问题在JDK8之前⼀直存在，在多线程访问Map的场景下，应使⽤ConcurrentHashMap。
+检查⼯具：⽆
+2.2.12. 【J000024】推荐：使⽤CountDownLatch进⾏异步转同步操作，每个线程退出
+前必须调⽤countDown⽅法
+说明：线程执⾏代码注意catch异常，确保countDown⽅法被执⾏到，避免主线程⽆法执⾏⾄await⽅法，直到
+超时才返回结果。注意，⼦线程抛出异常堆栈，不能在主线程try-catch到。
+正例 ：
+public class CountDownLatchExample {
+    public static void main(String[] args) {
+        int threadCount = 5;
+        CountDownLatch countDownLatch = new CountDownLatch(threadCount);
+        ExecutorService executorService = ..
+        for (int i = 0; i < threadCount; i++) {
+            final int taskId = i;
+            executorService.submit(() -> {
+                try {
+                    // 模拟⼦线程执⾏任务  
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } finally {
+                    // 确保 countDown ⽅法被执⾏
+                    countDownLatch.countDown();
+                }
+            });
+        }
+        try {
+            // 主线程等待⼦线程完成任务
+            System.out.println("主线程等待⼦线程完成任务...");
+            countDownLatch.await();
+            System.out.println("所有⼦线程任务已完成，主线程继续执⾏");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            executorService.shutdown();
+        }
+    }
+}
+浩鲸云计算科技股份有限公司 版权所有
+第 28/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+检查⼯具：⽆
+2.2.13. 【J000025】推荐：避免Random实例被多线程使⽤
+说明：虽然共享该实例是线程安全的，但会因竞争同⼀seed 导致的性能下降。其中Random实例包括java.util.
+Random 的实例或者 Math.random()的⽅式。
+在JDK7之后，可以直接使⽤API ThreadLocalRandom，⽽在 JDK7之前，需要编码保证每个线程持有⼀
+正例
+个实例。
+检查⼯具：⽆
+2.2.14. 【J000026】强制：在并发场景下，双重检查锁（double-checked locking）实
+现延迟初始化的隐患可以通过将⽬标属性声明为volatile型来解决
+在并发编程⾥，有时我们希望实现延迟初始化，也就是在对象真正被使⽤时才进⾏初始化，以此来提升性能和
+节省资源。双重检查锁（Double - Checked Locking）就是为了实现延迟初始化，同时确保在多线程环境下只
+有⼀个实例被创建⽽设计的⼀种优化⼿段。
+双重检查锁存在的问题
+在早期的 Java 版本中，双重检查锁存在⼀个严重的问题，即可能会出现 “部分初始化” 的对象。问题的根源
+在于 Java 中的对象创建过程并⾮原⼦操作，
+ 这⾏代码在 JVM 中实际上会分为以下三个
+helper = new Helper();
+步骤：
+分配内存空间 ：为 
+ 对象分配⼀块内存区域。
+Helper
+初始化对象 ：在分配的内存空间中对 
+ 对象进⾏初始化操作。
+Helper
+将引⽤指向内存空间 ：将 
+ 引⽤指向分配的内存空间。
+helper
+由于 Java 编译器和处理器可能会对指令进⾏重排序优化，上述步骤 2 和步骤 3 的执⾏顺序可能会被打乱，也
+就是先将引⽤指向内存空间，再进⾏对象的初始化。在多线程环境下，当⼀个线程看到 
+ 引⽤不为 
+helper
+null
+时，它会认为对象已经初始化完成，但实际上对象可能还处于部分初始化的状态，这就会导致其他线程使⽤到
+不完整的对象，从⽽引发各种难以调试的问题。
+反例：
+class Singleton {   
+    private Helper helper = null;  
+    public Helper getHelper() {  
+        if (helper == null) 
+            synchronized(this) {  
+                if (helper == null)  
+                    helper = new Helper();  
+            }  
+        return helper;  
+    }  
+    // other methods and fields...  
+}
+浩鲸云计算科技股份有限公司 版权所有
+第 29/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+1.  
+在这个反例中，
+ 变量没有被声明为 
+ 类型。在多线程环境下，由于指令重排序的存在，可能会
+helper
+volatile
+出现以下情况：
+线程 A 进⼊ 
+ ⽅法，发现 
+ 为 
+，于是进⼊同步块。
+getHelper()
+helper
+null
+线程 A 执⾏ 
+，由于指令重排序，先将 
+ 引⽤指向了分配的内存空间，但对象
+helper = new Helper();
+helper
+还未完成初始化。
+此时线程 B 进⼊ 
+ ⽅法，检查 
+ 不为 
+，直接返回了 
+ 引⽤，但这个引⽤指向
+getHelper()
+helper
+null
+helper
+的是⼀个部分初始化的对象，线程 B 在使⽤这个对象时就可能会出现错误。
+正例：
+在 JDK 5 及以上版本中，可以通过将⽬标属性声明为 
+ 型来解决这个问题。
+ 关键字可以禁⽌指
+volatile
+volatile
+令重排序，保证 
+ 引⽤在被赋值时，对象已经完成了初始化。
+helper
+class Singleton {   
+    private volatile Helper helper = null;  
+    public Helper getHelper() {  
+        if (helper == null) 
+            synchronized(this) {  
+                if (helper == null)  
+                    helper = new Helper();  
+            }  
+        return helper;  
+    }  
+    // other methods and fields...  
+}
+检查⼯具：
+Spotbugs:DC_DOUBLECHECK
+2.2.15. 【J000027】推荐：volatile 可以解决多线程内存不可⻅问题，但⽆法解决线程
+安全问题
+在多线程编程⾥，
+ 关键字能解决内存可⻅性的问题。当程序处于 “⼀写多读” 的情况时，也就是只有
+volatile
+⼀个线程负责修改变量，⽽有多个线程负责读取该变量，
+ 可以保证数据同步，让读取线程能及时获取
+volatile
+到最新的变量值。
+不过，如果存在多个线程同时对变量进⾏写操作，
+ 就没办法保证线程安全了。因为 
+ 关键字只
+volatile
+volatile
+能确保变量的可⻅性，却不能保证操作的原⼦性。例如像 
+ 这样的操作，它实际上包含了读取、加 1 
+count++
+和写⼊三个步骤，在多线程环境下，多个线程同时进⾏ 
+ 操作时，就可能出现数据覆盖等线程安全问
+count++
+题。
+说明：如果是count++操作，使⽤如下类实现：
+浩鲸云计算科技股份有限公司 版权所有
+第 30/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+AtomicInteger count = new AtomicInteger(); 
+count.addAndGet(1); 
+如果是JDK8，推荐使⽤
+对象，⽐
+性能更好（减少乐观锁的重试次数）。
+LongAdder
+AtomicLong
+反例：
+在下⾯这个例⼦中，
+ 变量被 
+ 修饰，保证了其可⻅性。但 
+ 操作不是原⼦性的，它包含
+count
+volatile
+count++
+读取、加 1 和写⼊三个步骤。在多线程环境下，多个线程可能同时读取到相同的 
+ 值，然后各⾃加 1 并
+count
+写⼊，导致最终结果⼩于预期的 10000。
+public class VolatileMultiWriteExample {
+    // 使⽤ volatile 修饰变量
+    private static volatile int count = 0;
+    public static void main(String[] args) throws InterruptedException {
+        // 创建 10 个线程
+        Thread[] threads = new Thread[10];
+        for (int i = 0; i < 10; i++) {
+            threads[i] = new Thread(() -> {
+                for (int j = 0; j < 1000; j++) {
+                    // ⾮原⼦性的 count++ 操作
+                    count++;
+                }
+            });
+            threads[i].start();
+        }
+        // 等待所有线程执⾏完毕
+        for (Thread thread : threads) {
+            thread.join();
+        }
+        // 预期结果是 10 * 1000 = 10000
+        System.out.println("Final count should be 10000, but is: " + count);
+    }
+}
+检查⼯具：⽆
+2.3. 控制语句
+2.3.1. 【J000028】强制：在⼀个 switch 块内，每个 case 要么通过 continue/break
+/return 等来终⽌，要么注释说明程序将继续执⾏到哪⼀个 case 为⽌；在⼀个 switch 块
+内，都必须包含⼀个default 语句并且放在最后，即使它什么代码也没有
+说明：注意 break 是退出 switch 语句块，⽽ return 是退出⽅法体。
+浩鲸云计算科技股份有限公司 版权所有
+第 31/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+正例：
+public class SwitchExample {
+    public static String getDayType(int day) {
+        switch (day) {
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+                // 这⾥没有 break，程序会继续执⾏到下⼀个有 break 的 case
+                // 因为周⼀到周五都是⼯作⽇，所以统⼀处理
+                return "Weekday";
+            case 6:
+            case 7:
+                return "Weekend";
+            default:
+                // 处理输⼊的 day 不在 1 - 7 范围内的情况
+                return "Invalid day";
+        }
+    }
+}
+检查⼯具：⽆
+2.3.2. 【J000029】强制：当 switch 括号内的变量类型为 String 并且此变量为外部参数
+时，必须先进⾏ null判断
+反例：以下代码会抛出NPE异常
+public class SwitchString {
+    public static void main(String[] args) {
+        method(null);
+    }
+    public static void method(String param) {
+        switch (param) {
+                // 肯定不是进⼊这⾥
+            case "sth":
+                System.out.println("it's sth");
+                break;
+                // 也不是进⼊这⾥
+            case "null":
+                System.out.println("it's null");
+                break;
+                // 也不是进⼊这⾥
+            default:
+                System.out.println("default");
+        }
+浩鲸云计算科技股份有限公司 版权所有
+第 32/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+1.  
+2.  
+    } 
+}
+检查⼯具：
+SpotBugs：Correctness (Null pointer dereference)
+NP_NULL_PARAM_DEREF_NONVIRTUAL (Non-virtual method call passes null for non-null 
+parameter)
+2.3.3. 【J000030】强制：在 if/else/for/while/do 语句中必须使⽤⼤括号
+说明：即使只有⼀⾏代码，避免采⽤单⾏的编码⽅式：if (condition) statements;
+检查⼯具：
+PMD：ControlStatementBraces
+Checkstyle: 'if' construct must use '{}'s. [NeedBraces]
+2.3.4. 【J000031】强制：在⾼并发场景中，避免使⽤"等于"判断作为中断或退出的条
+件
+说明：如果并发控制没有处理好，容易产⽣等值判断被“击穿”的情况，使⽤⼤于或⼩于的区间判断条件来代
+替。
+反例：
+下⾯的例⼦在发放奖品时，使⽤ 
+ 进⾏循环判断。在⾼并发场景下，由于多个线程同时
+while (prizeCount != 0)
+操作 
+，可能会出现多个线程同时判断 
+ 不为 0，然后同时进⼊同步块发放奖品，导致 
+prizeCount
+prizeCount
+p
+ 直接从 1 变成 -1，从⽽跳过了 
+ 等于 0 的情况，活动⽆法正常终⽌。
+rizeCount
+prizeCount
+public class PrizeDistributionNegative {
+    // 使⽤ volatile 保证变量的可⻅性
+    private static volatile int prizeCount = 10; 
+    public static void main(String[] args) {
+        ExecutorService executor = Executors.newFixedThreadPool(5);
+        // 模拟多个线程同时发放奖品
+        for (int i = 0; i < 20; i++) {
+            executor.submit(() -> {
+                while (prizeCount != 0) {
+                    synchronized (PrizeDistributionNegative.class) {
+                        if (prizeCount > 0) {
+                            // 模拟发放奖品的操作
+                            System.out.println(Thread.currentThread().getName() + " 发放了⼀个奖品，剩余奖品数量: " + (--
+prizeCount));
+                        }
+                    }
+浩鲸云计算科技股份有限公司 版权所有
+第 33/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+                }
+                System.out.println(Thread.currentThread().getName() + " 发现奖品已发完，停⽌发放。");
+            });
+        }
+        executor.shutdown();
+    }
+}
+正例：
+在发放奖品时，使⽤ 
+ 进⾏循环判断，只有当奖品数量⼤于 0 时才会进⼊发放逻辑。在
+while (prizeCount > 0)
+同步块内再次检查 
+，避免多个线程同时进⼊同步块导致超发奖品。
+prizeCount > 0
+public class PrizeDistributionPositive {
+    // 使⽤ volatile 保证变量的可⻅性
+    private static volatile int prizeCount = 10; 
+    public static void main(String[] args) {
+        ExecutorService executor = Executors.newFixedThreadPool(5);
+        // 模拟多个线程同时发放奖品
+        for (int i = 0; i < 20; i++) {
+            executor.submit(() -> {
+                while (prizeCount > 0) {
+                    synchronized (PrizeDistributionPositive.class) {
+                        if (prizeCount > 0) {
+                            // 模拟发放奖品的操作
+                            System.out.println(Thread.currentThread().getName() + " 发放了⼀个奖品，剩余奖品数量: " + (--
+prizeCount));
+                        }
+                    }
+                }
+                System.out.println(Thread.currentThread().getName() + " 发现奖品已发完，停⽌发放。");
+            });
+        }
+        executor.shutdown();
+    }
+}
+检查⼯具：⽆
+2.3.5. 【J000032】强制：如果⼀个包含⼆元运算符的表达式出现在三元运算符" ? : 
+"的"?"之前，那么应该给表达式添上⼀对圆括号
+正例：
+(x >= 0) ? x : -x; 
+浩鲸云计算科技股份有限公司 版权所有
+第 34/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+检查⼯具：⽆
+2.3.6. 【J000033】推荐：若⼀个查询⽅法查询的记录数为0时，不要返回null，⽽是返
+回⼀个空的List
+正例：
+// 获取配置项为空，使⽤初始值为默认值，防⽌因没有配置项⽽抛空引⽤异常
+// 100 为默认值
+channelId = clientContext.params.getStr(SMPPConstants.BSS_CHANNEL_ID, "100");
+// 调⽤List size()⽅法前,先进⾏空引⽤判断
+List subsList = subsDAO.selectSubsList();
+if(subsList!=null && subsList.size()>0){  
+        // ... ...
+}
+检查⼯具：⽆
+2.3.7. 【J000034】推荐：表达异常的分⽀时，少⽤ if-else ⽅式，如果⾮要使⽤，请勿
+超过3层
+if-else 的这种⽅式可以改写成：
+if (condition) { 
+    // ... 
+         return obj; 
+} 
+// 接着写 else 的业务逻辑代码; 
+说明：如果⾮要使⽤ if()...else if()...else...⽅式表达逻辑，为避免后续代码维护困难，***【强制】*** 请勿超过 
+3 层。
+正例：超过 3 层的 if-else 的逻辑判断代码可以使⽤卫语句、策略模式、状态模式等来实现，其中卫语句即代
+码逻辑先考虑失败、异常、中断、退出等直接返回的情况，以⽅法多个出⼝的⽅式，解决代码中判断分⽀嵌套
+的问题，这是逆向思维的体现。
+正例：
+public void findBoyfriend(Man man) {
+        if (man.isUgly()) {
+             System.out.println("本姑娘是外貌协会的资深会员");
+             return;
+    }
+    if (man.isPoor()) {
+浩鲸云计算科技股份有限公司 版权所有
+第 35/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+            System.out.println("贫贱夫妻百事哀");
+            return;
+    }
+    if (man.isBadTemper()) {
+            System.out.println("银河有多远，你就给我滚多远");
+             return;
+    }
+    System.out.println("可以先交往⼀段时间看看");
+}
+检查⼯具：
+Checkstyle: Nested if-else depth is 4 (max allowed is 3). (13:25) [NestedIfDepth]
+2.3.8. 【J000035】推荐：不要在条件判断中执⾏复杂语句，将复杂逻辑判断的结果赋
+值给⼀个有意义的布尔变量名，以提⾼可读性
+说明：很多 if 语句内的逻辑表达式相当复杂，与、或、取反混合运算，甚⾄各种⽅法纵深调⽤，理解成本⾮
+常⾼。如果赋值⼀个⾮常好理解的布尔变量名字，则是件令⼈爽⼼悦⽬的事情。
+正例：
+// 伪代码如下
+final boolean existed = (file.open(fileName, "w") != null) && (...) || (...);
+if (existed) {
+        ...
+}
+反例：
+public final void acquire(long arg) {
+         if (!tryAcquire(arg) &&
+                 acquireQueued(addWaiter(Node.EXCLUSIVE), arg)) {
+                 selfInterrupt();
+         } 
+}
+检查⼯具：⽆
+2.3.9. 【J000036】推荐：不要在其它表达式中插⼊赋值语句，赋值语句要清晰地单独
+为⼀⾏
+说明：赋值点类似于⼈体的⽳位，对于代码的理解⾄关重要，所以赋值语句需要清晰地单独成为⼀⾏。
+反例:
+浩鲸云计算科技股份有限公司 版权所有
+第 36/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+public Lock getLock(boolean fair) {
+    // 算术表达式中出现赋值操作，容易忽略 count 值已经被改变
+         threshold = (count = Integer.MAX_VALUE) - 1;
+         // 条件表达式中出现赋值操作，容易误认为是 sync==fair
+        return (sync = fair) ? new FairSync() : new NonfairSync();
+}
+检查⼯具：⽆
+2.3.10. 【J000037】推荐：循环体中的语句要考量性能
+以下操作尽量移⾄循环体外处理，如定义对象、变量、获取数据库连接，以及不必要的 try-catch 操作。
+反例 ：
+for (int i = 0; i < 1000; i++) {
+    // 每次循环都重新定义和初始化 StringBuilder 对象
+    StringBuilder sb = new StringBuilder();
+    sb.append("Number: ").append(i);
+    //...
+}
+正例 ：
+// 将 StringBuilder 对象的定义移到循环体外部
+StringBuilder sb = new StringBuilder();
+for (int i = 0; i < 1000; i++) {
+    sb.setLength(0); // 清空 StringBuilder 的内容
+    sb.append("Number: ").append(i);
+    //...
+}
+检查⼯具：
+PMD: AvoidInstantiatingObjectsInLoops
+2.3.11. 【J000038】推荐：避免采⽤取反逻辑运算符
+说明：取反逻辑不利于快速理解，并且取反逻辑写法必然存在对应的正向逻辑写法。
+正例：使⽤ if (x < 628) 来表达 x ⼩于 628。
+反例：使⽤ if (!(x >= 628)) 来表达 x ⼩于 628。
+检查⼯具：
+浩鲸云计算科技股份有限公司 版权所有
+第 37/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+1.  
+2.  
+PMD: LogicInversion
+2.4. 异常处理
+2.4.1. 【J000039】强制：Java 类库中定义的可以通过预检查⽅式规避的 
+RuntimeException 异常不应该通过 catch 的⽅式来处理，⽐如：
+NullPointerException，IndexOutOfBoundsException 等
+说明：⽆法通过预检查的异常除外，⽐如，在解析字符串形式的数字时，可能存在数字格式错误，不得不通
+过 catch NumberFormatException 来实现。
+正例：
+if (obj != null) {...}
+反例：
+try { 
+    obj.method(); 
+} 
+catch (NullPointerException e) {
+    // xxx
+}
+检查⼯具：
+PMD:AvoidCatchingNPE
+PMD:AvoidCatchingGenericException
+2.4.2. 【J000040】强制：异常不要⽤来做流程控制和条件控制
+说明：异常设计的初衷是解决程序运⾏中的各种意外情况。异常处理涉及到创建异常对象、栈回溯等操作，这
+些操作会消耗⼤量的系统资源和时间。⽽条件判断只是简单地对条件进⾏评估，根据评估结果执⾏相应的代码
+块，执⾏效率更⾼。
+反例：
+public class PositiveNumberCheckerWithException {
+    public static boolean isPositive(int number) {
+        try {
+            if (number <= 0) {
+                // 当数字不是正数时，抛出异常
+                throw new IllegalArgumentException("输⼊的数字不是正数。");
+            }
+            return true;
+浩鲸云计算科技股份有限公司 版权所有
+第 38/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+1.  
+1.  
+2.  
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+}
+正例：
+public class PositiveNumberChecker {
+    public static boolean isPositive(int number) {
+        // 使⽤条件判断来检查数字是否为正数
+        if (number > 0) {
+            return true;
+        }
+        return false;
+    }
+}
+检查⼯具：
+PMD:ExceptionAsFlowControl
+2.4.3. 【J000041】强制：catch 时请分清稳定代码和⾮稳定代码，稳定代码指的是⽆论
+如何不会出错的代码。对于⾮稳定代码的 catch 尽可能进⾏区分异常类型，再做对应的
+异常处理
+说明：对⼤段代码进⾏ try-catch，使程序⽆法根据不同的异常做出正确的应激反应，也不利于定位问题，这
+是⼀种不负责任的表现。
+正例：
+⽤户注册的场景中，如果⽤户输⼊⾮法字符，或⽤户名称已存在，或⽤户输⼊密码过于简单，在程序上作出分
+⻔别类的判断，并提示给⽤户。
+检查⼯具：
+PMD:AvoidCatchingGenericException
+2.4.4. 【J000042】强制：捕获异常是为了处理它，不要捕获了却什么都不处理⽽抛弃
+之，如果不想处理它，请将该异常抛给它的调⽤者。最外层的业务使⽤者，必须处理异
+常，将其转化为⽤户可以理解的内容
+检查⼯具：
+CheckStyle: Empty catch block. [EmptyCatchBlock] [EmptyBlock]
+PMD:EmptyCatchBlock
+浩鲸云计算科技股份有限公司 版权所有
+第 39/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+2.4.5. 【J000043】强制：finally 块必须对资源对象、流对象进⾏关闭，有异常也要做 
+try-catch
+此规范有必考题。
+ 故障警示! 严重⽣产故障：
+。某项⽬应⽤因为没有合理控制线程的创建和销毁，产⽣线程数
+30999068
+量过多引发内存溢出（java.lang.OutOfMemoryError: native memory exhausted），导致核⼼系统⽆法
+登录的严重⽣产故障。在故障复盘时同时发现findbugs检查出代码中有不少资源泄漏类的问题（ODR_O
+），存在数据库连接泄漏的隐患。(关于
+PEN_DATABASE_RESOURCE
+ODR_OPEN_DATABASE_RESOURC
+更多细节，请参考规范最后章节的FAQ。)
+E
+说明： 资源对象（如数据库连接、⽂件句柄等）和流对象（如 
+、
+、
+、
+InputStream
+OutputStream
+Reader
+Writ
+ 等）在使⽤完毕后必须进⾏关闭操作，以释放占⽤的系统资源。否则，可能会导致资源泄漏，进⽽引发性
+er
+能问题甚⾄系统故障。
+finally  块的作⽤是确保⽆论 
+ 块中是否发⽣异常，其中的代码都会被执⾏。因此，将资源关闭的代码放在 
+try
+ 块中是⼀个良好的编程习惯。同时，在关闭资源的过程中，也可能会抛出异常（例如关闭数据库连接
+finally
+时⽹络异常），所以需要在 
+ 块中对可能出现的异常进⾏ 
+ 处理，以避免因关闭资源时的异常
+finally
+try-catch
+导致程序崩溃。
+对于 JDK 7 及以上版本，可以使⽤ 
+ 语句。
+ 语句会⾃动管理资源的关
+try-with-resources
+try-with-resources
+闭，在代码执⾏完毕后，会⾃动调⽤资源对象的 
+ ⽅法，⽆需⼿动在 
+ 块中编写关闭代码，从⽽简
+close
+finally
+化了代码并减少了出错的可能性。
+正例：
+public class ResourceClosureExample {
+    public static void main(String[] args) {
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader(new FileReader("example.txt"));
+            String line;
+            while ((line = br.readLine()) != null) {
+                // doSth..
+            }
+        } catch (IOException e) {
+            // doSth..
+        } finally {
+            if (br != null) {
+                try {
+                    br.close();
+                } catch (IOException e) {
+                    // doSth..
+                }
+            }
+        }
+    }
+浩鲸云计算科技股份有限公司 版权所有
+第 40/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+}
+// 使⽤ try-with-resources 语句的示例
+public class TryWithResourcesExample {
+    public static void main(String[] args) {
+        try (BufferedReader br = new BufferedReader(new FileReader("example.txt"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                // doSth..
+            }
+        } catch (IOException e) {
+            // doSth..
+        }
+    }
+}
+反例：
+public class BadResourceClosureExample {
+    public static void main(String[] args) {
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader(new FileReader("example.txt"));
+            String line;
+            while ((line = br.readLine()) != null) {
+                // doSth..
+            }
+        } catch (IOException e) {
+            // doSth..
+        }
+        // 错误：没有在 finally 块中关闭资源
+        // 可能会导致资源泄漏
+    }
+}
+检查⼯具：
+PMD：errorprone:CloseResource, Ensure that resources (like 
+, 
+java.sql.Connection
+java.sql.
+, and 
+ objects and any subtype of 
+) are always 
+Statement
+java.sql.ResultSet
+java.lang.AutoCloseable
+closed after use. Failing to do so might result in resource leaks.
+SpotBugs：ODR_OPEN_DATABASE_RESOURCE, ODR: Method may fail to close database 
+resource
+2.4.6. 【J000044】强制：不要在 finally 块中使⽤ return
+说明：try 块中的 return 语句执⾏成功后，并不⻢上返回，⽽是继续执⾏ finally 块中的语句，如果此处存在 
+return 语句，则在此直接返回，⽆情丢弃掉 try 块中的返回点。
+反例：
+浩鲸云计算科技股份有限公司 版权所有
+第 41/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+private int x = 0;
+public int checkReturn() {
+    try {
+        // x 等于 1，此处不返回
+        return ++x;
+    } 
+    finally {
+        // 返回的结果是 2
+        return ++x;
+    }
+}
+检查⼯具：
+PMD：codestyle:OnlyOneReturn，A method should have only one exit point, and that should be 
+the last statement in the method
+PMD：errorprone:ReturnFromFinallyBlock,Avoid returning from a finally block
+2.4.7. 【J000045】推荐：在JDK9以上，使⽤try-with-resources语句时，⽆需在try语句
+中声明新变量，直接使⽤已有资源变量即可
+正例：
+InputStream resource = new FileInputStream(filepath);
+try (resource) {
+    // TODO
+}
+检查⼯具：⽆
+2.4.8. 【J000046】强制：抛异常与捕获异常，必须是完全匹配，或者捕获异常是抛异
+常的⽗类
+检查⼯具：⽆
+2.4.9. 【J000047】推荐：防⽌ NPE ，是程序员的基本修养，注意 NPE 产⽣的场景
+1） 返回类型为基本数据类型，return 包装数据类型的对象时，⾃动拆箱有可能产⽣ NPE。
+ public int f() { return Integer 对象}， 如果为 null，⾃动解箱抛 NPE。
+反例：
+2） 数据库的查询结果可能为 null。
+3） 集合⾥的元素即使 isNotEmpty，取出的数据元素也可能为 null。
+4） 远程调⽤返回对象时，⼀律要求进⾏空指针判断，防⽌ NPE。
+5） 对于 Session 中获取的数据，建议进⾏ NPE 检查，避免空指针。
+6） 级联调⽤ obj.getA().getB().getC()；⼀连串调⽤，易产⽣ NPE。
+：使⽤ JDK8 的 Optional 类来防⽌ NPE 问题。
+正例：
+浩鲸云计算科技股份有限公司 版权所有
+第 42/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+检查⼯具：⽆
+2.4.10. 【J000048】推荐：定义时区分 unchecked / checked 异常，避免直接抛出 
+new RuntimeException() ，更不允许抛出 Exception 或者 Throwable，应使⽤有业务含
+义的⾃定义异常
+说明 ：异常可分为受检查异常（checked exception）和不受检查异常（unchecked exception）。受检查异
+常是在编译时就需要被处理或者声明抛出的异常，像 
+、
+ 这类；⽽不受检查异常通
+IOException
+SQLException
+常是运⾏时异常，如 
+、
+ 等，它们在编译时⽆需强制处理。
+NullPointerException
+ArithmeticException
+在代码⾥直接抛出 
+、
+ 或者 
+ 是不提倡的，原因如下：
+RuntimeException
+Exception
+Throwable
+缺乏业务含义 ：这些通⽤异常⽆法明确指出问题所在，对于调⽤者和后续维护者⽽⾔，很难从异常信息
+中知晓具体的业务错误场景。
+不利于异常处理 ：由于它们过于宽泛，在捕获和处理时难以针对具体的业务问题采取合适的处理措施。
+为了提升代码的可读性、可维护性以及可扩展性，建议定义具有业务含义的⾃定义异常。借助⾃定义异常，能
+够清晰地表达业务逻辑中的错误情况，使调⽤者更易于理解和处理异常。同时，业界已经定义了⼀些常⽤的⾃
+定义异常，例如 
+（数据访问层异常）、
+（业务逻辑层异常）等，可优先使⽤
+DAOException
+ServiceException
+这些已有的异常。
+检查⼯具：
+PMD:AvoidThrowingRawExceptionTypes
+PMD:AvoidCatchingGenericException
+2.4.11. 【J000049】推荐：对于公司外的 http/api 开放接⼝必须使⽤“错误码”；⽽应⽤
+内部推荐异常抛出；跨应⽤间 RPC 调⽤优先考虑使⽤ Result ⽅式，封装 isSuccess()⽅
+法、“错误码”、“错误简短信息”
+说明：关于 RPC ⽅法返回⽅式使⽤ Result ⽅式的理由：
+1）使⽤抛异常返回⽅式，调⽤⽅如果没有捕获到就会产⽣运⾏时错误。
+2）如果不加栈信息，只是 new ⾃定义异常，加⼊⾃⼰的理解的 error message，对于调⽤端解决问题的帮助
+不会太多。如果加了栈信息，在频繁调⽤出错的情况下，数据序列化和传输的性能损耗也是问题。
+检查⼯具：⽆
+2.4.12. 【J000050】推荐：遵循 DRY（Don't Repeat Yourself）原则，避免出现重复的
+代码
+说明：随意复制和粘贴代码，必然会导致代码的重复，在以后需要修改时，需要修改所有的副本，容易遗漏。
+必要时抽取共性⽅法，或者抽象公共类，甚⾄是组件化。
+正例：
+⼀个类中有多个 public ⽅法，都需要进⾏数⾏相同的参数校验操作，这个时候请抽取：
+浩鲸云计算科技股份有限公司 版权所有
+第 43/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+private boolean checkParam(DTO dto) {...}
+检查⼯具：⽆
+2.4.13. 【J000051】强制：应避免在静态块（static block）中执⾏复杂逻辑，并妥善处
+理静态块内代码在执⾏时可能出现的异常，避免因未捕获的异常导致类加载失败，产⽣ 
+NoClassDefFoundError 错误。例如：静态块中打开资源（如⽂件、⽹络连接等），确
+保即使在发⽣异常时也能正确进⾏异常处理和资源关闭
+ 故障警示! 本规范制定源⾃两起严重⽣产故障（单号：3611738、3786355）。
+在3611738故障案例中，由于核⼼类的静态初始化逻辑中没有对可预⻅的异常进⾏处理，导致关键
+服务启动失败，进⽽引发了 NoClassDefFoundError 错误，致使服务中断。
+在3786355故障案例中，在核⼼业务类的static代码块中进⾏关键业务配置项的读取，没有对可预⻅
+的异常进⾏处理，导致业务配置读取失败的故障。
+正例：
+static {
+        SomeResource tempResource = null;
+        try {
+                tempResource = new SomeResource();
+                tempResource.open();
+                // 进⾏⼀些初始化操作
+        } catch (Exception e) {
+                // 处理异常，例如记录⽇志等
+        } finally {
+                if (tempResource != null) {
+                        try {
+                                tempResource.close();
+                        } catch (Exception e) {
+                                // 处理异常，例如记录⽇志等
+                        }
+                }
+        }
+        resource = tempResource;
+}
+反例：
+static {
+        try {
+                resource = new SomeResource();
+                resource.open(); // 如果这⾥抛出异常，后续的资源关闭将不会执⾏
+                // 进⾏⼀些初始化操作
+浩鲸云计算科技股份有限公司 版权所有
+第 44/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+        } catch (Exception e) {
+                throw new RuntimeException("初始化失败", e);
+        }
+}
+检查⼯具：⽆
+2.5. 资源管理
+2.5.1. 【J000052】强制：使⽤ HttpClient 时必须显式关闭响应资源，确保连接归还⾄
+连接池
+此规范有必考题。
+ 故障警示! 本规范制定源⾃严重⽣产故障（单号：3787588）。
+在3787588故障案例中，业务逻辑在处理HTTP请求时，当服务端正常返回（HttpStatus = 200）时
+则正常读取response流，⾃动释放HTTP连接；如果相应状态码⾮200的时候，则直接抛出异常，导
+致HTTP连接没有被释放引发泄漏，导致后续请求⽆法获取连接的故障。
+显式关闭响应流和连接
+必须在请求完成后调⽤ 
+ 或通过 
+ ⾃动关闭，确保底
+CloseableHttpResponse.close()
+try-with-resources
+层 TCP 连接释放。
+必须完全读取或消费响应体（
+），否则连接⽆法复⽤。若仅需关闭流⽽不处理内容，调⽤ 
+HttpEntity
+。
+EntityUtils.consume(entity)
+优先使⽤ try-with-resources
+Java 7+ 环境中，
+ 和 
+ 
+通过 
+ 管理
+CloseableHttpClient
+CloseableHttpResponse 必须
+try-with-resources
+资源，避免⼿动关闭遗漏。
+// 正例：⾃动关闭资源
+try (CloseableHttpClient httpClient = HttpClients.createDefault();
+     CloseableHttpResponse response = httpClient.execute(request)) {
+    HttpEntity entity = response.getEntity();
+    String result = EntityUtils.toString(entity);
+} // ⾃动关闭 response 和 httpClient
+禁⽌未关闭响应直接丢弃
+禁⽌以下写法，未关闭的 
+ 会导致连接泄漏：
+response
+// 反例：未关闭响应，连接泄漏！
+CloseableHttpResponse response = httpClient.execute(request);  
+浩鲸云计算科技股份有限公司 版权所有
+第 45/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+4.  
+5.  
+1.  
+if (HttpStatus.SC_OK == response.getStatusLine().getStatusCode()) {  
+    HttpEntity entity = response.getEntity();  
+    if (entity != null) {  
+        String result = EntityUtils.toString(entity);  
+        EntityUtils.consume(entity);  
+        return JSON.parseObject(result, access);  
+    } else {  
+        throw new RuntimeException("请求失败"); //未关闭响应，连接泄漏！
+    }  
+}
+配置连接池参数
+必须为 
+ 设置合理的最⼤连接数和超时时间，防⽌资源耗尽：
+PoolingHttpClientConnectionManager
+PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+cm.setMaxTotal(100);                  // 最⼤连接数
+cm.setDefaultMaxPerRoute(50);         // 单路由最⼤连接数
+cm.setValidateAfterInactivity(5000);  // 空闲连接校验间隔（毫秒）
+CloseableHttpClient httpClient = HttpClients.custom().setConnectionManager(cm).build();
+防御性关闭流
+即使已读取响应内容，
+在 
+ 块中显式关闭流，确保异常时资源释放：
+必须
+finally
+CloseableHttpResponse response = null;
+try {
+    response = httpClient.execute(request);
+    HttpEntity entity = response.getEntity();
+    String result = EntityUtils.toString(entity);
+} finally {
+    if (response != null) {
+        EntityUtils.consume(response.getEntity()); // 确保流关闭
+        response.close();
+    }
+}
+检查⼯具：
+PMD:
+:Ensure that resources (like java.sql.Connection, java.sql.Statement, and 
+CloseResource
+java.sql.ResultSet objects and any subtype of java.lang.AutoCloseable) are always closed after 
+use. Failing to do so might result in resource leaks.
+2.6. ⽇志规约
+2.6.1. 【J000053】强制：在⽇志输出时，字符串变量之间的拼接使⽤占位符的⽅式
+浩鲸云计算科技股份有限公司 版权所有
+第 46/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+说明 ：使⽤占位符（ 
+）来拼接字符串变量有重要的性能优势。在许多⽇志框架（如 Logback、Log4j 等）
+{}
+中，⽇志级别是可以配置的，常⻅的⽇志级别包括 
+、
+、
+、
+ 等。当配置的⽇志级
+DEBUG
+INFO
+WARN
+ERROR
+别较⾼（如 
+）时，较低级别的⽇志（如 
+）不会被输出。
+ERROR
+DEBUG
+如果在⽇志输出语句中直接进⾏字符串变量的拼接（如 logger.debug("Processing trade with id: " + id + " and 
+），即使该⽇志级别不会被输出，字符串的拼接操作仍然会执⾏，这会带来不必要的性能
+symbol: " + symbol);
+损耗。
+⽽使⽤占位符的⽅式，⽇志框架可以根据配置的⽇志级别动态决定是否进⾏字符串模板与变量的拼装。当该⽇
+志级别不会被输出时，就不会执⾏拼接操作，从⽽减少了性能开销。
+正例 ：
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+public class LoggingExample {
+    private static final Logger logger = LoggerFactory.getLogger(LoggingExample.class);
+    public static void main(String[] args) {
+        int id = 123;
+        String symbol = "ABC";
+        // 使⽤占位符进⾏⽇志输出
+        logger.debug("Processing trade with id: {} and symbol: {}", id, symbol);
+        logger.error("An error occurred while processing trade with id: {} and symbol: {}", id, symbol);
+    }
+}
+反例 ：
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+public class BadLoggingExample {
+    private static final Logger logger = LoggerFactory.getLogger(BadLoggingExample.class);
+    public static void main(String[] args) {
+        int id = 123;
+        String symbol = "ABC";
+        // 直接进⾏字符串拼接的⽇志输出
+        logger.debug("Processing trade with id: " + id + " and symbol: " + symbol);
+        logger.error("An error occurred while processing trade with id: " + id + " and symbol: " + symbol);
+    }
+}
+检查⼯具：
+浩鲸云计算科技股份有限公司 版权所有
+第 47/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+1.  
+PMD:
+:Whenever using a log level, one should check if the loglevel is actually 
+GuardLogStatement
+enabled, or otherwise skip the associate String creation and manipulation.
+2.6.2. 【J000054】强制：对于 trace / debug / info / warn 级别的⽇志输出，如果⽇志
+输出⽅法的⼊参存在⽅法调⽤，外部必须进⾏⽇志级别的开关判断
+# 故障警示! 严重⽣产故障：3794409。某项⽬在打印⽇志时，使⽤ logger.debug("getOfferById2 
+offerDto = [{}]", offerDto.toString()); 的⽅式打印⽇志，这种情况即便⽇志级别不是DEBUG，也会执⾏ 
+toString ⽅法，因为offerDto对象是⼀个重对象，调⽤toString的时候产⽣了严重的性能影响，引发故
+障。
+说明：虽然在 debug(参数)的⽅法体内第⼀⾏代码 isDisabled(Level.DEBUG_INT)为真时（Slf4j 的常⻅实现 
+Log4j 和 Logback），就直接 return，但是参数可能会进⾏字符串拼接运算。此外，如果debug(getName())这
+种参数内有 getName()⽅法调⽤，⽆谓浪费⽅法调⽤的开销。
+正例：
+// 如果判断为真，那么可以输出 trace 和 debug 级别的⽇志。
+if (logger.isDebugEnabled()) {
+    // 该⽇志输出⽅法的⼊参存在⽅法调⽤getName()
+    logger.debug("Current ID is: {} and name is: {}", id, getName());
+}
+检查⼯具：
+PMD:
+:Whenever using a log level, one should check if the loglevel is actually 
+GuardLogStatement
+enabled, or otherwise skip the associate String creation and manipulation.
+2.6.3. 【J000055】强制：避免重复打印⽇志，浪费磁盘空间，务必在 log4j.xml或者
+logback.xml 中设置 additivity = false
+说明 ：在使⽤ 
+ 或 
+ 等⽇志框架时，
+ 这个属性是⽤于控制⽇志是否会向上级⽇志记录
+log4j
+logback
+additivity
+器（⽗记录器）传播的。当 
+ 设置为 
+（默认值）时，⼀个⽇志记录器在处理⽇志事件时，除了
+additivity
+true
+按照⾃身的配置进⾏⽇志输出外，还会将该⽇志事件传递给它的⽗记录器进⾏处理，这就可能导致同⼀条⽇志
+被多次打印。
+例如，假设存在⼀个根⽇志记录器和⼀个⼦⽇志记录器，⼦⽇志记录器配置了⾃⼰的输出⽬的地（如⽂件），
+根⽇志记录器也配置了输出⽬的地（如控制台）。如果⼦⽇志记录器的 
+ 为 
+，那么当⼦⽇志记
+additivity
+true
+录器记录⼀条⽇志时，这条⽇志不仅会输出到⼦⽇志记录器指定的⽂件中，还会传递给根⽇志记录器，进⽽输
+出到控制台上，造成⽇志的重复打印。
+为了避免这种情况，浪费磁盘空间（如果是输出到⽂件）或者造成不必要的信息⼲扰（如在控制台重复显
+示），我们需要将 
+ 设置为 
+，这样⼦⽇志记录器在处理⽇志事件时，就不会将⽇志事件传递给
+additivity
+false
+⽗记录器，从⽽保证每条⽇志只被打印⼀次。
+正例 ：
+浩鲸云计算科技股份有限公司 版权所有
+第 48/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 配置根⽇志记录器 -->
+    <root level="info">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+    <!-- 配置⼦⽇志记录器，设置 additivity 为 false -->
+    <logger name="com.taobao.dubbo.config" level="debug" additivity="false">
+        <appender-ref ref="FILE"/>
+    </logger>
+    <!-- 配置控制台输出 appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <!-- 配置⽂件输出 appender -->
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/app.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+</configuration>
+在上述正例的 
+ 配置⽂件中，为 
+ 这个⽇志记录器设置了 
+logback.xml
+com.taobao.dubbo.config
+additivity="false"
+，这样当该⽇志记录器记录⽇志时，⽇志不会传递给根⽇志记录器，只会输出到指定的⽂件（
+）
+logs/app.log
+中，避免了重复打印。
+反例 ：
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 配置根⽇志记录器 -->
+    <root level="info">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+    <!-- 配置⼦⽇志记录器，未设置 additivity（默认为 true） -->
+    <logger name="com.taobao.dubbo.config" level="debug">
+        <appender-ref ref="FILE"/>
+    </logger>
+    <!-- 配置控制台输出 appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+浩鲸云计算科技股份有限公司 版权所有
+第 49/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+        </encoder>
+    </appender>
+    <!-- 配置⽂件输出 appender -->
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/app.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+</configuration>
+在反例的配置中，
+ 这个⽇志记录器没有设置 
+，其默认值为 
+。因此，当
+com.taobao.dubbo.config
+additivity
+true
+该⽇志记录器记录⽇志时，⽇志会同时输出到指定的⽂件（
+）和控制台，导致⽇志重复打印，浪
+logs/app.log
+费资源。
+检查⼯具：⽆
+2.6.4. 【J000056】强制：异常信息应该包括两类信息：案发现场信息和异常堆栈信
+息。如果不处理，那么通过关键字 throws 往上抛出
+正例：
+public static void processData(int[] data) throws IllegalArgumentException {
+    if (data == null || data.length == 0) {
+        // 案发现场信息：⼊参 data 为 null 或⻓度为 0
+        String dataInfo = data != null? java.util.Arrays.toString(data) : "null";
+        String errorMessage = "Input data is null or empty, data: {}";
+        IllegalArgumentException e = new IllegalArgumentException(errorMessage);
+        // 记录异常信息，包括案发现场信息和异常堆栈信息
+        logger.error(errorMessage, dataInfo, e);
+        // 将异常往上抛出
+        throw e;
+    }
+    // 正常处理数据的逻辑
+    for (int num : data) {
+        System.out.println(num);
+    }
+}
+反例：
+public static void processData(int[] data) {
+    if (data == null || data.length == 0) {
+        // 只记录了简单的异常消息，没有案发现场信息
+        logger.error("Input data is null or empty");
+        // 没有往上抛出异常，导致异常被忽略
+    }
+浩鲸云计算科技股份有限公司 版权所有
+第 50/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+    // 正常处理数据的逻辑
+    for (int num : data) {
+        System.out.println(num);
+    }
+}
+检查⼯具：⽆
+2.6.5. 【J000057】强制：国际化团队或海外部署的服务器由于字符集问题，使⽤全英
+⽂来注释和描述⽇志错误信息
+检查⼯具：⽆
+2.6.6. 【J000058】强制：谨慎地记录⽇志。⽣产环境禁⽌输出 debug ⽇志 ； 有选择
+地输出 info ⽇志 ； 如果使⽤ warn 来记录刚上线时的业务⾏为信息，⼀定要注意⽇志
+输出量的问题，避免把服务器磁盘撑爆，并记得及时删除这些观察⽇志
+说明：⼤量地输出⽆效⽇志，不利于系统性能提升，也不利于快速定位错误点。记录⽇志时请思考：这些⽇志
+真的有⼈看吗？看到这条⽇志你能做什么？能不能给问题排查带来好处？
+检查⼯具：⽆
+2.6.7. 【J000059】推荐：可以使⽤ warn ⽇志级别来记录⽤户输⼊参数错误的情况，避
+免⽤户投诉时，⽆所适从。如⾮必要，请不要在此场景打出 error 级别，避免频繁报警
+说明：注意⽇志输出的级别，error 级别只记录系统逻辑出错、异常或者重要的错误信息。
+检查⼯具：⽆
+2.7. 其他
+2.7.1. 【J000060】推荐：Long 或 long 类型变量赋值时，数值后使⽤⼤写 L，不能是
+⼩写 l ，⼩写容易跟数字混淆，造成误解
+检查⼯具：⽆
+2.7.2. 【J000061】强制：注意 Math.random() 这个⽅法返回是 double 类型，取值范
+围 0≤ x <1 （ 能够取到零值，注意除零异常 ） ，如果想获取整数类型的随机数，不要
+将 x 放⼤ 10 的若⼲倍然后取整，直接使⽤ Random 对象的 nextInt 值 或者nextLong⽅
+法
+检查⼯具：⽆
+浩鲸云计算科技股份有限公司 版权所有
+第 51/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+2.7.3. 【J000062】推荐：获取当前毫秒数⽤System.currentTimeMillis(); ⽽不是 new 
+Date().getTime()
+说明：查看 
+ 的源码可知，
+ 的⽆参构造函数实际上调⽤的就是 
+java.util.Date
+new Date()
+System.
+ 。所以，直接使⽤ 
+ 不仅能达到相同的获取毫秒数⽬的，还能避免
+currentTimeMillis()
+System.currentTimeMillis()
+创建 
+ 对象带来的额外性能开销。如果想获取更加精确的纳秒级时间值，使⽤ System.nanoTime()的⽅
+Date
+式。在 JDK8 中，针对统计时间等场景，推荐使⽤ Instant 类。
+检查⼯具：⽆
+2.7.4. 【J000063】强制：⽇期格式化时，传⼊ pattern 中表示年份统⼀使⽤⼩写的 y
+说明：⽇期格式化时， yyyy 表示当天所在的年，⽽⼤写的 YYYY 代表是 week in which year（JDK7 之后引
+⼊的概念），意思是当天所在的周属于的年份，⼀周从周⽇开始，周六结束，只要本周跨年，返回的 YYYY 
+就是下⼀年。另外需要注意：
+表示⽉份是⼤写的 M
+表示分钟则是⼩写的 m
+24 ⼩时制的是⼤写的 H
+12 ⼩时制的则是⼩写的 h
+正例：
+表示⽇期和时间的格式如下所示：
+new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); 
+检查⼯具：⽆
+2.7.5. 【J000064】强制：严格把控类成员变量和⽅法的访问控制
+类成员与⽅法访问控制从严，若没有⾜够理由，不要把实例或类变量声明为公有。通常，实例变量⽆需显式的
+设置(set)或获取(gotten)，通常这作为⽅法调⽤的边缘效应(side effect)⽽产⽣。
+⼀个具有公有实例变量的恰当例⼦，是类仅作为数据结构，没有⾏为。
+1） 如果不允许外部直接通过new来创建对象，那么构造⽅法必须是private。
+2） ⼯具类不允许有public或default构造⽅法。
+3） 类⾮static成员变量并且与⼦类共享，必须是protected。
+4） 类⾮static成员变量并且仅在本类使⽤，必须是private。
+5） 类static成员变量如果仅在本类使⽤，必须是private。
+6） 若是static成员变量，必须考虑是否为final。
+7） 类成员⽅法只供类内部调⽤，必须是private。
+8） 类成员⽅法只对继承类公开，那么限制为protected。
+浩鲸云计算科技股份有限公司 版权所有
+第 52/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+说明：任何类、⽅法、参数、变量，严控访问范围。过于宽泛的访问范围，不利于模块解耦。思考：如果是⼀
+个private的⽅法，想删除就删除，可是⼀个public的service成员⽅法或成员变量，删除⼀下，不得⼿⼼冒点汗
+吗？变量像⾃⼰的⼩孩，尽量在⾃⼰的视线内，变量作⽤域太⼤，⽆限制的到处跑，那么你会担⼼的。
+检查⼯具：⽆
+2.7.6. 【J000065】强制：规范 for 循环中计数器常量的使⽤
+在 
+ 循环中充当计数器值的数字常量，除了 -1、0 和 1 这三个特殊数字之外，禁⽌直接写在代码⾥。这是
+for
+因为直接将常量硬编码在代码中，会使代码变得难以理解和维护。⼀旦需求发⽣变化，需要修改这个常量值
+时，就必须在代码中找到所有使⽤该常量的地⽅进⾏修改，容易遗漏且容易出错。
+正例：
+// 定义⼀个常量表示循环次数
+final int LOOP_TIMES = 10;
+for (int i = 0; i < LOOP_TIMES; i++) {
+    // 循环体代码
+    System.out.println("当前循环次数: " + i);
+}
+反例：
+for (int i = 0; i < 10; i++) {
+    // 循环体代码
+    System.out.println("当前循环次数: " + i);
+}
+特殊情况说明：
+-1、0 和 1 这三个数字是允许直接写在 
+ 循环计数器中的。因为它们是⾮常基础且常⽤的数字，在很多情
+for
+况下，它们的含义清晰明确，不会引起混淆。例如：
+// 使⽤ -1 作为初始值
+for (int i = -1; i < LOOP_TIMES; i++) {
+    System.out.println("当前值: " + i);
+}
+// 使⽤ 0 作为初始值，这是最常⻅的情况
+for (int i = 0; i < LOOP_TIMES; i++) {
+    System.out.println("当前值: " + i);
+}
+// 使⽤ 1 作为步⻓
+for (int i = 0; i < LOOP_TIMES; i = i + 1) {
+浩鲸云计算科技股份有限公司 版权所有
+第 53/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+    System.out.println("当前值: " + i);
+}
+检查⼯具：⽆
+2.7.7. 【J000066】强制：避免在⼀个语句中给多个变量赋值
+因为这样很难读懂。例如：
+fooBar.fChar = barFoo.Ichar = 'c'; //避免这样！
+不要使⽤内嵌(embedded)赋值运算符试图提⾼运⾏时的效率，这是编译器的⼯作。例如：
+d = (a = b + c) + r; //避免这样！
+应该写成
+a = b + c;
+d = a + r;
+检查⼯具：
+CheckStyle：应避免在⼦表达式中赋值。 (11:16) [InnerAssignment]
+2.7.8. 【J000067】推荐：在含有多种运算符的表达式中使⽤圆括号来明确逻辑边界
+⼀般⽽⾔，在含有多种运算符的表达式中使⽤圆括号来避免运算符优先级问题，是个好⽅法。即使运算符的优
+先级对你⽽⾔可能很清楚，但对其他⼈未必如此。你不能假设别的程序员和你⼀样清楚运算符的优先级。
+if (a == b && c == d) //避免这样！
+  
+if ((a == b) && (c == d)) //推荐这样
+检查⼯具：⽆
+2.7.9. 【J000068】推荐：将反复使⽤的字符串、数字等定义成常量
+对于⼀些所有模块都共⽤的字符串，定义到公共常量类中去。
+对于模块内共⽤的⼀些字符串，定义到模块内部常量类⾥⾯去。
+不要使⽤⼀个常量类维护所有常量，要按常量功能进⾏归类，分开维护。
+浩鲸云计算科技股份有限公司 版权所有
+第 54/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+检查⼯具：⽆
+2.7.10. 【J000069】强制：尽量通过接⼝引⽤对象
+优先使⽤接⼝⽽不是类来引⽤对象。如果有合适的接⼝类型存在，那么对于参数、返回值、变量和域来说，都
+应该使⽤接⼝类型进⾏声明。
+例如：
+List<String> nameList = new ArrayList<String>();
+如果实现类提供了某个特殊功能不是接⼝通⽤约定的，且代码中会依赖这个特殊功能，本规则就不适⽤。
+检查⼯具：
+PMD：bestpractices:LooseCoupling
+2.7.11. 【J000070】强制：不使⽤float和double进⾏精确数值计算
+float和double只能进⾏ 
+ 的 
+ 的计算，并不能提供 
+ 的结果，尤其不适⽤于 
+ 计
+较为精确
+快速近似
+完全精确
+货币
+算，因为它们不能精确地表示0.1或者10的任何其它负次⽅。要进⾏精确计算就使⽤ 
+、
+ 或者
+BigDecimal
+int
+lon
+ 。
+g
+正例 ：
+import java.math.BigDecimal;
+public class AccurateCalculationExample {
+    public static void main(String[] args) {
+        // 使⽤ BigDecimal 进⾏精确的⼩数计算
+        BigDecimal num1 = new BigDecimal("0.1");
+        BigDecimal num2 = new BigDecimal("0.2");
+        BigDecimal sum = num1.add(num2);
+        System.out.println("精确计算结果：" + sum);
+        // 使⽤ int 进⾏精确的整数计算
+        int intNum1 = 5;
+        int intNum2 = 3;
+        int intSum = intNum1 + intNum2;
+        System.out.println("精确整数计算结果：" + intSum);
+        // 使⽤ long 进⾏较⼤范围的精确整数计算
+        long longNum1 = 10000000000L;
+        long longNum2 = 20000000000L;
+        long longSum = longNum1 + longNum2;
+        System.out.println("精确⻓整数计算结果：" + longSum);
+    }
+}
+浩鲸云计算科技股份有限公司 版权所有
+第 55/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+反例 ：
+public class InaccurateCalculationExample {
+    public static void main(String[] args) {
+        // 使⽤ float 进⾏计算，结果可能不精确
+        float floatNum1 = 0.1f;
+        float floatNum2 = 0.2f;
+        float floatSum = floatNum1 + floatNum2;
+        System.out.println("不精确的 float 计算结果：" + floatSum);
+        // 使⽤ double 进⾏计算，结果可能不精确
+        double doubleNum1 = 0.1;
+        double doubleNum2 = 0.2;
+        double doubleSum = doubleNum1 + doubleNum2;
+        System.out.println("不精确的 double 计算结果：" + doubleSum);
+    }
+}
+检查⼯具：⽆
+2.7.12. 【J000071】推荐：尽量避免在循环体内进⾏try/catch
+说明 ：
+ 块⽤于捕获和处理异常。然⽽，将 
+ 块放置在循环体内可能会带来⼀些性能和代码
+try/catch
+try/catch
+维护上的问题，除⾮有明确的逻辑需求或特殊原因，否则应将 
+ 放在循环体外。
+try/catch
+在循环体内使⽤ 
+，会增加每次循环的开销，因为每次迭代时都要检查是否有异常发⽣以及执⾏相关
+try/catch
+的异常处理逻辑。这可能会导致性能下降，特别是在循环次数较多的情况下。
+正例 ：
+import java.util.ArrayList;
+import java.util.List;
+public class TryCatchOutsideLoopExample {
+    public static void main(String[] args) {
+        List<Integer> numbers = new ArrayList<>();
+        numbers.add(1);
+        numbers.add(0);
+        numbers.add(2);
+        try {
+            for (int num : numbers) {
+                int result = 10 / num;
+                System.out.println("Result: " + result);
+            }
+        } catch (ArithmeticException e) {
+            System.out.println("捕获到异常: " + e.getMessage());
+        }
+浩鲸云计算科技股份有限公司 版权所有
+第 56/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+    }
+}
+反例 ：
+import java.util.ArrayList;
+import java.util.List;
+public class TryCatchInsideLoopExample {
+    public static void main(String[] args) {
+        List<Integer> numbers = new ArrayList<>();
+        numbers.add(1);
+        numbers.add(0);
+        numbers.add(2);
+        for (int num : numbers) {
+            try {
+                int result = 10 / num;
+                System.out.println("Result: " + result);
+            } catch (ArithmeticException e) {
+                System.out.println("捕获到异常: " + e.getMessage());
+            }
+        }
+    }
+}
+在反例中，
+ 块位于循环体内。每次循环都要执⾏异常检查和处理逻辑，增加了性能开销。
+try/catch
+检查⼯具：⽆
+2.7.13. 【J000072】强制：Object的equals⽅法容易抛空指针异常，应使⽤常量或确定
+有值的对象来调⽤equals
+正例："test".equals(object);
+反例：object.equals("test");
+说明：推荐使⽤java.util.Objects#equals（JDK7引⼊的⼯具类）
+避免⽐较的String对象是null⽽引起空指针异常。
+String orgName = orgDAO.selName();
+if (orgName.equals(CN_NJ)) { //可能引发NullPointerException，避免这样！
+  
+}
+if (orgName != null && orgName.equals(CN_NJ)) { //OK，但是代码不简洁
+  
+浩鲸云计算科技股份有限公司 版权所有
+第 57/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+}
+if (CN_NJ.equals(orgName)) { //安全⼜简洁，推荐这样！
+  
+}
+检查⼯具：
+PMD：bestpractices:LiteralsFirstComparisons
+CheckStyle：String literal expressions should be on the left side of an equals comparison. (21:32) 
+[EqualsAvoidNull]
+2.7.14. 【J000073】强制：调⽤String.subString()时先进⾏⻓度判断
+为了避免在调⽤ 
+ ⽅法时因传⼊的索引参数超出字符串⻓度范围⽽引发 
+String.substring()
+IndexOutOfBoundsExc
+ 异常，在调⽤该⽅法之前，必须先对字符串的⻓度进⾏判断，确保传⼊的索引参数在合法范围内。
+eption
+正例：
+public class SubstringExample {
+    public static void main(String[] args) {
+        String str = "Hello, World!";
+        // 使⽤ substring(int beginIndex) ⽅法
+        int beginIndex = 7;
+        if (beginIndex <= str.length()) {
+            String subStr1 = str.substring(beginIndex);
+            System.out.println("使⽤ substring(int beginIndex) 提取的⼦串: " + subStr1);
+        } else {
+            System.out.println("开始索引超出字符串⻓度，⽆法提取⼦串。");
+        }
+        // 使⽤ substring(int beginIndex, int endIndex) ⽅法
+        int start = 0;
+        int end = 5;
+        if (start >= 0 && end <= str.length() && start <= end) {
+            String subStr2 = str.substring(start, end);
+            System.out.println("使⽤ substring(int beginIndex, int endIndex) 提取的⼦串: " + subStr2);
+        } else {
+            System.out.println("索引参数不合法，⽆法提取⼦串。");
+        }
+    }
+}
+检查⼯具：⽆
+2.7.15. 【J000074】强制：将数据库表数值类型对应的属性定义成Long类型
+浩鲸云计算科技股份有限公司 版权所有
+第 58/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+数据库表数值类型主键⼀般为NUMBER(6)或者NUMBER(9)，当是后者时，如果主键值⾜够⼤，会超出Integer
+能够表示的范围，所以要求统⼀使⽤Long来定义对应的属性。
+检查⼯具：⽆
+2.7.16. 【J000075】强制：不要使⽤MD2、MD4、MD5算法来加密敏感数据
+由于MD2、MD4、MD5已被认为是不安全的hash算法，因此应禁⽌使⽤它们。建议使⽤SHA256来对密码进
+⾏hash处理。
+对于⾮加密的场景，例如仅⽤于后台使⽤、构造hash环，可以例外处理。
+检查⼯具：⽆
+2.7.17. 【J000076】强制：优先使⽤ Spring 封装的 RestTemplate 进⾏ HTTP 请求
+说明 ：在进⾏ HTTP 请求时，原⽣的 HTTP 客户端 API（如 Apache HttpClient 等）虽然功能强⼤，但使⽤起
+来较为复杂，需要开发者⼿动处理很多细节，例如连接管理、超时设置、异常处理等。如果处理不当，可能会
+导致⼀些潜在的问题，像未设置超时时间会使线程⻓时间阻塞，在⾼并发场景下可能耗尽系统资源，影响系统
+的正常运⾏。⽽ Spring 框架提供的 
+ 对原⽣ HTTP 客户端进⾏了封装，简化了 HTTP 请求的操
+RestTemplate
+作，它提供了更⾼级的抽象，能⾃动处理许多常⻅的任务，如消息转换、异常处理等，同时也能⽅便地设置超
+时时间等参数，提⾼了代码的可读性和可维护性。
+正例：
+我们可以通过简单地使⽤ClientHttpRequestFactory来配置
+超时：
+RestTemplate
+使⽤ ZSmart Core R9 框架的产品，框架已经提供了⾃动配置。
+RestTemplate restTemplate = new RestTemplate(getClientHttpRequestFactory());
+private ClientHttpRequestFactory getClientHttpRequestFactory() {
+    int timeout = 5000;
+    RequestConfig config = RequestConfig.custom()
+      .setConnectTimeout(timeout)
+      .setConnectionRequestTimeout(timeout)
+      .setSocketTimeout(timeout)
+      .build();
+    CloseableHttpClient client = HttpClientBuilder
+      .create()
+      .setDefaultRequestConfig(config)
+      .build();
+    return new HttpComponentsClientHttpRequestFactory(client);
+}
+如果不可避免的使⽤HttpClient的原⽣API，请妥善处理好超时时间：
+浩鲸云计算科技股份有限公司 版权所有
+第 59/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+CloseableHttpClient httpClient = HttpClients.createDefault();
+// 妥善处理超时
+RequestConfig requestConfig = RequestConfig.custom()
+                        .setSocketTimeout(30000)
+                        .setConnectTimeout(10000)
+            .setConnectionRequestTimeout(5000)
+                        .build();
+HttpGet httpGet = new HttpGet("http://localhost/1");
+httpGet.setConfig(requestConfig);
+CloseableHttpResponse response = httpClient.execute(httpGet, context);
+try {
+        HttpEntity entity = response.getEntity();
+} 
+finally {
+        if (response != null) {
+            EntityUtils.consume(response.getEntity()); // 确保流关闭
+            response.close();
+        }
+    }
+通常我们要关注以下3个超时时间：
+http.socket.timeout：套接字超时时间，默认0表示⽆限期等待。
+http.connection.timeout：建⽴连接超时时间，默认0表示⽆限期等待。
+http.connection-manager.timeout：从连接池获取连接的等待时间，默认0表示⽆限期等待。
+反例：
+public class NativeHttpClientExample {
+    public static void main(String[] args) {
+        // 创建默认配置的 HttpClient 实例，没有关注各种超时配置
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        // 创建 GET 请求
+        HttpGet httpGet = new HttpGet("https://api.example.com/data");
+        try {
+            // 执⾏请求
+            CloseableHttpResponse response = httpClient.execute(httpGet);
+            try {
+                // 获取响应实体
+                HttpEntity entity = response.getEntity();
+                if (entity != null) {
+                    String responseBody = EntityUtils.toString(entity);
+                    System.out.println("Response: " + responseBody);
+                }
+            } finally {
+                // 关闭响应
+                response.close();
+            }
+浩鲸云计算科技股份有限公司 版权所有
+第 60/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                // 关闭 HttpClient
+                httpClient.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+检查⼯具：⽆
+2.7.18. 【J00007601】强制：RestTemplate和HttpClient等重量级⽹络通信对象必须作
+为单例复⽤，禁⽌在每次接⼝调⽤中新建实例
+ 故障警示! 本规范制定源⾃严重⽣产故障（单号：3797349）。
+在3797349故障案例中，代码每次接⼝调⽤都创建了新的 
+ 对象和底层的 
+ 
+RestTemplate
+HttpClient
+实例，导致不断创建新的 
+ 线程。最终线程数达到系统上限，触发 
+IdleConnectionEvictor
+OutOfMemo
+，导致应⽤在凌晨多次⾃动重启，并造成⼤批订单卡单。
+ryError: unable to create native thread
+说明 ：
+ 和底层的 
+（如 Apache HttpComponents）属于重量级对象，其内部通常维
+RestTemplate
+HttpClient
+护了连接池、⼯作线程等耗费系统资源的组件。如果在每次接⼝调⽤或请求处理时都新建此类对象，不仅会导
+致频繁的⽹络连接建⽴与销毁，⽆法发挥连接池的复⽤优势，更会造成底层线程数量激增。当线程数达到系统
+上限时，将引发 
+，最终导致应⽤崩溃或⾃动重启。因此，此类
+OutOfMemoryError: unable to create native thread
+对象必须在应⽤启动时（例如通过 Spring 的 
+）进⾏初始化，并在全局作为单例复⽤。
+@Bean
+使⽤ ZSmart Core R9 框架的产品，框架已经提供了⾃动配置。参考【J000076】
+正例 ：
+通过 Spring 的配置类，将 
+ 声明为单例 Bean，由 Spring 容器统⼀管理其⽣命周期：
+RestTemplate
+@Configuration
+public class RestTemplateConfig {
+    @Bean
+    public RestTemplate restTemplate() {
+        int timeout = 5000;
+        RequestConfig config = RequestConfig.custom()
+            .setConnectTimeout(timeout)
+            .setConnectionRequestTimeout(timeout)
+            .setSocketTimeout(timeout)
+            .build();
+            
+浩鲸云计算科技股份有限公司 版权所有
+第 61/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+        CloseableHttpClient client = HttpClientBuilder
+            .create()
+            .setDefaultRequestConfig(config)
+            // 默认会使⽤连接池管理连接
+            .setMaxConnTotal(200)
+            .setMaxConnPerRoute(20)
+            .build();
+            
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(client);
+        return new RestTemplate(factory);
+    }
+}
+// 在业务代码中通过依赖注⼊复⽤单例
+@Service
+public class MyService {
+    @Autowired
+    private RestTemplate restTemplate;
+    public void callExternalApi() {
+        // 复⽤单例 RestTemplate
+        restTemplate.getForObject("https://api.example.com/data", String.class);
+    }
+}
+反例 ：
+在每次接⼝调⽤时都创建⼀个新的 
+ 和 
+，导致每次都创建新的连接池和后台清理线
+RestTemplate
+HttpClient
+程，极易引发 OOM：
+public class BadService {
+    // 错误示范：每次调⽤都会新建 RestTemplate 及底层 HttpClient、线程
+    private RestTemplate buildHttpsRestTemplate() {
+        int connect = 5000;
+        int socket = 5000;
+        int connReq = 5000;
+        int maxTotal = 200;
+        int maxPerRoute = 20;
+        
+        HttpClientConfig.Builder builder = new HttpClientConfig.Builder()
+            .maxConnections(maxTotal, maxPerRoute)
+            .timeouts(connect, socket);
+        if (connReq > 0) {
+            builder.connectionRequestTimeout(connReq);
+        }
+            
+        HttpClientConfig config = builder.build();
+        ClientFactory clientFactory = new ClientFactory();
+        HttpComponentsClientHttpRequestFactory rf = new HttpComponentsClientHttpRequestFactory(
+            clientFactory.buildHttpClient(config));
+浩鲸云计算科技股份有限公司 版权所有
+第 62/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+            
+        rf.setReadTimeout(socket);
+        if (connReq > 0) {
+            rf.setConnectionRequestTimeout(connReq);
+        }
+        return new RestTemplate(rf);
+    }
+    public void handleRequest() {
+        // 每次请求都新建，当并发量⼤时将耗尽系统线程导致 OOM
+        RestTemplate restTemplate = buildHttpsRestTemplate();
+        restTemplate.getForObject("https://api.example.com/data", String.class);
+    }
+}
+检查⼯具：⽆
+2.7.19. 【J000077】强制：内存数据库的事务应当优先提交
+当在⼀个全局事务中有访问多数据库的业务需要时，内存数据库的DML操作应当被放在事务的最后。同时，
+在最终事务提交(commit)时内存数据库连接应当被优先处理，以此来保证避免产⽣内存数据库⻓事务。(常⻅
+内存数据库如：Timesten、QMDB等)
+检查⼯具：⽆
+2.7.20. 【J000078】强制：谨慎处理⽤户输⼊信息，防⽌SQL注⼊，禁⽌通过字符串拼
+接的⽅式⽣成SQL
+说明 ：在开发过程中，若直接使⽤⽤户输⼊的数据来构造 SQL 语句，可能会遭受 SQL 注⼊攻击。攻击者可
+以通过精⼼构造输⼊内容，改变 SQL 语句的原有逻辑，从⽽执⾏⾮法操作，如获取敏感数据、修改数据库内
+容甚⾄删除数据库等，严重威胁系统的安全性。为了避免此类安全⻛险，必须严格采⽤参数绑定的⽅式来处理
+⽤户输⼊的 SQL 参数，严禁使⽤字符串拼接的⽅式来构建 SQL 语句访问数据库。
+正例 ：
+// 使⽤预编译语句进⾏参数绑定
+String sql = "SELECT * FROM users WHERE username = ?";
+PreparedStatement preparedStatement = connection.prepareStatement(sql);
+preparedStatement.setString(1, userInput);
+反例 ：
+// 使⽤字符串拼接构建 SQL 语句，存在 SQL 注⼊⻛险
+String sql = "SELECT * FROM users WHERE username = '" + userInput + "'";
+Statement statement = connection.createStatement();
+ResultSet resultSet = statement.executeQuery(sql);
+浩鲸云计算科技股份有限公司 版权所有
+第 63/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+1.  
+检查⼯具：
+Spotbugs:Security (Potential SQL Problem)
+SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE (Nonconstant string passed to execute 
+or addBatch method on an SQL statement)
+2.7.21. 【J000079】强制：不能将静态变量赋值给局部变量
+说明 ：静态变量是被
+关键字修饰的成员变量，它属于类本身，在整个进程的⽣命周期内存在，并且在
+static
+进程内是共享的，全局都可以访问。如果将静态变量赋值给局部变量，后续对该局部变量进⾏的操作，由于静
+态变量的共享特性，实际上会影响到所有引⽤该静态变量的地⽅，这就违背了局部变量只在其定义的⽅法或代
+码块内有效的约定，可能会导致难以排查的逻辑错误和数据不⼀致问题。此外，这种做法还会使代码的可读性
+和维护性变差，增加理解代码逻辑和追踪数据变化的难度。
+检查⼯具：⽆
+2.7.22. 【J000080】强制：所有的覆写⽅法，必须加@Override注解
+说明：getObject()与get0bject()的问题。⼀个是字⺟的O，⼀个是数字的0，加@Override可以准确判断是否覆
+盖成功。另外，如果在抽象类中对⽅法签名进⾏修改，其实现类会⻢上编译报错。
+检查⼯具：
+PMD:
+Annotating overridden methods with @Override ensures at compile time 
+MissingOverride
+that the method really overrides one, which helps refactoring and clarifies intent.
+2.7.23. 【J000081】强制：相同参数类型，相同业务含义，才可以使⽤Java的可变参
+数，避免使⽤Object
+说明：Java 的可变参数是 JDK 5 引⼊的⼀项特性，它允许⽅法接受可变数量的参数。不过，使⽤可变参数时
+要遵循⼀定规则，以保证代码的可读性、可维护性和正确性。
+⾸先，可变参数只能⽤于相同参数类型且具有相同业务含义的情况。这是因为可变参数本质上是将多个同类型
+的参数封装成数组传递给⽅法。若参数类型不同或业务含义不同，使⽤可变参数会让代码逻辑变得混乱，难以
+理解和维护。
+其次，要避免使⽤ 
+ 作为可变参数类型。
+ 是所有类的基类，使⽤它作为可变参数类型会使⽅法
+Object
+Object
+可以接受任意类型的参数，这会丧失类型检查的优势，容易在运⾏时引发类型转换异常，同时也会降低代码的
+可读性。
+另外，可变参数必须放在参数列表的最后。这是 Java 语法的规定，若不遵循，会导致编译错误。虽然可变参
+数有⼀定便利性，但在实际编程中，应尽量少⽤，因为它可能会使⽅法签名变得复杂，影响代码的清晰性。
+正例：
+浩鲸云计算科技股份有限公司 版权所有
+第 64/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+public class VariableArgsExample {
+    // 计算多个整数的和，参数类型相同且业务含义⼀致
+    public static int sum(int... numbers) {
+        int result = 0;
+        for (int num : numbers) {
+            result += num;
+        }
+        return result;
+    }
+    public static void main(String[] args) {
+        int total = sum(1, 2, 3, 4, 5);
+        System.out.println("总和: " + total);
+    }
+}
+反例：
+public class BadVariableArgsExample {
+    // 错误示例：使⽤ Object 作为可变参数类型
+    public static void printObjects(Object... objects) {
+        for (Object obj : objects) {
+            System.out.println(obj);
+        }
+    }
+    public static void main(String[] args) {
+        printObjects("Hello", 123, true);
+    }
+}
+检查⼯具：⽆
+2.7.24. 【J000082】强制：外部正在调⽤或者作为⼆⽅库依赖的接⼝，不允许直接修改
+⽅法签名，避免对接⼝调⽤⽅产⽣影响。接⼝过时必须加@Deprecated注解，并清晰地
+说明采⽤的新接⼝或者新服务是什么
+说明 ：当接⼝被外部系统调⽤或者作为⼆⽅库被依赖时，接⼝的稳定性⾄关重要。接⼝的⽅法签名（包括⽅
+法名、参数类型和数量、返回值类型等）定义了调⽤⽅与被调⽤⽅之间的契约。如果随意修改⽅法签名，会导
+致调⽤⽅的代码⽆法正常调⽤，引发编译错误、运⾏时异常等问题，严重影响系统的正常运⾏和业务的连续
+性。因此，为了保证接⼝调⽤⽅的正常使⽤，严禁对这类接⼝的⽅法签名进⾏修改。
+当接⼝因业务发展或技术升级等原因不再适⽤时，不应该直接删除或修改其⽅法签名，⽽应使⽤ @Deprecate
+ 注解标记该接⼝为过时。同时，为了帮助调⽤⽅顺利过渡到新的接⼝或服务，需要在注解的说明中清晰地
+d
+指出可以采⽤的新接⼝或者新服务是什么，以便调⽤⽅能够及时进⾏代码迁移。
+检查⼯具：⽆
+浩鲸云计算科技股份有限公司 版权所有
+第 65/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.7.25. 【J000083】强制：不能使⽤过时的类或⽅法
+说明：接⼝提供⽅既然明确是过时接⼝，那么也有义务同时提供新的接⼝；作为调⽤⽅来说，有义务去考证过
+时⽅法的新实现是什么。
+检查⼯具：
+可以借助编译器告警，例如：IDEA会提示“'xxx' is deprecated”
+2.7.26. 【J000084】强制：浮点数之间的等值判断，基本数据类型不能⽤==来⽐较，包
+装数据类型不能⽤equals 来判断
+说明：浮点数采⽤“尾数+阶码”的编码⽅式，类似于科学计数法的“有效数字+指数”的表示⽅式。⼆进制⽆法精
+确表示⼤部分的⼗进制⼩数，具体原理参考《码出⾼效》
+反例：
+float a = 1.0f - 0.9f;
+float b = 0.9f - 0.8f;
+if (a == b) {
+    // 预期进⼊此代码快，执⾏其它业务逻辑
+    // 但事实上 a==b 的结果为 false
+}
+Float x = Float.valueOf(a);
+Float y = Float.valueOf(b);
+if (x.equals(y)) {
+    // 预期进⼊此代码快，执⾏其它业务逻辑
+    // 但事实上 equals 的结果为 false
+}
+正例：
+(1) 指定⼀个误差范围，两个浮点数的差值在此范围之内，则认为是相等的。
+float a = 1.0f - 0.9f;
+float b = 0.9f - 0.8f;
+float diff = 1e-6f;
+if (Math.abs(a - b) < diff) {
+    System.out.println("true");
+}
+(2) 使⽤ BigDecimal 来定义值，再进⾏浮点数的运算操作。
+BigDecimal a = new BigDecimal("1.0");
+BigDecimal b = new BigDecimal("0.9");
+BigDecimal c = new BigDecimal("0.8");
+BigDecimal x = a.subtract(b);
+BigDecimal y = b.subtract(c);
+if (x.equals(y)) {
+    System.out.println("true");
+}
+浩鲸云计算科技股份有限公司 版权所有
+第 66/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+检查⼯具：⽆
+2.7.27. 【J000085】强制：所有的相同类型的包装类对象之间值的⽐较，全部使⽤
+equals⽅法⽐较 (浮点数的包装类除外)
+说明：对于Integer var = ? 在-128⾄127范围内的赋值，Integer对象是在IntegerCache.cache产⽣，会复⽤已
+有对象，这个区间内的Integer值可以直接使⽤==进⾏判断，但是这个区间之外的所有数据，都会在堆上产
+⽣，并不会复⽤已有对象，这是⼀个⼤坑，推荐统⼀使⽤equals⽅法进⾏判断。
+Integer a = 12;
+Integer b = 12;
+System.out.println(a == b); // true
+System.out.println(a.equals(b)); // true
+Integer c = 1234;
+Integer d = 1234;
+System.out.println(c == d);  // false
+System.out.println(c.equals(d)); // true
+检查⼯具：
+PMD:CompareObjectsWithEquals
+Spotbugs:Correctness (Questionable use of reference equality rather than calling equals) 
+RC_REF_COMPARISON (Suspicious reference comparison)
+2.7.28. 【J000086】强制：为了防⽌精度损失，禁⽌使⽤构造⽅法 BigDecimal(double) 
+的⽅式把 double 值转化为 BigDecimal 对象
+说明：BigDecimal(double)存在精度损失⻛险，在精确计算或值⽐较的场景中可能会导致业务逻辑异常。如：
+BigDecimal g = new BigDecimal(0.1f); 实际的存储值为：0.10000000149
+优先推荐⼊参为 String 的构造⽅法，或使⽤ BigDecimal 的 valueOf ⽅法，此⽅法内部其实执⾏了Double 的 
+toString，⽽ Double 的 toString 按 double 的实际能表达的精度对尾数进⾏了截断。
+正例：
+import java.math.BigDecimal;
+public class CorrectBigDecimalConversion {
+    public static void main(String[] args) {
+        double doubleValue = 0.1;
+        // 使⽤ BigDecimal(String) 构造⽅法
+        BigDecimal bigDecimalFromString = new BigDecimal(String.valueOf(doubleValue));
+        System.out.println("使⽤ BigDecimal(String) 转换结果: " + bigDecimalFromString);
+浩鲸云计算科技股份有限公司 版权所有
+第 67/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+        // 使⽤ BigDecimal.valueOf(double) ⽅法
+        BigDecimal bigDecimalFromValueOf = BigDecimal.valueOf(doubleValue);
+        System.out.println("使⽤ BigDecimal.valueOf(double) 转换结果: " + bigDecimalFromValueOf);
+    }
+}
+反例:
+import java.math.BigDecimal;
+public class IncorrectBigDecimalConversion {
+    public static void main(String[] args) {
+        double doubleValue = 0.1;
+        // 使⽤ BigDecimal(double) 构造⽅法，会导致精度损失
+        BigDecimal bigDecimalFromDouble = new BigDecimal(doubleValue);
+        System.out.println("使⽤ BigDecimal(double) 转换结果: " + bigDecimalFromDouble);
+    }
+}
+检查⼯具：
+PMD:AvoidDecimalLiteralsInBigDecimalConstructor
+2.7.29. 【J000087】强制：明确基本数据类型与包装数据类型的使⽤标准
+1） 【强制】所有的POJO类属性必须使⽤包装数据类型。
+2） 【强制】RPC⽅法的返回值和参数必须使⽤包装数据类型。
+3） 【推荐】所有的局部变量使⽤基本数据类型。
+说明：POJO类属性没有初值是提醒使⽤者在需要使⽤时，必须⾃⼰显式地进⾏赋值，任何NPE问题，或者⼊
+库检查，都由使⽤者来保证。
+正例：数据库的查询结果可能是null，因为⾃动拆箱，⽤基本数据类型接收有NPE⻛险。
+反例：⽐如显示成交总额涨跌情况，即正负x%，x为基本数据类型，调⽤的RPC服务，调⽤不成功时，返回
+的是默认值，⻚⾯显示为0%，这是不合理的，应该显示成中划线。所以包装数据类型的null值，能够表示额
+外的信息，如：远程调⽤失败，异常退出。
+检查⼯具：⽆
+2.7.30. 【J000088】强制：定义DO/DTO/VO等POJO类时，不要设定任何属性默认值
+说明 ：DO（Data Object，数据对象）、DTO（Data Transfer Object，数据传输对象）、VO（View 
+Object，视图对象）等 POJO（Plain Old Java Object）类主要⽤于数据的存储和传输。为这些类的属性设定
+默认值可能会带来潜在的⻛险和问题。当属性被赋予默认值后，在数据处理过程中，可能会掩盖数据未被正确
+赋值的情况，导致数据不⼀致。例如，在数据提取时，如果某个属性没有被置⼊具体值，但由于有默认值，可
+浩鲸云计算科技股份有限公司 版权所有
+第 68/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+能会让开发者误以为该属性已经有了有效的数据。在后续的更新操作中，这些默认值可能会被错误地写⼊数据
+库或传递到其他系统，从⽽影响业务逻辑的正确性。
+正例：
+public class UserDO {
+    private Long id;
+    private String name;
+    private Date gmtCreate;
+    private Date gmtModified;
+    // 提供 getter 和 setter ⽅法
+    ...
+}
+反例：
+public class UserDO {
+    private Long id;
+    private String name;
+    private Date gmtCreate  = new Date();
+    private Date gmtModified  = new Date();
+    // 提供 getter 和 setter ⽅法
+    ...
+}
+检查⼯具：⽆
+2.7.31. 【J000089】强制：合理处理序列化类中 serialVersionUID 字段的修改
+说明 ：当⼀个类实现了 
+ 接⼝后，
+ ⽤于确保在反序列化过程中，序列化和反序列
+Serializable
+serialVersionUID
+化的类版本⼀致性。它是⼀个标识类版本的唯⼀标识符，在序列化时会与对象数据⼀起存储，反序列化时会进
+⾏⽐对。
+如果在序列化类新增属性时修改了 
+ 字段，即使新属性对反序列化没有实质性影响，也可能导
+serialVersionUID
+致反序列化失败。因为反序列化时会⽐较存储的 
+ 和当前类的 
+，若不⼀致，
+serialVersionUID
+serialVersionUID
+Java 虚拟机（JVM）会认为这是两个不同版本的类，从⽽抛出 
+ 异常。因此序列化类新
+InvalidClassException
+增属性时，请不要修改
+ 字段，避免反序列化失败；
+serialVersionUID
+然⽽，当类进⾏完全不兼容的升级时，例如删除了重要属性、修改了属性类型等，旧版本的对象数据可能⽆法
+正确反序列化为新版本的类对象。此时，为了避免反序列化混乱，需要修改 
+ 值，让 JVM 识
+serialVersionUID
+别出这是⼀个全新版本的类，从⽽拒绝反序列化旧版本的数据，避免潜在的错误和异常。
+检查⼯具：⽆
+浩鲸云计算科技股份有限公司 版权所有
+第 69/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+2.7.32. 【J000090】强制：POJO类必须实现 toString ⽅法
+说明 ：POJO（Plain Old Java Object）类主要⽤于存储和传输数据。当程序运⾏过程中出现异常时，为了能
+够快速定位问题，需要清晰了解相关对象的属性值。⽽ 
+ ⽅法可以将对象的属性信息以字符串的形式
+toString
+输出，这样在⽅法执⾏抛出异常时，直接调⽤ POJO 对象的 
+ ⽅法，就能⽅便地查看对象各属性的具
+toString
+体值，极⼤地提⾼了问题排查的效率。
+另外，当 POJO 类继承⾃另⼀个 POJO 类时，在重写 
+ ⽅法时需要调⽤ 
+，这样可以确
+toString
+super.toString()
+保⽗类的属性信息也能包含在输出结果中，避免遗漏重要信息。
+检查⼯具：⽆
+2.7.33. 【J000091】强制：禁⽌在 POJO 类中，同时存在对应属性 xxx 的 isXxx()和 
+getXxx()⽅法
+说明 ：在 POJO（Plain Old Java Object）类中，通常使⽤ getter ⽅法来获取对象属性的值。对于布尔类型
+的属性，习惯上使⽤ 
+ ⽅法来获取其值；⽽对于其他类型的属性，则使⽤ 
+ ⽅法。如果在 
+isXxx()
+getXxx()
+POJO 类中同时为同⼀个属性提供 
+ 和 
+ ⽅法，会造成接⼝的不⼀致性和使⽤上的混淆。
+isXxx()
+getXxx()
+⼀⽅⾯，调⽤者在使⽤时可能不清楚应该调⽤哪个⽅法来获取属性值，增加了理解和使⽤的成本。另⼀⽅⾯，
+在⼀些框架或⼯具中，可能会根据约定的 getter ⽅法名来进⾏数据绑定、序列化等操作，同时存在两个不同
+命名的 getter ⽅法可能会导致这些操作出现异常或不符合预期的结果。
+正例：
+class CorrectPOJO {
+    private boolean enabled;
+    // 对于布尔类型属性，只使⽤ isXxx() ⽅法
+    public boolean isEnabled() {
+        return enabled;
+    }
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+    private String name;
+    // 对于其他类型属性，只使⽤ getXxx() ⽅法
+    public String getName() {
+        return name;
+    }
+    public void setName(String name) {
+        this.name = name;
+    }
+}
+浩鲸云计算科技股份有限公司 版权所有
+第 70/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+反例：
+class IncorrectPOJO {
+    private boolean valid;
+    // 同时存在 isXxx() 和 getXxx() ⽅法，违反规范
+    public boolean isValid() {
+        return valid;
+    }
+    public boolean getValid() {
+        return valid;
+    }
+    public void setValid(boolean valid) {
+        this.valid = valid;
+    }
+}
+检查⼯具：
+PMD:BooleanGetMethodName
+2.7.34. 【J000092】推荐：final 可以声明类、成员变量、⽅法、以及本地变量，下列情
+况使⽤final关键字
+1） 不允许被继承的类，如：String类。
+2） 不允许修改引⽤的域对象，如：POJO类的域变量。
+3） 不允许被重写的⽅法，如：POJO类的setter⽅法。
+4） 不允许运⾏过程中重新赋值的局部变量。
+5） 避免上下⽂重复使⽤⼀个变量，使⽤final描述可以强制重新定义⼀个变量，⽅便更好地进⾏重构。
+检查⼯具：⽆
+2.7.35. 【J000093】推荐：在JDK17以上，使⽤封闭类（Sealed Classes）来限制类的
+继承，提⾼代码的安全性和可维护性
+正例：
+public sealed class Shape permits Circle, Rectangle, Square {}
+public final class Circle extends Shape {}
+public final class Rectangle extends Shape {}
+public abstract class Square extends Shape {}
+【说明】封闭类可以指定哪些其他类可以继承它，有助于避免不相关的类继承导致的代码混乱。
+浩鲸云计算科技股份有限公司 版权所有
+第 71/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+检查⼯具：⽆
+2.7.36. 【J000094】强制：谨慎使⽤ Object 的 clone ⽅法进⾏对象拷⻉
+说明 ：
+ 类提供了 
+ ⽅法⽤于创建对象的副本。然⽽，
+ 类的 
+ ⽅法默认实现的是浅
+Object
+clone
+Object
+clone
+拷⻉。浅拷⻉意味着只复制对象本身以及对象中的基本数据类型属性，但对于对象中的引⽤类型属性，仅仅复
+制引⽤，⽽不复制引⽤指向的实际对象。这就导致原对象和拷⻉对象中的引⽤类型属性会指向同⼀个内存地
+址，当其中⼀个对象修改该引⽤类型属性时，另⼀个对象也会受到影响，可能引发数据不⼀致的问题。
+若需要实现深拷⻉，即复制对象及其所有引⽤类型属性所指向的对象，就需要重写 
+ ⽅法，并在⽅法中
+clone
+对每个引⽤类型属性进⾏单独的拷⻉操作。但重写 
+ ⽅法实现深拷⻉较为复杂，需要考虑对象的层次结
+clone
+构、引⽤关系等多⽅⾯因素，容易出错。此外，
+ ⽅法还依赖于对象所属的类实现 
+ 接⼝，否
+clone
+Cloneable
+则会抛出 
+ 异常。因此，在实际开发中，应谨慎使⽤ 
+ 的 
+ ⽅法进⾏
+CloneNotSupportedException
+Object
+clone
+对象拷⻉。
+**正例：
+import java.util.ArrayList;
+import java.util.List;
+// 实现 Cloneable 接⼝
+class DeepCopyExample implements Cloneable {
+    private int primitiveField;
+    private List<String> referenceField;
+    public DeepCopyExample(int primitiveField, List<String> referenceField) {
+        this.primitiveField = primitiveField;
+        this.referenceField = new ArrayList<>(referenceField);
+    }
+    @Override
+    protected DeepCopyExample clone() throws CloneNotSupportedException {
+        DeepCopyExample cloned = (DeepCopyExample) super.clone();
+        // 对引⽤类型属性进⾏深拷⻉
+        cloned.referenceField = new ArrayList<>(this.referenceField);
+        return cloned;
+    }
+    public int getPrimitiveField() {
+        return primitiveField;
+    }
+    public List<String> getReferenceField() {
+        return referenceField;
+    }
+    public void setPrimitiveField(int primitiveField) {
+        this.primitiveField = primitiveField;
+    }
+浩鲸云计算科技股份有限公司 版权所有
+第 72/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+    public void setReferenceField(List<String> referenceField) {
+        this.referenceField = referenceField;
+    }
+}
+public class Main {
+    public static void main(String[] args) {
+        List<String> list = new ArrayList<>();
+        list.add("element");
+        DeepCopyExample original = new DeepCopyExample(10, list);
+        try {
+            DeepCopyExample clone = original.clone();
+            // 修改原对象的引⽤类型属性
+            original.getReferenceField().add("newElement");
+            System.out.println("Original reference field: " + original.getReferenceField());
+            System.out.println("Clone reference field: " + clone.getReferenceField());
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+反例：
+import java.util.ArrayList;
+import java.util.List;
+// 实现 Cloneable 接⼝
+class ShallowCopyExample implements Cloneable {
+    private int primitiveField;
+    private List<String> referenceField;
+    public ShallowCopyExample(int primitiveField, List<String> referenceField) {
+        this.primitiveField = primitiveField;
+        this.referenceField = referenceField;
+    }
+    @Override
+    protected ShallowCopyExample clone() throws CloneNotSupportedException {
+        return (ShallowCopyExample) super.clone();
+    }
+    public int getPrimitiveField() {
+        return primitiveField;
+    }
+    public List<String> getReferenceField() {
+        return referenceField;
+    }
+浩鲸云计算科技股份有限公司 版权所有
+第 73/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+    public void setPrimitiveField(int primitiveField) {
+        this.primitiveField = primitiveField;
+    }
+    public void setReferenceField(List<String> referenceField) {
+        this.referenceField = referenceField;
+    }
+}
+public class BadMain {
+    public static void main(String[] args) {
+        List<String> list = new ArrayList<>();
+        list.add("element");
+        ShallowCopyExample original = new ShallowCopyExample(10, list);
+        try {
+            ShallowCopyExample clone = original.clone();
+            // 修改原对象的引⽤类型属性
+            original.getReferenceField().add("newElement");
+            System.out.println("Original reference field: " + original.getReferenceField());
+            System.out.println("Clone reference field: " + clone.getReferenceField());
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+检查⼯具：⽆
+2.7.37. 【J000095】强制：优先使⽤封装的 Logger 输出信息，避免使⽤ System.out 
+和 printStackTrace
+说明 ：
+ 主要⽤于将信息输出到标准输出流，通常是控制台。⽽ 
+ 是 
+ 类
+System.out
+printStackTrace
+Throwable
+的⽅法，⽤于打印异常的堆栈跟踪信息到标准错误流。这两种⽅式输出的信息缺乏有效的管理和配置能⼒。⽆
+法区分不同级别的⽇志信息（如调试、信息、警告、错误等），也难以将⽇志输出到不同的⽬标位置（如⽂
+件、远程服务器等），不利于问题的排查和系统的维护。
+检查⼯具：
+CheckStyle：avoid use system.out(err,exit) or printStackTrace() (42:0) [RegexpSinglelineJava]
+PMD ：bestpratices:SystemPrintln
+2.7.38. 【J000096】强制：避免空的 try/catch/finally 语句块
+说明：try/catch/finally  语句块是⽤于处理异常的重要机制。然⽽，空的 
+ 语句块不仅违背了异
+try/catch/finally
+常处理的初衷，还会带来⼀系列问题，影响代码的质量和可维护性。
+浩鲸云计算科技股份有限公司 版权所有
+第 74/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+1.  
+2.  
+⼀个空的 
+ 块意味着捕获到异常后不进⾏任何处理，这会导致异常被⽆声地忽略。异常往往是程序出现
+catch
+问题的信号，忽略异常会掩盖潜在的错误，使得问题难以被发现和定位。当程序在⽣产环境中出现异常时，由
+于没有相应的处理和⽇志记录，开发者很难从代码中获取⾜够的信息来排查问题，增加了调试的难度和成本。
+空的 
+ 块同样没有实际意义。
+ 块的主要作⽤是确保⽆论 
+ 块中是否发⽣异常，其中的代码都
+finally
+finally
+try
+会被执⾏，通常⽤于释放资源，如关闭⽂件、数据库连接、⽹络连接等。如果 
+ 块为空，就失去了其存
+finally
+在的价值，还会让代码变得冗余，降低代码的可读性。
+检查⼯具：
+PMD:EmptyCatchBlock
+PMD:EmptyControlStatement
+2.7.39. 【J000097】强制：避免定义未使⽤的局部变量、参数和私有⽅法
+如果不是特殊原因，不要定义从未使⽤的局部变量、参数、私有⽅法。如果以后可能会使⽤到，可以先注释
+掉，并加以说明。
+检查⼯具：
+PMD:UnusedLocalVariable
+PMD:UnusedPrivateMethod
+2.7.40. 【J000098】强制：避免使⽤ "==" 或 "!=" 进⾏字符串⽐较
+⾮常常⻅的低级错误，特别是在同时写JavaScript和Java时，很容易犯这个错误。
+正例：
+public class StringComparisonExample {
+    public static void main(String[] args) {
+        String str1 = new String("Hello");
+        String str2 = new String("Hello");
+        // 使⽤ equals() ⽅法⽐较字符串内容
+        if (str1.equals(str2)) {
+            System.out.println("str1 和 str2 内容相同");
+        } else {
+            System.out.println("str1 和 str2 内容不同");
+        }
+        // 使⽤ equalsIgnoreCase() ⽅法进⾏不区分⼤⼩写的⽐较
+        String str3 = "hello";
+        if (str1.equalsIgnoreCase(str3)) {
+            System.out.println("str1 和 str3 内容（不区分⼤⼩写）相同");
+        } else {
+            System.out.println("str1 和 str3 内容（不区分⼤⼩写）不同");
+        }
+浩鲸云计算科技股份有限公司 版权所有
+第 75/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+    }
+}
+反例：
+public class BadStringComparisonExample {
+    public static void main(String[] args) {
+        String str1 = new String("Hello");
+        String str2 = new String("Hello");
+        // 使⽤ "==" ⽐较字符串引⽤
+        if (str1 == str2) {
+            System.out.println("str1 和 str2 是同⼀个对象");
+        } else {
+            System.out.println("str1 和 str2 不是同⼀个对象");
+        }
+    }
+}
+检查⼯具：
+PMD:CompareObjectsWithEquals
+PMD:UseEqualsToCompareStrings
+2.7.41. 【J000099】强制：避免在条件判断表达式⾥⾯使⽤ "=" 进⾏相等⽐较
+说明 ：在 Java 中，条件判断表达式（如 
+、
+ 等语句中的条件部分）通常需要使⽤⽐较运算符（如 
+if
+while
+=
+ ⽤于判断相等，
+ ⽤于判断不相等）来确定条件是否成⽴。⽽ “
+” 是赋值运算符，⽤于将右侧的值赋给
+=
+!=
+=
+左侧的变量。
+当在条件判断表达式中错误地使⽤ “
+” 时，会将右侧的值赋给左侧的变量，然后以该变量的值作为条件判断
+=
+的结果。这往往会导致逻辑错误，因为赋值操作的结果可能与预期的条件判断结果不⼀致。⽽且这种错误相对
+隐蔽，不易被发现，可能会在程序运⾏时产⽣难以调试和定位的问题。
+正例：
+public class CorrectConditionalCheck {
+    public static void main(String[] args) {
+        boolean willDelete = false;
+        // 使⽤正确的相等⽐较运算符 "=="
+        if (willDelete == true) {
+            System.out.println("willDelete 为 true");
+        } else {
+            System.out.println("willDelete 为 false");
+        }
+浩鲸云计算科技股份有限公司 版权所有
+第 76/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+    }
+}
+反例：
+public class IncorrectConditionalCheck {
+    public static void main(String[] args) {
+        boolean willDelete = false;
+        // 错误地使⽤了赋值运算符 "="
+        if (willDelete = true) {
+            System.out.println("willDelete 被赋值为 true 且条件判断为 true");
+        } else {
+            System.out.println("这种情况不会发⽣，因为 willDelete 被赋值为 true");
+        }
+    }
+}
+检查⼯具：
+PMD:AssignmentInOperand
+CheckStyle:Inner assignments should be avoided. (9:24) [InnerAssignment]
+Spotbugs:Correctness (Questionable Boolean Assignment) 
+QBA_QUESTIONABLE_BOOLEAN_ASSIGNMENT (Method assigns boolean literal in boolean 
+expression) QuestionableBooleanAssignment (QBA) This method assigns a literal boolean value 
+(true or false) to a boolean variable inside an if or while expression. Most probably this was 
+supposed to be a boolean comparison using ==, not an assignment using =.
+2.7.42. 【J000100】强制：谨慎调⽤静态的Calendar、DateFormat
+以SimpleDateFormat为例，代码经常创建⼀个静态全局的SimpleDateFormat实例供所有线程使⽤它的format
+⽅法，⽽实际上SimpleDataFormat的format⽅法是⾮线程安全的，这样使⽤会出现问题。除
+SimpleDateFormat类外，还有不少 XXXFormat类、XXXCalendar类等对应⽅法都是⾮线程安全的。
+可以考虑为每个线程创建独⽴的实例，或者使⽤线程安全的替代⽅案（如 
+ 替代 
+DateTimeFormatter
+SimpleDat
+，
+ 和 
+ 等类配合进⾏⽇期和时间操作替代 
+）。
+eFormat
+Instant
+ZoneId
+Calendar
+正例：
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+public class ThreadSafeDateExample {
+    public static void main(String[] args) {
+        // 使⽤线程安全的 DateTimeFormatter 进⾏⽇期格式化
+浩鲸云计算科技股份有限公司 版权所有
+第 77/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        Instant instant = Instant.now();
+        String formattedDate = formatter.format(instant.atZone(ZoneId.systemDefault()));
+        System.out.println("格式化后的⽇期: " + formattedDate);
+        // 使⽤ Instant 和 ZoneId 进⾏⽇期和时间操作
+        Instant anotherInstant = Instant.ofEpochMilli(System.currentTimeMillis());
+        ZoneId zone = ZoneId.of("Asia/Shanghai");
+        System.out.println("另⼀个时间点在上海时区的表示: " + anotherInstant.atZone(zone));
+    }
+}
+反例：
+import java.text.SimpleDateFormat;
+import java.util.Date;
+public class ThreadUnsafeDateExample {
+    private static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    public static void main(String[] args) {
+        Thread thread1 = new Thread(() -> {
+            Date date = new Date();
+            String formattedDate = sdf.format(date);
+            System.out.println("线程 1 格式化后的⽇期: " + formattedDate);
+        });
+        Thread thread2 = new Thread(() -> {
+            Date date = new Date();
+            String formattedDate = sdf.format(date);
+            System.out.println("线程 2 格式化后的⽇期: " + formattedDate);
+        });
+        thread1.start();
+        thread2.start();
+    }
+}
+检查⼯具：
+PMD：UnsynchronizedStaticFormatter
+PMD：SimpleDateFormatNeedsLocale
+2.7.43. 【J000101】强制：在类型转换前进⾏数据类型检测
+说明： 类型转换是将⼀个数据类型转换为另⼀个数据类型的操作。当进⾏类型转换时，如果不事先检测⽬标
+数据类型，可能会导致运⾏时异常，如 
+。通过使⽤ 
+ 关键字等⽅式，可以在运
+ClassCastException
+instanceof
+⾏时判断对象的实际类型，从⽽避免不恰当的类型转换，提⾼程序的健壮性。
+浩鲸云计算科技股份有限公司 版权所有
+第 78/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+正例：
+class Animal {}
+class Dog extends Animal {}
+class Cat extends Animal {}
+public class TypeConversionExample {
+    public static void main(String[] args) {
+        Animal animal = new Dog();
+        // 使⽤ instanceof 进⾏类型检测
+        if (animal instanceof Dog) {
+            Dog dog = (Dog) animal;
+            System.out.println("成功将 Animal 转换为 Dog");
+        } else if (animal instanceof Cat) {
+            Cat cat = (Cat) animal;
+            System.out.println("成功将 Animal 转换为 Cat");
+        } else {
+            System.out.println("⽆法进⾏转换");
+        }
+    }
+}
+反例：
+class AnotherAnimal {}
+class Rabbit extends AnotherAnimal {}
+class Bird extends AnotherAnimal {}
+public class BadTypeConversionExample {
+    public static void main(String[] args) {
+        AnotherAnimal animal = new Rabbit();
+        // 没有进⾏类型检测，直接进⾏转换
+        Bird bird = (Bird) animal;
+        System.out.println("尝试将 AnotherAnimal 转换为 Bird");
+    }
+}
+检查⼯具：
+CheckStyle:Correctness (Bad casts of object references) BC_IMPOSSIBLE_CAST (Impossible 
+cast)
+2.7.44. 【J000102】强制：谨慎处理数据类型转换导致溢出或者损失精度
+浩鲸云计算科技股份有限公司 版权所有
+第 79/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+在进⾏数据类型转换时，必须谨慎对待可能的溢出和精度损失问题。为了避免这些问题，通常可以采取以下措
+施：
+类型检查：在转换前检查值是否在⽬标类型的范围内，例如将⼀个超出 
+ 范围的 
+ 类型数值转换
+int
+long
+为 
+ 类型时，会发⽣溢出。
+int
+使⽤合适的数据类型：根据应⽤场景，选择能够满⾜需求的数据类型，避免不必要的转换。
+使⽤⾼精度数据类型：在需要⾼精度计算时，尽量使⽤ 
+ 或者其他⾼精度类型。
+BigDecimal
+正例：
+public class ProperTypeConversionExample {
+    public static void main(String[] args) {
+        // 类型检查示例
+        long largeNumber = 2_147_483_648L; // 超出 int 范围
+        if (largeNumber >= Integer.MIN_VALUE && largeNumber <= Integer.MAX_VALUE) {
+            int num = (int) largeNumber;
+            System.out.println("转换后的整数: " + num);
+        } else {
+            System.out.println("数值超出 int 范围，⽆法安全转换");
+        }
+        // 使⽤合适数据类型示例
+        double decimal = 123.45;
+        // 这⾥可以根据实际需求决定是否转换为整数
+        // 如果不需要整数，保持 double 类型
+        System.out.println("原始的⼩数: " + decimal);
+        // 使⽤⾼精度数据类型示例
+        java.math.BigDecimal amount1 = new java.math.BigDecimal("123.456789");
+        java.math.BigDecimal amount2 = new java.math.BigDecimal("987.654321");
+        java.math.BigDecimal sum = amount1.add(amount2);
+        System.out.println("⾼精度计算的结果: " + sum);
+    }
+}
+反例：
+public class BadTypeConversionExample {
+    public static void main(String[] args) {
+        // 溢出示例
+        long largeNumber = 2_147_483_648L; // 超出 int 范围
+        int num = (int) largeNumber;
+        System.out.println("错误：转换后的整数（发⽣溢出）: " + num);
+        // 精度损失示例
+        double decimal = 123.45;
+        int intValue = (int) decimal;
+        System.out.println("错误：转换后的整数（精度损失）: " + intValue);
+浩鲸云计算科技股份有限公司 版权所有
+第 80/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+        // 未使⽤⾼精度数据类型示例（假设⽤于⾦融计算）
+        double price1 = 123.456789;
+        double price2 = 987.654321;
+        double total = price1 + price2;
+        System.out.println("错误：未使⽤⾼精度类型，计算结果可能不准确: " + total);
+    }
+}
+检查⼯具：⽆
+2.7.45. 【J000103】强制：使⽤ System.getProperty("line.separator") 写⼊换⾏符
+说明： 在⽂件写⼊操作时，常常需要插⼊换⾏符来格式化⽂本内容。不同的操作系统使⽤不同的换⾏符表
+示：在 Linux/Unix 以及部分新版本的 Mac OS 系统中，换⾏符是 
+；在旧版本的 Mac OS 系统中，换⾏符
+\n
+是 
+；⽽在 Windows 系统中，换⾏符是 
+。
+\r
+\r\n
+为了确保程序的跨平台兼容性，应该使⽤ 
+ ⽅法来获取当前操作系统的换⾏
+System.getProperty("line.separator")
+符。该⽅法会根据运⾏程序的操作系统返回相应的换⾏符表示，从⽽保证在不同操作系统上⽣成的⽂件都具有
+正确的换⾏格式。
+正例：
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+public class CrossPlatformLineSeparatorExample {
+    public static void main(String[] args) {
+        String filePath = "test.txt";
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+            String line1 = "这是第⼀⾏";
+            String line2 = "这是第⼆⾏";
+            String lineSeparator = System.getProperty("line.separator");
+            writer.write(line1);
+            writer.write(lineSeparator);
+            writer.write(line2);
+            System.out.println("⽂件写⼊成功，已使⽤系统换⾏符");
+        } catch (IOException e) {
+            System.out.println("⽂件写⼊失败: " + e.getMessage());
+        }
+    }
+}
+反例：
+浩鲸云计算科技股份有限公司 版权所有
+第 81/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+public class BadLineSeparatorExample {
+    public static void main(String[] args) {
+        String filePath = "test.txt";
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+            String line1 = "这是第⼀⾏";
+            String line2 = "这是第⼆⾏";
+            // 错误：直接使⽤ \n 作为换⾏符，可能不兼容所有操作系统
+            String lineSeparator = "\n";
+            writer.write(line1);
+            writer.write(lineSeparator);
+            writer.write(line2);
+            System.out.println("⽂件写⼊成功，但换⾏符可能不兼容");
+        } catch (IOException e) {
+            System.out.println("⽂件写⼊失败: " + e.getMessage());
+        }
+    }
+}
+检查⼯具：⽆
+2.7.46. 【J000104】强制：禁⽌内外层循环使⽤相同的遍历变量
+说明： 为了确保代码的正确性和可读性，在编写嵌套循环时，每个循环都应该使⽤独⽴的遍历变量，使得各
+个循环的逻辑清晰独⽴，互不⼲扰。
+正例：
+for (int i = 0; i < list1.size(); i++) {
+    for (int k = 0; k < list2.size(); k++) {
+        // 进⾏⼀些操作
+    }
+}
+反例：
+for (int i = 0; i < list1.size(); i++) {
+    for (i = 0; i < list2.size(); i++) {
+        // 进⾏⼀些操作
+    }
+}
+检查⼯具：
+浩鲸云计算科技股份有限公司 版权所有
+第 82/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+1.  
+PMD:AvoidReassigningLoopVariables
+2.7.47. 【J000105】强制：避免变量在使⽤前被另⼀个赋值覆盖
+此项检查指出了变量值在赋值后从不使⽤的情况，即：
+变量在赋值后从不被读取
+值总是在下⼀个变量读取前被另⼀个赋值覆盖
+变量初始值设定项是冗余的（出于上述两个原因之⼀）
+反例：
+public class UnusedAssignmentDemo {
+    private static final ZSmartLogger LOGGER = ZSmartLogger.getLogger(UnusedAssignmentDemo.class);
+    public static void main(String[] args) {
+        String greeting;
+        if ("1".equals(String.valueOf(3 - 2))) {
+            // 下⾯⼀⾏的赋值会被后⾯的赋值覆盖，要避免这样
+            greeting = "This line is unused Assignment!";
+        }
+        greeting = "Hello world!";
+        LOGGER.debug(greeting);
+    }
+}
+检查⼯具：
+PMD:UnusedAssignment
+2.7.48. 【J000106】强制：禁⽌使⽤字符串或者数字运算的⽅式处理⽇期
+对⽇期的处理应当使⽤成熟的⼯具包，例如 java.util.Calendar ,org.apache.commons.lang3.time.DateUtils ,
+禁⽌使⽤⾃定义算法，避免由于没有充分考虑夏令时或者闰年因素导致的问题。
+例如：因为2000年是闰年，所以2000/02/29是⼀个合法的⽇期，如果增加⼀年，通过年份增加再拼接的⽅式
+会得到
+2001/02/29，这是⼀个⾮法的⽇期，在某些场景下会导致解析失败。
+正例
+int year = 2000;
+// ⽉份从0开始计算，month = 1 表示 2⽉
+int month = 1;
+int date = 29;
+int yearAmount = 1;
+calendar = Calendar.getInstance();
+浩鲸云计算科技股份有限公司 版权所有
+第 83/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+calendar.set(year,month,date);
+Date yearAmountDate = DateUtils.addYears(calendar.getTime(), yearAmount);
+反例
+public class BadDateHandlingExample {
+    public static void main(String[] args) {
+        int year = 2000;
+        int month = 2;
+        int date = 29;
+        int yearAmount = 1;
+        // 使⽤字符串拼接增加年份
+        String oldDate = year + "/" + month + "/" + date;
+        int newYear = year + yearAmount;
+        String newDate = newYear + "/" + month + "/" + date;
+        System.out.println("增加⼀年后的⽇期: " + newDate);
+        // 这⾥得到的 2001/2/29 是⾮法⽇期
+    }
+}
+检查⼯具：⽆
+2.7.49. 【J001061】推荐：避免使⽤已经过时的技术或者组件
+ 故障警示! 严重⽣产故障：
+ 某项⽬为实现图像缩放功能，引⼊已过时的 AWT（Abstract 
+3790344
+Window Toolkit）组件。由于该组件已多年停⽌维护，存在⼤量未修复 BUG 及兼容性缺陷，在⾼并发业
+务场景下，出现业务进程概率性异常中断与闪退问题，直接影响⽣产业务连续性，造成严重业务损失。
+为避免因技术选型不当引⼊隐性⻛险，保障系统⻓期稳定运⾏与可维护性，需遵循 “优先选⽤活跃演进技术，
+逐步淘汰过时组件” 的核⼼原则：
+对于新增业务代码，严禁使⽤已明确停⽌维护、不再演进的技术或组件，必须选型当前⾏业主流、社区活
+跃且具备⻓期维护计划的替代⽅案；
+对于存量历史应⽤中已使⽤的过时技术/组件，需制定明确的升级迭代计划，分阶段、分业务场景完成技
+术替换，降低历史技术债务带来的潜在⻛险。
+常⻅过时技术/组件包括但不限于：AWT、Swing、Applet、CORBA、EJB、RMI 等。建议在技术选型之
+前，⼴泛查阅官⽅⽂档、⾏业技术报告及社区评价，谨慎评估技术的活跃度、维护周期及安全⻛险。
+同时需避免 “为单⼀ API 引⼊庞⼤组件” 的情况，例如仅为使⽤某个⼯具类⽽引⼊完整的重型框架，以免增加
+项⽬的依赖复杂度和隐性维护成本。
+正例
+浩鲸云计算科技股份有限公司 版权所有
+第 84/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+数据处理类场景：选择 
+（如
+⽤于字符串处理、
+⽤于 
+操
+Apache Commons
+commons-lang3
+commons-io
+IO
+作）、
+（如集合⼯具、缓存组件），此类⼯具轻量、API 设计友好，且社区维护活跃；
+Google Guava
+图像处理场景：替换 
+为 
+（Java 原⽣，维护稳定）、
+（轻量级图像缩放组
+AWT
+ImageIO
+Thumbnails
+件）；
+分布式调⽤场景：替换 
+/
+为 
+、
+，⽀持跨语⾔调⽤、⾼可⽤部署，适配微
+CORBA
+RMI
+Dubbo
+Spring Cloud
+服务架构；
+UI 开发场景：替换 
+/
+为 
+、
+、
+，兼顾⽤户体验与技术⽣态。
+Swing
+Applet
+Vue.js
+React
+JavaFX
+反例
+⼯具类随意引⼊：例如实现字符串⾮空判断时，未评估组件活跃度，随便引⼊某⼩众开源项⽬的StringUt
+（可能存在未修复 BUG，且后续⽆维护）；
+ils
+为单⼀功能引⼊重型框架：例如仅需使⽤ “⽇期时间格式化” 功能，却引⼊完整的Joda-Time框架（实际
+Java 8+原⽣
+包已能满⾜需求，且⽆需额外依赖）；
+java.time
+检查⼯具：⽆
+3. 性能优化 (Performance Optimization)
+3.1. 内存管理
+3.1.1. 【J000107】推荐：尽早释放⽆⽤对象的引⽤
+⼀般情况下都是让对象在退出活动域（scope）后⾃动设置成null被回收，但对⼀些复杂的对象，例如数组、
+队列、树等，可能存在较为复杂的引⽤关系，GC回收效率⼀般较低，尽早将其赋值为null可以加速内存回收。
+正例：
+public class EarlyReleaseExample {
+    public static void main(String[] args) {
+        // 创建⼀个复杂对象 - 数组列表
+        List<String> complexList = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            complexList.add("Element " + i);
+        }
+        // 使⽤该列表进⾏⼀些操作
+        // 当该列表不再使⽤时，尽早释放引⽤
+        complexList = null;
+        // 后续代码可以继续执⾏其他任务
+        System.out.println("继续执⾏其他任务...");
+    }
+}
+浩鲸云计算科技股份有限公司 版权所有
+第 85/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+反例 ：
+public class BadEarlyReleaseExample {
+    public static void main(String[] args) {
+        // 创建⼀个复杂对象 - 数组列表
+        List<String> complexList = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            complexList.add("Element " + i);
+        }
+        // 使⽤该列表进⾏⼀些操作
+        for (String element : complexList) {
+            System.out.println(element);
+        }
+        // 错误做法：未及时释放引⽤，即使后续不再使⽤该列表
+        // 此时复杂对象的引⽤依然存在，GC 可能⽆法及时回收内存
+        // 后续代码可以继续执⾏其他任务
+        System.out.println("继续执⾏其他任务...");
+    }
+}
+检查⼯具：⽆
+3.1.2. 【J000108】强制：避免使⽤ System.gc() 强制进⾏内存回收
+说明 ：
+ ⽅法的作⽤是建议 JVM 进⾏⼀次垃圾回收操作，但这仅仅是⼀个建议，JVM 并不⼀定会
+System.gc()
+⽴即响应。⽽且，频繁调⽤ 
+ 会带来诸多负⾯影响。JVM 的垃圾回收算法是经过精⼼设计和优化
+System.gc()
+的，它会综合考虑内存使⽤情况、对象⽣命周期等多种因素来选择最佳的回收时机。当⼿动调⽤ 
+ 
+System.gc()
+时，会⼲扰 JVM 原本的垃圾回收策略，可能导致在不恰当的时机进⾏垃圾回收。
+垃圾回收操作本身是有⼀定开销的，它需要暂停应⽤程序的执⾏，遍历对象图，标记和清除不再使⽤的对象。
+如果在不恰当的时机进⾏垃圾回收，会增加系统内存回收的最终时间，导致应⽤程序出现卡顿现象，降低系统
+的整体性能。此外，过度依赖 
+ 还可能掩盖代码中存在的内存泄漏问题，使得开发者难以发现和解
+System.gc()
+决潜在的内存管理问题。
+检查⼯具：
+PMD:DoNotCallGarbageCollectionExplicitly
+3.1.3. 【J000109】强制：尽量避免在类的构造器中创建、初始化⼤量对象
+主要是为了避免在调⽤其⼦类的构造器时造成不必要的内存消耗。应尽量将对象的创建和初始化操作推迟到真
+正需要使⽤这些对象的时候进⾏，遵循 “延迟初始化” 的原则，这样可以有效减少内存的浪费，提⾼系统的性
+能。
+检查⼯具：⽆
+浩鲸云计算科技股份有限公司 版权所有
+第 86/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+3.1.4. 【J000110】强制：JDBC结果集⼤⼩应当加以限制
+此规范有必考题。
+ 故障警示! 严重⽣产故障：
+。某项⽬应⽤⼀次性加载了超400万的结果集，引发了OOM，导
+3713022
+致核⼼业务积压。
+默认情况JDBC不限制返回的结果集⼤⼩，这可能会导致内存波动，严重时甚⾄出现内存溢出(OOM)的现象。
+可以采⽤SQL的LIMIT⼦句(MySQL)或rownum⼦句(Oracle)限定⾏数的最⼤值，也可以通过数据访问框架提供
+的能⼒加以限制。
+例如：
+Spring JdbcTemplate的 setMaxRows⽅法
+(参考: https://docs.spring.io/spring-framework/docs/3.2.0.M1_to_3.2.0.M2/Spring%20Framework%
+203.2.0.M2/org/springframework/jdbc/core/JdbcTemplate.html#setMaxRows(int))
+ZSmart CORE (R9) 框架的 ftf.sql.limit-result-set=150
+(参考: http://ftf-r9-coredocuments.ftf.svc.tb.zsmart.com/07/Development_Specification/06/)
+ZSmart CORE (V8) 框架的 db_fetch_limit
+(参考: ZSMART_HOME/etc/defined/system.def)
+检查⼯具：⽆
+3.1.5. 【J000111】强制：避免将过⼤的⽂件⼀次性加载到内存中
+此规范有必考题。
+ 故障警示! 严重⽣产故障：
+。某项⽬应⽤因为处理⼤⽂件时，将整个⽂件读取到内存中的 
+3695958
+List 导致内存占⽤过⾼，引发订单处理性能下降的严重⽣产故障。
+在处理⽂件时，应预先检查⽂件的⼤⼩，避免将过⼤的⽂件⼀次性加载到内存中。建议设置⼀个合理的⽂件⼤
+⼩阈值，具体的阈值应根据应⽤场景和服务器配置进⾏调整。
+如果不可避免有超⼤⽂件的处理场景，应采⽤流式处理⽅式，逐⾏或分块读取⽂件内容，避免⼀次性将整个⽂
+件加载到内存中。同时在⽂件处理过程中，应妥善处理可能发⽣的异常情况，如⽂件读取失败、内存溢出等，
+并提供相应的错误⽇志和恢复策略。在⽂件处理完成后，应及时释放相关资源，如关闭⽂件流、释放缓存等，
+以避免资源泄漏。在开发过程中，应对⽂件处理功能进⾏性能测试，确保在处理⼤⽂件时系统的性能和稳定
+性。在⽤户界⾯上，应提供明确的提示信息，告知⽤户⽂件⼤⼩的限制，并在⽤户尝试上传或处理超过限制的
+⽂件时给予警告。
+检查⼯具：⽆
+浩鲸云计算科技股份有限公司 版权所有
+第 87/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.1.6. 【J000112】强制：确保 SQL 拼装时查询条件有效性，避免⼤表扫描
+此规范有必考题。
+ 故障警示! 严重⽣产故障：3544304、31154605。国际与国内项⽬均出现过因 SQL 拼装时查询条件
+处理不当，致使全表扫描、慢 SQL，甚⾄内存溢出的严重⽣产故障，虽实现机制有所差异，但故障现象
+⼀致。
+在使⽤数据持久化框架（如：Mybatis、或者国际V8 CORE的SQL服务）时，若涉及拼装 SQL 语句：
+针对使⽤了⼀个或多个条件参数的场景，务必提前考量所有条件参数均不⽣效的状况，因为这极有可能引
+发对⼤表的全表扫描，或是产⽣超⼤结果集，最终导致内存溢出等⽣产事故。开发⼈员需要进⾏严谨的测
+试与验证，模拟各种条件参数的组合情况，确认是否存在潜在⻛险。
+倘若仅有⼀个参数，且该参数为必传参数，切勿将其设置为条件参数。这种做法能从根源上杜绝因参数缺
+失⽽导致意外全表查询的隐患。
+在代码评审环节，需着重关注此类 SQL 拼装代码；单元测试⽤例也应覆盖各种条件参数的⽣效与失效场景，
+以此保障代码质量，避免出现类似的性能瓶颈与故障，维护系统稳定⾼效运⾏。
+检查⼯具：⽆
+3.1.7. 【J000113】推荐：任何数据结构的构造或初始化，都应指定⼤⼩，避免数据结
+构⽆限增⻓吃光内存
+说明：许多数据结构（如 
+、
+、
+ 等）在创建时如果不指定初始⼤⼩，它们会根据
+ArrayList
+HashMap
+HashSet
+元素的添加⾃动调整⼤⼩。虽然这种⾃动调整⼤⼩的机制提供了⼀定的便利性，但在某些情况下可能会带来问
+题。
+当数据结构不断添加元素时，⾃动调整⼤⼩可能会涉及到频繁的内存分配和数据迁移操作。例如，
+ 
+ArrayList
+在容量不⾜时会创建⼀个更⼤的数组，并将原数组中的元素复制到新数组中。如果数据结构的增⻓没有限制，
+且应⽤程序持续向其中添加元素，最终可能会导致内存被耗尽，引发 
+ 异常。
+OutOfMemoryError
+为了避免这种情况，在构造或初始化数据结构时，应根据实际需求合理指定其初始⼤⼩。这样可以减少内存分
+配和数据迁移的次数，提⾼程序的性能和稳定性。同时，也能更好地控制数据结构的内存占⽤，避免因数据结
+构⽆限增⻓⽽导致的内存问题。
+正例：
+import java.util.ArrayList;
+import java.util.HashMap;
+public class SpecifySizeExample {
+    public static void main(String[] args) {
+        // 预先知道⼤概需要存储 100 个元素，指定 ArrayList 的初始⼤⼩
+        ArrayList<String> list = new ArrayList<>(100);
+        for (int i = 0; i < 80; i++) {
+            list.add("Element" + i);
+浩鲸云计算科技股份有限公司 版权所有
+第 88/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+        }
+        // 预计有 50 个键值对，指定 HashMap 的初始⼤⼩
+        HashMap<Integer, String> map = new HashMap<>(50);
+        for (int i = 0; i < 40; i++) {
+            map.put(i, "Value" + i);
+        }
+    }
+}
+反例：
+import java.util.ArrayList;
+import java.util.HashMap;
+public class BadSizeExample {
+    public static void main(String[] args) {
+        // 未指定⼤⼩，ArrayList 会⾃动扩容
+        ArrayList<String> list = new ArrayList<>();
+        for (int i = 0; i < 1000000; i++) {
+            list.add("Element" + i);
+            // 随着元素不断添加，可能会频繁扩容，消耗⼤量内存
+        }
+        // 未指定⼤⼩，HashMap 会⾃动调整⼤⼩
+        HashMap<Integer, String> map = new HashMap<>();
+        for (int i = 0; i < 500000; i++) {
+            map.put(i, "Value" + i);
+            // 可能会导致⼤量的内存分配和数据迁移操作
+        }
+    }
+}
+在反例中，
+ 和 
+ 在创建时没有指定初始⼤⼩。当⼤量元素被添加时，它们会不断⾃动扩
+ArrayList
+HashMap
+容，可能导致频繁的内存分配和数据迁移，增加内存消耗和性能开销，甚⾄可能引发内存不⾜的问题。
+检查⼯具：⽆
+3.2. 集合类
+3.2.1. 【J100114】强制：涉及多线程并发读写的场景，必须选⽤线程安全的集合类
+在多线程环境（存在并发读写）的场景下，必须使⽤线程安全的集合类或基础组件，以确保数据的原⼦性、可
+⻅性和正确性。
+线程安全的集合类：
+早期同步类
+浩鲸云计算科技股份有限公司 版权所有
+第 89/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+List ：
+、
+（
+ 继承⾃ 
+）
+Vector
+Stack
+Stack
+Vector
+Map ：Hashtable
+并发包中的类
+List ：CopyOnWriteArrayList
+Set ：
+、
+CopyOnWriteArraySet
+ConcurrentSkipListSet
+Map ：
+、
+ConcurrentHashMap
+ConcurrentSkipListMap
+Queue ：
+、
+、
+、
+ConcurrentLinkedQueue
+ConcurrentLinkedDeque
+ArrayBlockingQueue
+LinkedBlockingQueue
+、
+等
+PriorityBlockingQueue
+检查⼯具：⽆
+3.2.2. 【J200114】推荐：不涉及多线程同步问题时，尽量选⽤⾮线程安全的集合类
+不涉及多线程同步问题时，使⽤⾮线程安全的集合类，可以规避不必要的加锁开销，具有更好的性能。
+⾮线程安全的集合类：
+List ：
+、
+ArrayList
+LinkedList
+Set ：
+、
+、
+HashSet
+TreeSet
+LinkedHashSet
+Map ：
+、
+、
+HashMap
+TreeMap
+LinkedHashMap
+检查⼯具：⽆
+3.2.3. 【J000115】推荐：合理选择 ArrayList 和 LinkedList
+在列表中进⾏随机查找，使⽤ArrayList速度更快；在列表任意位置进⾏插⼊、删除，使⽤LinkedList速度更
+快。
+优先使⽤ArrayList，然后再考虑使⽤LinkedList。但如果预先可以知道数据⼤⼩，则尽量使⽤数组。
+检查⼯具：⽆
+3.2.4. 【J000116】推荐：为 ArrayList 设置初始化容量
+说明 ：
+ 是⼀个动态数组，它可以根据需要⾃动调整⼤⼩。当向 
+ 中添加元素时，如果当前
+ArrayList
+ArrayList
+数组的容量不⾜以容纳新元素，
+ 会⾃动进⾏扩容操作。扩容操作涉及创建⼀个更⼤的新数组，并将
+ArrayList
+原数组中的元素复制到新数组中，这个过程会带来⼀定的性能开销。
+当处理已知容量的较⼤数组时，如果不提前设置 
+ 的初始容量，
+ 会频繁地进⾏扩容操作，
+ArrayList
+ArrayList
+这会导致⼤量的内存分配和元素复制，从⽽显著降低程序的性能。因此，为了避免这种不必要的性能消耗，应
+该在创建 
+ 时，根据实际需要存储的元素数量，使⽤ 
+ ⽅法或者构造函数来设置其初
+ArrayList
+ensureCapacity()
+始容量。
+正例 ：
+浩鲸云计算科技股份有限公司 版权所有
+第 90/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+public class ArrayListCapacityExample {
+    public static void main(String[] args) {
+        // 已知需要存储的元素数量
+        int expectedSize = 10000;
+        // ⽅式⼀：使⽤构造函数设置初始容量
+        List<String> listWithCapacity = new ArrayList<>(expectedSize);
+        for (int i = 0; i < expectedSize; i++) {
+            listWithCapacity.add("Element " + i);
+        }
+        // ⽅式⼆：使⽤ ensureCapacity() ⽅法设置容量
+        List<String> anotherList = new ArrayList<>();
+        anotherList.ensureCapacity(expectedSize);
+        for (int i = 0; i < expectedSize; i++) {
+            anotherList.add("Element " + i);
+        }
+    }
+}
+反例 ：
+import java.util.ArrayList;
+import java.util.List;
+public class BadArrayListCapacityExample {
+    public static void main(String[] args) {
+        // 已知需要存储的元素数量
+        int expectedSize = 10000;
+        // 未设置初始容量
+        List<String> listWithoutCapacity = new ArrayList<>();
+        for (int i = 0; i < expectedSize; i++) {
+            listWithoutCapacity.add("Element " + i);
+        }
+    }
+}
+在反例中，由于没有设置 
+ 的初始容量，在添加元素的过程中，
+ 会多次进⾏扩容操作，导
+ArrayList
+ArrayList
+致性能下降。⽽正例中，通过构造函数或者 
+ ⽅法提前设置了初始容量，避免了不必要的扩容
+ensureCapacity()
+操作，提⾼了程序的性能。
+检查⼯具：⽆
+3.2.5. 【J000117】推荐：集合初始化时，指定集合初始值⼤⼩
+说明 ：HashMap 使⽤ HashMap(int initialCapacity) 初始化, Arraylist使⽤ensureCapacity()⽅法设置ArrayList
+的容量,在处理已知容量的较⼤数组时可以避免ArrayList⾃动扩容带来的性能消耗。
+浩鲸云计算科技股份有限公司 版权所有
+第 91/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+正例 ：initialCapacity = (需要存储的元素个数 / 负载因⼦) + 1。注意负载因⼦（即 loader factor）默认为 
+0.75，如果暂时⽆法确定初始值⼤⼩，请设置为 16（即默认值）。
+反例 ：HashMap 需要放置 1024 个元素，由于没有设置容量初始⼤⼩，随着元素不断增加，容量 7 次被迫扩
+⼤，resize 需要重建 hash 表，严重影响性能。
+检查⼯具：⽆
+3.2.6. 【J000118】推荐：使⽤ entrySet 遍历 Map 类集合 KV，⽽不是 keySet ⽅式进
+⾏遍历
+说明 ：keySet 其实是遍历了 2 次，⼀次是转为 iterator 对象，另⼀次是从 hashMap 中取出 key 所对应的 
+value。⽽ entrySet 只是遍历了⼀次就把 key 和 value 都放到了 entry 中，效率更⾼。如果是 JDK8，使⽤ 
+Map.forEach ⽅法。
+正例 ：values()返回的是 V 值集合，是⼀个 list 集合对象；keySet()返回的是 K 值集合，是⼀个 Set 集合对
+象；entrySet()返回的是 K-V 值组合集合。
+检查⼯具：⽆
+3.2.7. 【J000119】推荐：利⽤ Set 元素唯⼀的特性，可以快速对集合进⾏去重操作，
+避免使⽤ List 的contains ⽅法进⾏遍历、对⽐、去重操作
+说明： 当需要对集合中的元素进⾏去重操作时，我们可以采⽤不同的⽅法。
+ 是⼀种有序的集合，它允许
+List
+存储重复的元素。如果使⽤ 
+ 的 
+ ⽅法来进⾏去重，需要遍历 
+ 中的每个元素，并且对每个元
+List
+contains
+List
+素都调⽤ 
+ ⽅法进⾏检查，判断该元素是否已经存在于 
+ 中。在处理⼤规模数据时，性能会⾮常
+contains
+List
+低下。
+⽽ 
+ 是⼀种不允许存储重复元素的集合，它的实现类（如 
+、
+ 等）利⽤了哈希表或红⿊树
+Set
+HashSet
+TreeSet
+等数据结构，能够快速判断⼀个元素是否已经存在于集合中。将需要去重的元素添加到 
+ 中时，
+ 会⾃
+Set
+Set
+动忽略重复的元素，从⽽实现去重的⽬的。
+正例：
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+public class SetDeduplicationExample {
+    public static void main(String[] args) {
+        List<Integer> listWithDuplicates = new ArrayList<>();
+        listWithDuplicates.add(1);
+        listWithDuplicates.add(2);
+        listWithDuplicates.add(2);
+        listWithDuplicates.add(3);
+        listWithDuplicates.add(3);
+浩鲸云计算科技股份有限公司 版权所有
+第 92/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+        listWithDuplicates.add(3);
+        // 使⽤ Set 进⾏去重
+        Set<Integer> set = new HashSet<>(listWithDuplicates);
+        List<Integer> listWithoutDuplicates = new ArrayList<>(set);
+        System.out.println("去重前的列表: " + listWithDuplicates);
+        System.out.println("去重后的列表: " + listWithoutDuplicates);
+    }
+}
+反例：
+import java.util.ArrayList;
+import java.util.List;
+public class ListDeduplicationExample {
+    public static void main(String[] args) {
+        List<Integer> listWithDuplicates = new ArrayList<>();
+        listWithDuplicates.add(1);
+        listWithDuplicates.add(2);
+        listWithDuplicates.add(2);
+        listWithDuplicates.add(3);
+        listWithDuplicates.add(3);
+        listWithDuplicates.add(3);
+        List<Integer> listWithoutDuplicates = new ArrayList<>();
+        for (Integer element : listWithDuplicates) {
+            if (!listWithoutDuplicates.contains(element)) {
+                listWithoutDuplicates.add(element);
+            }
+        }
+        System.out.println("去重前的列表: " + listWithDuplicates);
+        System.out.println("去重后的列表: " + listWithoutDuplicates);
+    }
+}
+检查⼯具：⽆
+3.3. String的优化
+3.3.1. 【J000120】强制：合理使⽤字符串连接⽅式
+对于⼀次性初始化且后⾯不需要修改的较⻓字符串
++操作符连接。例如：
+直接使⽤
+String tag = "a" + "b" + "c"; //这样是OK的
+浩鲸云计算科技股份有限公司 版权所有
+第 93/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+对于中间夹有变量的、需要动态连接的字符串，尤其是在循环内部连接字符串或者存在⼤量的连接操作
+时，
+或者
+⽽不是
+操作符。使⽤
+操作符进⾏⼤量的连接操作会⾮常
+必须使⽤StringBuilder
+StringBuffer
++
++
+慢。
+String tag = "a" + varB + "c"; //避免这样！
+String text = "";
+for(int i=0; i<size; i++){
+            text += …………; //避免这样
+}
+Java 1.5发⾏版本中新增加了⾮同步的StringBuilder类，⽤于补充同步的StringBuffer类，在多线程环境下推荐
+使⽤StringBuffer类。⼀般情况下两者性能差异不⼤，在100万次循环下，StringBuilder也只快了⼏⼗毫秒。
+PS:注意的是
+ StringBuilder/StringBuffer 和+操作符：
+不要混⽤
+StringBuilder builder = new StringBuilder(10);
+for(int i=0; i<size; i++) {
+    builder.append("line " + i);                        //避免这样
+    builder.append("line ").append(i);                //推荐这样
+}
+说明：反编译出的字节码⽂件显示每次循环都会new出⼀个StringBuilder对象，然后进⾏append操作，最后
+通过toString⽅法返回String对象，造成内存资源浪费。
+检查⼯具：
+PMD：performance:usestringbufferforstringappends,link
+3.3.2. 【J000121】推荐：在JDK15以上，推荐使⽤字符串⽂本块（Text Blocks）来编
+写多⾏字符串，提⾼代码的可读性和维护性
+【说明】字符串⽂本块通过三个双引号（"""）包围，允许字符串跨多⾏⽽⽆需转义。
+正例：
+String json = """
+                {
+                  "url": "http://127.0.0.1:8444/emergency/recovery/packageconfigurationerror/confirmCostAccuracy", 
+                  "data": {},
+                  "output_instructions": ""
+                }
+                """;
+检查⼯具：⽆
+浩鲸云计算科技股份有限公司 版权所有
+第 94/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+3.3.3. 【J000122】强制：优先使⽤toCharArray()遍历字符
+可以使⽤charAt()⽅法取得某个特定位置的字符。但若想遍历所有字符，通过toCharArray()⽅法先取得字符数
+组，在对数组进⾏遍历会有更好的性能。这是因为 
+ ⽅法在每次调⽤时都会进⾏边界检查，以确保指
+charAt()
+定的索引在字符串的有效范围内，⽽边界检查操作会带来⼀定的性能开销。
+正例：
+public class ToCharArrayTraversal {
+    public static void main(String[] args) {
+        String str = "Hello, World!";
+        char[] charArray = str.toCharArray();
+        for (char c : charArray) {
+            System.out.print(c + " ");
+        }
+    }
+}
+反例：
+public class CharAtTraversal {
+    public static void main(String[] args) {
+        String str = "Hello, World!";
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            System.out.print(c + " ");
+        }
+    }
+}
+检查⼯具：⽆
+3.3.4. 【J000123】强制：避免重复创建字符串对象
+说明： 
+ 类是不可变对象，即⼀旦创建，其值不能被修改。当我们创建字符串对象时，有两种常⻅的⽅
+String
+式：使⽤ 
+ 构造函数和直接使⽤字符串字⾯量。
+new String()
+使⽤ 
+ 构造函数会在堆内存中创建⼀个新的字符串对象，即使字符串的内容相同，每次调⽤ 
+new String()
+new 
+ 都会创建⼀个新的实例。⽽使⽤字符串字⾯量（如 
+）时，Java 会⾸先检查字符串常量池中是
+String()
+"Hello"
+否已经存在该字符串。如果存在，则直接返回常量池中的引⽤；如果不存在，则在常量池中创建该字符串对
+象，并返回其引⽤。这样可以避免重复创建相同内容的字符串对象，节省内存空间。
+因此，为了提⾼内存使⽤效率，避免不必要的内存开销，应优先使⽤字符串字⾯量来创建字符串对象，⽽不是
+使⽤ 
+ 构造函数。
+new String()
+浩鲸云计算科技股份有限公司 版权所有
+第 95/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+String str = new String("Hello"); //避免这样
+String str = "Hello"; //⽽是这样
+检查⼯具：
+PMD:
+ : Avoid instantiating String objects; this is usually unnecessary since they 
+StringInstantiation
+are immutable and can be safely shared.
+3.4. 运⾏效率
+3.4.1. 【J000124】强制：在使⽤正则表达式时，利⽤好其预编译功能，可以有效加快
+正则匹配速度
+**说明：**正则表达式的使⽤常常借助 
+ 和 
+ 类。
+ 类代表编译好的正则表达式，
+Pattern
+Matcher
+Pattern
+Match
+ 类则⽤于对输⼊字符串进⾏匹配操作。每次调⽤ 
+ ⽅法时，Java 会对传⼊的正则表达式字
+er
+Pattern.compile()
+符串进⾏解析和编译，将其转换为内部的状态机形式，这个过程是⽐较耗时的。
+要是在⽅法体内频繁调⽤ 
+ 来编译相同的正则表达式，就会重复进⾏编译操作，造成不必要的
+Pattern.compile()
+性能开销。⽽预编译正则表达式，也就是把 
+ 对象的创建放在⽅法体外，仅编译⼀次，之后在⽅法内
+Pattern
+多次使⽤这个预编译好的 
+ 对象，能够显著提升正则匹配的速度。
+Pattern
+正例：
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+// 预编译正则表达式，放在类的静态成员位置
+private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@
+(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$");
+public class RegexExample {
+    public static boolean isValidEmail(String email) {
+        // 使⽤预编译的 Pattern 对象进⾏匹配
+        Matcher matcher = EMAIL_PATTERN.matcher(email);
+        return matcher.matches();
+    }
+    public static void main(String[] args) {
+        String testEmail = "example@example.com";
+        System.out.println("邮箱是否有效: " + isValidEmail(testEmail));
+    }
+}
+反例：
+浩鲸云计算科技股份有限公司 版权所有
+第 96/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+public class BadRegexExample {
+    public static boolean isValidEmail(String email) {
+        // 在⽅法体内每次调⽤都编译正则表达式
+        Pattern pattern = Pattern.compile("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+
+[a-zA-Z]{2,7}$");
+        Matcher matcher = pattern.matcher(email);
+        return matcher.matches();
+    }
+    public static void main(String[] args) {
+        String testEmail = "example@example.com";
+        System.out.println("邮箱是否有效: " + isValidEmail(testEmail));
+    }
+}
+检查⼯具：⽆
+3.4.2. 【J000125】强制：避免⽤⼀个对象访问⼀个类的静态变量和⽅法
+这会⽆谓增加编译器解析成本，直接⽤
+来访问即可。
+类名
+检查⼯具：
+IDEA：Static member 'xxx.xxx' accessed via instance reference
+3.4.3. 【J000126】强制：尽量减少不必要的synchronized
+说明：
+ 关键字⽤于实现线程同步，确保在同⼀时刻只有⼀个线程能够访问被同步的代码块或⽅
+synchronized
+法。然⽽，使⽤ 
+ 会带来⼀定的性能开销，因为它会导致线程在获取锁和释放锁的过程中产⽣额
+synchronized
+外的操作，并且在锁竞争激烈的情况下，会增加线程的等待时间，降低程序的并发性能。
+如果在代码中使⽤了不必要的 
+，或者 
+ 块中包含了过多的操作，就会使这种性能开
+synchronized
+synchronized
+销更加明显。此外，如果同步的对象过⼤，也会导致更多的线程被阻塞，进⼀步影响程序的并发执⾏效率。
+因此，为了提⾼程序的性能和并发能⼒，应尽量减少不必要的 
+ 使⽤。如果确实有必要使⽤ 
+synchronized
+syn
+，则应确保被 
+ 包含的操作尽可能少，只将关键的、需要同步的代码放在同步块中，并
+chronized
+synchronized
+且选择合适的、尽可能⼩的同步对象，以减少锁竞争的范围。
+检查⼯具：⽆
+3.4.4. 【J001127】推荐：避免⾼并发场景下或在循环中直接调⽤ System.getProperty
+说明：
+ 底层基于 
+ 实现，所有读取操作均受全局同步锁保护，在⾼并发或循环中
+System.getProperty
+Hashtable
+调⽤会产⽣严重的锁竞争。
+浩鲸云计算科技股份有限公司 版权所有
+第 97/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+JVM 内置属性：如 
+、
+ 等，在 JVM 运⾏期间不会改变，应优先使⽤ JDK 提
+line.separator
+path.separator
+供的封装⽅法（如 
+）或将其定义为静态常量。
+System.lineSeparator()
+业务⾃定义属性：若在程序运⾏期间逻辑上保持不变，应在类加载时通过 
+ 变量进⾏缓存，避
+static final
+免在热点代码路径中重复获取。
+正例：
+// 正例 1：使⽤ JDK 内置优化⽅法获取换⾏符
+String lineSep = System.lineSeparator();
+// 正例 2：将⾃定义配置缓存到静态常量中
+public final class AppConfig {
+    public static final String APP_REGION_SH = "shanghai";
+    public static final String APP_REGION = System.getProperty("app.region", APP_REGION_SH);
+}
+// 在业务循环中使⽤常量
+for (Item item : list) {
+    if (AppConfig.APP_REGION.equals(item.getRegion())) {
+        log.info("Processing item: {}", item.getId());
+    }
+}
+反例：
+// 反例：在循环中频繁调⽤，导致重复的哈希查找和同步锁开销
+for (Item item : list) {
+    if (System.getProperty("app.region").equals(item.getRegion())) {
+        log.info("Processing item: {}", item.getId());
+    }
+}
+检查⼯具：⽆
+3.5. 系统I/O
+3.5.1. 【J000127】强制：利⽤缓冲流类提⾼I/O操作效率
+说明： I/O 操作是常⻅的操作，涉及到从⽂件、⽹络等数据源读取数据，或者将数据写⼊到相应的⽬标中。然
+⽽，直接进⾏数据的读取和写⼊（即默认的数据 I/O ⽅式）会导致系统性能下降。这是因为直接 I/O 操作每次
+与外部设备（如磁盘、⽹络）进⾏交互时，都会产⽣⼀定的开销，例如系统调⽤、磁盘寻道等。频繁的这种交
+互会使系统资源消耗较⼤，从⽽降低整体性能。
+浩鲸云计算科技股份有限公司 版权所有
+第 98/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+为了解决这个问题，可以使⽤ Java 提供的系统数据缓冲流类，如 
+、
+BufferedInputStream
+BufferedOutputStrea
+、
+ 和 
+ 等。这些缓冲流类在内部维护了⼀个缓冲区，当进⾏ I/O 操作时，数
+m
+BufferedReader
+BufferedWriter
+据会先被读取到缓冲区中，或者从缓冲区写⼊到外部设备。这样，减少了与外部设备的直接交互次数，从⽽提
+⾼了 I/O 操作的效率。
+更进⼀步，如果能够根据具体的应⽤场景，⾃定制合理⼤⼩的缓冲区进⾏数据的读取和写⼊，将会更⼤程度地
+提升系统性能。通过合理设置缓冲区⼤⼩，可以更好地平衡内存使⽤和 I/O 操作次数，达到最优的性能表现。
+正例：
+public class BufferedIOExample {
+    public static void main(String[] args) {
+        String sourceFile = "source.txt";
+        String targetFile = "target.txt";
+        try (
+                // 使⽤缓冲输⼊流读取⽂件
+                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(sourceFile));
+                // 使⽤缓冲输出流写⼊⽂件
+                BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(targetFile))
+        ) {
+            byte[] buffer = new byte[8192]; // ⾃定义缓冲区⼤⼩
+            int bytesRead;
+            while ((bytesRead = bis.read(buffer)) != -1) {
+                bos.write(buffer, 0, bytesRead);
+            }
+            System.out.println("⽂件复制成功");
+        } catch (IOException e) {
+            // dosth
+        }
+    }
+}
+反例：
+public class DirectIOExample {
+    public static void main(String[] args) {
+        String sourceFile = "source.txt";
+        String targetFile = "target.txt";
+        try (
+                // 直接使⽤⽂件输⼊流读取⽂件
+                FileInputStream fis = new FileInputStream(sourceFile);
+                // 直接使⽤⽂件输出流写⼊⽂件
+                FileOutputStream fos = new FileOutputStream(targetFile)
+        ) {
+            int byteRead;
+            while ((byteRead = fis.read()) != -1) {
+                fos.write(byteRead);
+            }
+浩鲸云计算科技股份有限公司 版权所有
+第 99/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+            System.out.println("⽂件复制成功");
+        } catch (IOException e) {
+            // dosth
+        }
+    }
+}
+在反例中，每次调⽤ 
+ ⽅法都会直接从⽂件中读取⼀个字节，每次调⽤ 
+ ⽅法都会直接将⼀个字
+read()
+write()
+节写⼊到⽂件中，这会导致频繁的磁盘 I/O 操作，性能较低。⽽在正例中，使⽤了缓冲流和⾃定义的缓冲区，
+数据会先被批量读取到缓冲区中，然后再⼀次性写⼊到⽬标⽂件，减少了磁盘 I/O 操作的次数，从⽽提⾼了性
+能。
+检查⼯具：⽆
+4. 应⽤配置
+4.1. 核⼼架构与模式
+4.1.1. 【J000128】推荐：遵循“三段式叠加模型”的配置分层
+说明：应⽤配置不应是单⼀⽂件，应根据
+和
+分为三层，遵循**“⾼优先级覆盖低优先级”**的
+变动频率
+操作主体
+合并原则：
+基础层 (Base)：研发提供，定义全量默认值（随代码打包）。
+适配层 (Patch)：交付提供，定义环境调优与策略差异（外部挂载）。
+实例层 (Instance)：现场提供，定义敏感信息与实例唯⼀标识（动态注⼊）。
+检查⼯具：⽆
+4.1.2. 【J000129】推荐：外部配置遵循增量原则
+说明：
+全量拷⻉内部配置⽂件到外部。外部配置（Properties/YAML）仅允许包含“不得不改”的配置项
+严禁
+（如：JVM 调优参数、特定的业务开关）。
+升级版本时，只需关注外部那⼏⾏配置是否受影响，实现“轻量化升级”。
+检查⼯具：⽆
+4.1.3. 【J000130】强制：敏感信息隔离
+说明：
+在任何配置⽂件（YAML/Properties）中明⽂写⼊数据库密码、API Key、数字证书路径等。此类
+严禁
+敏感配置必须通过
+注⼊。
+环境变量
+研发在内部 YAML 中应使⽤占位符以起到提醒作⽤。
+正例：
+浩鲸云计算科技股份有限公司 版权所有
+第 100/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+4.  
+spring:
+  datasource:
+    password: ${DB_PASSWORD:default}
+检查⼯具：⽆
+4.1.4. 【J000131】推荐：遵循 Spring Boot 配置优先级与命名规范
+说明：Spring Boot 启动时将严格遵循以下优先级（由⾼到低）：
+命令⾏参数 (
+)
+--server.port=...
+环境变量 (最⾼优先级环境变量覆盖⽂件)
+外部配置⽂件 (JAR 外的 Properties 或 YAML)
+内部配置⽂件 (JAR 内的 YAML)
+配置⽂件命名：统⼀命名为 
+ 或 
+。
+application.yml
+application.properties
+环境变量命名：遵循“⼤写+下划线”原则（例如：
+ 对应 
+spring.datasource.url
+SPRING_DATASOURCE_URL
+）。
+检查⼯具：⽆
+4.1.5. 【J000132】推荐：根据部署场景选择合适的外部配置载体
+说明：根据部署环境及⼯具链的不同，推荐使⽤以下两种标准模式：
+模式 A：公司ZCM平台部署（⾃动化⼯具链）
+适⽤场景：使⽤公司ZCM云平台、⼀键升级/发布⼯具的项⽬。
+配置组合：
+ + 
+ + 
+内部 YAML
+外部 Properties
+环境变量
+研发侧 (Internal YAML)：使⽤ YAML 编写全量配置，利⽤其层级感描述复杂的业务逻辑和默认框架参
+数，打包在 JAR 内。
+交付侧 (External Properties)：使⽤ 
+ 编写增量补丁。因为平台升级⼯具在进⾏“配置⾃动合并”
+.properties
+与“版本 Diff”时，Properties 的“键值对单⾏化”特性⽐ YAML 的“缩进层级”更健壮，不易产⽣合并冲突。
+现场侧 (Env)：通过ZCM平台界⾯配置环境变量。
+模式 B：标准/⾮平台部署（⼿动或开源⼯具）
+适⽤场景：客户环境、⾮公司云平台、⽆⾃研⼯具辅助的纯⼿动部署。
+配置组合：
+ + 
+ + 
+内部 YAML
+外部 YAML
+环境变量
+研发侧 (Internal YAML)：同上，作为系统运⾏的底座。
+交付/现场侧 (External YAML)：在 JAR 包同级⽬录下维护⼀个增量的 
+。在没有⾃动化⼯具
+application.yml
+辅助时，保持内外格式统⼀可以降低现场⼈员的学习成本和格式转换带来的低级错误。
+现场侧 (Env)：通过操作系统 
+ 或 Docker 
+ 参数注⼊实例相关配置。
+export
+env
+浩鲸云计算科技股份有限公司 版权所有
+第 101/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+检查⼯具：⽆
+5. AI ⼯具辅助开发与⽣成代码规范
+随着 AI 辅助编程的普及，开发效率得到了显著提升。但为确保软件质量与安全性，对 AI ⽣成的代码必须实施
+严格的管控。以下规范适⽤于所有使⽤ AI ⼯具辅助⽣成的 Java 代码。
+5.1. 1. ⼈⼯审核标准
+5.1.1. 【J000133】强制：所有 AI ⽣成的代码必须经过开发⼈员的逐⾏审查与理解
+AI ⽣成的代码不得在未经理解和⼈⼯⾛查的情况下直接提交⼊库。开发⼈员必须对代码的逻辑、边界条件和
+异常处理承担最终责任。
+逻辑正确性：验证 AI ⽣成的逻辑是否完全符合业务需求。
+上下⽂匹配：检查 AI ⽣成的代码是否真正理解了项⽬的上下⽂架构，是否存在凭空捏造（幻觉）的类、
+⽅法或第三⽅库。
+检查⼯具：⽆
+5.1.2. 【J000134】推荐：建⽴针对 AI ⽣成代码的 Code Review 机制
+在提交 Merge Request (MR) 时，建议对⼤量依赖 AI ⽣成的模块进⾏重点标注，并在团队内进⾏交叉 
+Review，重点审查算法复杂度、资源释放及并发安全。
+检查⼯具：⽆
+5.2. 2. 安全红线要求
+5.2.1. 【J000135】强制：严禁将包含公司核⼼机密、客户隐私或敏感数据的代码与配
+置输⼊到公共 AI 模型中
+包括但不限于：
+真实的数据库密码、API Key、Token、私钥等凭据。
+客户的真实业务数据（如：姓名、身份证、⼿机号等）。
+涉及核⼼商业机密或未开源的核⼼算法代码。
+说明：在向 AI 提问时，必须对敏感信息进⾏脱敏处理。
+检查⼯具：⽆
+浩鲸云计算科技股份有限公司 版权所有
+第 102/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+5.2.2. 【J000136】强制：AI ⽣成的代码必须通过常规的安全漏洞扫描
+AI ⼯具可能会⽣成带有已知漏洞（如 SQL 注⼊、XSS、反序列化漏洞等）的代码。
+任何涉及数据库操作的代码，必须使⽤预编译语句（PreparedStatement）或 ORM 框架的安全⽅法，禁
+⽌直接拼接 SQL。
+涉及外部输⼊的反序列化、XML 解析等操作时，必须确保配置了防⽌ XXE 等漏洞的安全选项。
+检查⼯具：⽆
+6. 浩鲸科技Java开发环境搭建指引
+6.1. 安装准备⼯作
+在开始搭建开发环境之前，需要了解下背景，⽬前公司Java代码规范指定的代码分析⼯具⼀共有4种，分别是
+PMD ：PMD(Programming Mistake Detector)是⼀种开源分析Java代码错误的⼯具。与其他分析⼯具不
+同的是，PMD通过静态分析获知代码错误。也就是说，在不运⾏Java程序的情况下报告错误。PMD附带
+了许多可以直接使⽤的规则，利⽤这些规则可以找出Java源程序的许多问题。此外，⽤户还可以⾃⼰定
+义规则，检查Java代码是否符合某些特定的编码规范。百度百科
+NCSS ：JavaNCSS 是⼀个开源的度量⼯具，提供圈复杂度的⽅法级的值。
+FindBugs ：FindBugs 是⼀个静态分析⼯具，它检查类或者 JAR ⽂件，将字节码与⼀组缺陷模式进⾏对
+⽐以发现可能的问题。百度百科
+SpotBugs : FindBugs停⽌维护后的的替代品，规则相⽐Findbugs更加完整。官⽅⽹站
+CheckStyle ：CheckStyle是SourceForge下的⼀个项⽬，提供了⼀个帮助JAVA开发⼈员遵守某些编码规
+范的⼯具。它能够⾃动化代码规范检查过程，从⽽使得开发⼈员从这项重要，但是枯燥的任务中解脱出
+来。百度百科
+Lizard ：Lizard 是⼀个可扩展的圈复杂度分析器（Cyclomatic Complexity Analyzer），适⽤于许多编程
+语⾔，包括 Java/C/C++/JavaScript/Python等。官⽅⽹站
+ZCM 持续构建流程已经默认⽀持这⼏个代码分析⼯具，我们需要在本地开发环境将这4个⼯具搭建起来，以免
+不符合规范的代码导致持续集成的失败。
+这四个规范检查⼯具默认提供了⼀些检查规则，我们对这些规则做了⼀些本地化的修改，删除了⼀些不必要的
+检查规则，以确保检查范围在公司Java编码规范的范围内。⼤家可以把规则⽂件
+到本地，后续在安装⼯
+下载
+具的过程中引⽤。
+组件
+版
+本
+配置⽂件地址
+PMD
+7.7.
+0
+https://docs.iwhalecloud.com/dmz-proxy/cos/download/406/检查⼯具和规则⽂件
+/Java/rules/PMD/pmd-ruleset-1.0.xml
+浩鲸云计算科技股份有限公司 版权所有
+第 103/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+Java
+NCS
+S
+33.
+54.
+01
+https://docs.iwhalecloud.com/dmz-proxy/cos/share/406/检查⼯具和规则⽂件/Java
+/rules/JavaNCSS/
+FindB
+ugs
+3.0.
+1
+https://docs.iwhalecloud.com/dmz-proxy/cos/share/406/检查⼯具和规则⽂件/Java
+/rules/Findbugs/
+Chec
+kStyl
+e
+10.
+21.
+3
+https://docs.iwhalecloud.com/dmz-proxy/cos/download/406/检查⼯具和规则⽂件
+/Java/rules/CheckStyle/checkstyle-ruleset-1.0.xml
+Spot
+Bugs
+4.7.
+3
+https://docs.iwhalecloud.com/dmz-proxy/cos/share/406/检查⼯具和规则⽂件/Java
+/rules/SpotBugs/
+6.2. 推荐使⽤CodingPlus进⾏本地代码检查
+为了让本地环境、研发云CI试⻜构建环境的静态代码检查结果尽可能⼀致，建议开发⼈员同步升级本地环境的
+PMD和CheckStyle到对应⽬标版本。
+1、 建议开发⼈员优先使⽤CodingPlus进⾏本地代码检查，CodingPlus团队将和规范组协作，定期进⾏插件
+升级，并保持与云雀研发云中插件版本⼀致。
+2、 如不使⽤CodingPlus请按上述要求升级本地PMD版本⾄7.7.0，CheckStyle版本⾄10.21.3。如果本机IDE
+版本过低，建议对IDE同步进⾏升级
+CodingPlus 下载地址及使⽤⼿册：
+https://lab.iwhalecloud.com/codingplus
+建议开发⼈员优先使⽤ CodingPlus（1.2.0 版本及以上）进⾏本地代码检查。
+6.3. IDEA 安装 PMD
+⽬前ZCM CI流程静态检查⼯具中PMD的版本已经升级到7.7.0版本，对应IDEA插件的版本是2.0.3(
+)
+下载地址
+下载时，界⾯会弹出安装向导，参考向导即可轻松完成安装
+安装完成后，需要重启IDEA⽣效，重启完成后，在settings 界⾯可以看到 PMD的配置界⾯，通过PMD的配置
+界⾯添加⾃定义规则⽂件(
+)：
+pmd-ruleset-1.0.xml
+如果看不到，说明IDEA版本⽐较新，可以在plugins⻚⾯升级下PMD版本。
+安装配置完成后，就可以在代码区右击 
+ 进⾏代码的检查
+Run PMD
+浩鲸云计算科技股份有限公司 版权所有
+第 104/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+6.4. IDEA 安装 NCSS
+IDEA没有圈复杂度的插件，所以我们需要借助⼀些⼩技巧来实现圈复杂度的检查。
+⾸先将 javancss-33.54.01.zip 解压到本地，打开
+->
+->
+，点“
+”号，创建⼀个
+IDEA
+Preference
+External Tools
++
+Tool，配置如下：
+如果遇到
+ 的报错，说明JAVA_HOME存
+C:\Program' 不是内部或外部命令，也不是可运⾏的程序或批处理⽂件。
+在空格，解决完空格即可。或者参考
+博⽂解决。
+这篇
+安装完成后，就可以在代码区域右击 
+ -> 
+ 进⾏代码圈复杂度的检查。
+External Tools
+javancss
+NCSS：Non Commenting Source Statements，除了注释和空⾏外的java有效代码⾏数。
+CNN：Cyclomatic Complexity Number (McCabe metric)，函数的圈复杂度，就是if、while、for、catch
+等逻辑控制语句的分⽀个数。
+JVDC：Javadoc comments，是否编写了符合javadoc规范的注释。0代表⽆javadoc，1代表有javadoc。
+⽬前CI要求，⽅法圈复杂度不超过10，也就是CNN不超过10。
+java静态代码检查⼯具：JavaNCSS的使⽤：https://blog.csdn.net/aitangyong/article/details
+/49978135
+降低圈复杂度的10种重构技术：https://www.jianshu.com/p/c2e1e304cab2
+6.5. IDEA 安装 Lizard
+JavaNCSS 最⾼只⽀持到JDK1.7，对于类似lambda的新语法规则不⽀持，导致误报率较⾼，并且已经停更多
+年，因此经规范组研究讨论解决启⽤
+。
+Lizard
+Lizard 是⼀个可扩展的圈复杂度分析器（Cyclomatic Complexity Analyzer），适⽤于许多编程语⾔，包
+括 Java/C/C++/JavaScript/Python等。
+Lizard 本地使⽤不是太便利，⽇常开发时我们可以使⽤IDEA⾃带的⼯具进⾏检查，启⽤⽅法参考下⼀章
+节：IDEA 启⽤圈复杂度检测插件。如果选择继续安装Lizard请继续阅读当前章节。
+安装 Python
+Lizard 依赖 
+环境来运⾏，所以我们⾸先要安装
+环境，需要
+的版本 >= 2.7 , 点击
+python
+python
+python
+这
+下载，下载后点击安装即可。
+⾥
+安装 Lizard
+# 安装lizard 1.17.10 版本，与研发云版本保持⼀致
+pip install lizard==1.17.10 
+浩鲸云计算科技股份有限公司 版权所有
+第 105/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1.  
+2.  
+3.  
+4.  
+5.  
+# 安装jinja2，这是⼀个⽤于 Python 的模板引擎，lizard ⽣成html的报告需要依赖这个组件
+pip install jinja2
+使⽤ Lizard
+⽅法⼀：直接执⾏命令
+lizard D:\code\your-project -m -C 10 -H -o report.html -l java
+参数说明：
+源码路径：D:\code\your-project，lizard 默认递归检测⽂件夹下的所有⽂件，如需要指定扫描某个⽂件可
+以将该参数替换成具体的⽂件路径。
+-m 开启将switch/case语句中多个case统计成⼀个圈复杂度的开关，保持默认值即可。
+-C 设置圈复杂度阈值，超过阈值的⽅法在报告中将展示为告警，保持默认即可。
+-H -o 设置输出报告并将格式设置为html格式，保持默认即可。
+-l 设置扫描的⽅法的语⾔类型，⽬前⽀持以下类型的语⾔cpp, java, csharp,javascript, python, objectivec, 
+，此处我们设置为java即可。
+ttcn, ruby, php, swift, scala, GDScript,go, lua, rust, typescript
+⽅法⼆：执⾏批处理程序
+我们提供了⼀个批处理程序，下载
+，执⾏这个批处理，按照要求输⼊需要扫描的代码路径即可在当前路径
+地址
+下⽣产报表。
+PS C:\Local\Code\> .\run_lizard.bat
+Please enter the file path:C:\Local\Code\xxl-job\xxl-job-core
+Warning: overriding output file extension.
+两种⽅法产⽣的报表内容完全⼀致，结果为红⾊，则表示该⽅法复杂度不合格。
+6.6. IDEA 启⽤圈复杂度检测插件
+IDEA 有⼀个圈复杂度检测插件，但默认没有开启，开启后，可以实时检测⽅法的圈复杂度，开启⽅式 Settin
+ 。 （不同版本可能路径稍有差异，可以检索下。）
+gs | Editor | Inspections -> Overly complex method
+建议将级别设置为 Error，阈值设置为 10。
+启⽤后，当⽅法圈复杂度超过 10 ，IDEA 会现⼀个错误告警。
+6.7. IDEA 安装 FindBugs
+浩鲸云计算科技股份有限公司 版权所有
+第 106/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+⽬前FindBugs最新版本是3.0.1，官⽅在2015年之后就没有更新过，最⾼⽀持的IDEA版本是2020.1，所以如果
+要安装Findbugs-IEDA插件的话，需要确保IDEA的版本低于2020.1，安装步骤很简单，直接在插件市场搜索 
+ 插件，然后install后重启即可。
+FindBugs-IDEA
+重启后，重新返回settings ⻚⾯，在 Other Settings -> FindBugs-IDEA 的 General-Plugs 区域添加 Find 
+Security Bugs 开启针对安全问题的侦测。
+⾄此就安装配置完成了，可以在代码区域右击 Analysis -> Analysis Code 进⾏代码漏洞检查。
+6.8. IDEA 安装 SpotBugs
+Findbugs于2015年3⽉6⽇最后⼀次发布 3.0.1后就不再维护，并且IDEA2020.1版本开始也弃⽤了Findbug-
+IDEA插件，所以我们改⽤SpotBugs。安装过程很简单，在插件市场检索 
+，然后点击 
+即可，
+SpotBugs
+Install
+安装后重启IDEA。
+重启后，重新返回settings ⻚⾯，在 Tools -> SpotBugs 菜单开启 Find Security Bugs插件，这个插件是做安
+全漏洞检查。
+接下来导⼊spotbugs的配置，点击import 按钮，选择提前下载好的spotbugs.xml，导⼊即可。
+⾄此就安装配置完成了，可以在代码区域右击 SpotBugs -> Analysis Current File 进⾏代码漏洞检查。
+6.9. IDEA 安装 CheckStyle
+⽬前ZCM 持续集成使⽤的
+版本，我们还是通过IDEA Settings->Plugin 来安装 CheckStyle-
+CheckStyle10.21.3
+IDEA 插件，安装过程很简单直接install即可，然后重启IDEA。
+安装完成后就是配置了，打开settings -> Tools -> CheckStyle ⻚⾯，如下图配置，添加⾃定义的规则⽂件 c
+：
+heckstyle-ruleset-1.0.xml
+⾄此就安装配置完成了，可以在代码区域右击进⾏代码样式的检查。
+注意要选择我们⾃⼰添加的规则⽂件。
+6.10. IDEA 安装 Eclipse Code Formatter
+CheckStyle 检查出来的代码格式问题，可以通过 code formatter 完成⼀键格式化，提⾼效率。
+插件安装过程与上⽂中插件安装⽅式相同，插件名称：Adapter for Eclipse Code Formatter
+安装完成后，如下图配置即可完成启⽤，使⽤快捷⽅式 ctrl + alt + L
+浩鲸云计算科技股份有限公司 版权所有
+第 107/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+7. FAQ
+7.1. Q1：关于 ODR_OPEN_DATABASE_RESOURCE 告警的专项治理说
+明
+7.1.1. ODR_OPEN_DATABASE_RESOURCE 告警是什么？
+ODR_OPEN_DATABASE_RESOURCE 表示打开了数据库资源（⽐如 
+, 
+），但没有在适当的
+Connection
+Statement
+地⽅关闭它们，这可能会导致资源泄漏（连接不能复⽤、内存不能释放），最终可能导致程序运⾏时资源耗尽
+或性能问题。
+7.1.2. 哪些数据库资源需要关闭？
+java.sql.Connection
+java.sql.Statement
+java.sql.PreparedStatement
+java.sql.CallableStatement
+注意: 
+ 也需要关闭，虽然不会触发 
+告警，但会触发 
+java.sql.ResultSet
+ODR_OPEN_DATABASE_RESOURCE
+OBL
+告警。
+_UNSATISFIED_OBLIGATION
+7.1.3. 怎么正确关闭数据库资源？
+使⽤ 
+ 或 
+ 确保在所有场景下都会关闭资源。
+try-with-resources
+try-finally
+使⽤ 
+ 关闭多个资源时应注意捕获关闭资源的异常，避免关闭前⾯的资源报错导致后⾯的资源不会
+try-finally
+关闭。
+另外推荐使⽤上层框架封装好的⼯具⽽⾮直接使⽤底层的 JDBC 接⼝，⽐如 spring-jdbc 的 
+, 既
+JdbcTemplate
+能简化代码，⼜能避免⼿动管理资源的麻烦。
+示例：
+// try-with-resource, 可以在⼀个 try 中打开多个资源  try (Connection connection = DriverManager.getConnection
+(url, username, password);  
+     PreparedStatement statement = connection.prepareStatement("SELECT 1");  
+     ResultSet rs = statement.executeQuery()) {  
+    while (rs.next()) {  
+        System.out.println(rs.getInt(1));  
+    }  
+}  
+  
+// try-finally, 不推荐使⽤，资源⽐较多时很繁琐  Connection connection = null;  
+浩鲸云计算科技股份有限公司 版权所有
+第 108/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+PreparedStatement statement = null;  
+ResultSet rs = null;  
+try {  
+    connection = DriverManager.getConnection(url, username, password);  
+    statement = connection.prepareStatement("SELECT 1");  
+    rs = statement.executeQuery();  
+    while (rs.next()) {  
+        System.out.println(rs.getInt(1));  
+    }  
+}  
+finally {  
+    // 关闭顺序⼀般与打开顺序相反  
+// 注意需要捕获关闭资源的异常，否则出现异常时后⾯的资源将不会被关闭  
+if (rs != null) {  
+        try {  
+            rs.close();  
+        }  
+        catch (Exception e) {  
+            // 记录⽇志  
+}  
+    }  
+    if (statement != null) {  
+        try {  
+            statement.close();  
+        }  
+        catch (Exception e) {  
+            // 记录⽇志  
+}  
+    }  
+    if (connection != null) {  
+        try {  
+            connection.close();  
+        }  
+        catch (Exception e) {  
+            // 记录⽇志  
+}  
+    }  
+}
+7.2. Q2：为什么我本地的SpotBugs检查结果和研发云试⻜构建的检查结
+果不⼀致？
+在使⽤
+时，默认只能检测出单个当前⽂件的问题，⽆法检测出多个⽂件关联导致的问题，
+Analyze Current File
+⽽研发云既检查单个⽂件，⼜会检测各⽂件间关联。所以本地不仅要检查当前⽂件，还需要扩⼤检查范围到
+包、模块甚⾄整个⼯程。
+示例：
+上图属于关联性问题，
+调⽤
+传⼊了
+，在⽇志输出时，会存在问题 
+controller
+service
+userName
+When data 
+浩鲸云计算科技股份有限公司 版权所有
+第 109/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+。类似这种问题，
+是
+from an untrusted source is put into a logger and not neutralized correctly
+Analyze Current File
+检测不出来的，需要
+才可以检测出来。
+Analyze Package/Module/Project Files
+7.3. Q3：关于 STCAL_INVOKE_ON_STATIC_CALENDAR_INSTANCE、
+STCAL_INVOKE_ON_STATIC_DATE_FORMAT_INSTANCE 告警的专项
+治理说明
+7.3.1. 专项背景
+规范要求禁⽌调⽤静态的
+、
+ 。以
+为例，这是线程不安全的类，在⾼并
+Calendar
+DateFormat
+SimpleDateFormat
+发下使⽤会出现⾮预期的⽇期格式化异常，⼀般不要定义为
+变量，如果定义为
+，必须加锁，或者
+static
+static
+使⽤
+⼯具类。除
+类外，还有不少 XXXFormat类、XXXCalendar类等对应⽅法都是
+DateUtils
+SimpleDateFormat
+⾮线程安全的。
+7.3.2. 整改建议
+7.3.2.1. 局部变量
+最简单的⽅案就是将 
+对象定义为⽅法内局部变量。适⽤于并发量较⼩的场景，对于超⼤并
+SimpleDateFormat
+发场景不推荐，超⼤并发场景下此种⽅式会创建⼤量的
+ 临时对象，对内存和性能会产⽣影
+SimpleDateFormat
+响。（单个
+对象⼤约占⽤1KB内存）
+SimpleDateFormat
+7.3.2.2. 加锁
+将
+类对象定义成全局静态变量，此时所有线程共享
+类对象，此时在调⽤格
+SimpleDateFormat
+SimpleDateFormat
+式化时间的⽅法时，对
+对象进⾏加锁调⽤。
+SimpleDateFormat
+synchronized (simpleDateFormat){
+    simpleDateFormat.parse("2024-10-01");
+}
+适⽤于并发量较⼩的场景，对于超⼤并发场景也不推荐，超⼤并发场景下因为排他锁会影响程序的执⾏性能。
+7.3.2.3. ThreadLocal（推荐）
+使⽤
+存储每个线程拥有的
+对象的副本，能够有效的避免多线程造成的线程安全
+ThreadLocal
+SimpleDateFormat
+问题。
+private static final ThreadLocal<DateFormat> df = new ThreadLocal<DateFormat>() {
+    @Override
+    protected DateFormat initialValue() {
+        return new SimpleDateFormat("yyyy-MM-dd");
+    }
+};
+浩鲸云计算科技股份有限公司 版权所有
+第 110/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+推荐在⾼并发业务场景的⽣产环境使⽤。
+7.3.2.4. 使⽤DateTimeFormatter（推荐）
+DateTimeFormatter 是
+提供的新的⽇期时间API中的类，
+类是线程安全的，可以在⾼
+Java8
+DateTimeFormatter
+并发场景下直接使⽤。
+private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+// 获取当前⽇期
+LocalDate today = LocalDate.now();
+// 格式化⽇期
+String formattedDate = today.format(formatter);
+// 解析⽇期
+LocalDate parsedDate = LocalDate.parse("2024-10-01", formatter);
+7.3.3. 相关告警
+Spotbugs 针对本条规范提供了检查规则，对应告警码分别为：STCAL_INVOKE_ON_STATIC_CALENDAR_INSTA
+、
+。
+NCE
+STCAL_INVOKE_ON_STATIC_DATE_FORMAT_INSTANCE
+官⽅说明：
+https://spotbugs.readthedocs.io/en/stable/bugDescriptions.html#stcal-call-to-static-calendar-stcal-invoke-
+on-static-calendar-instance
+https://spotbugs.readthedocs.io/en/stable/bugDescriptions.html#stcal-call-to-static-dateformat-stcal-
+invoke-on-static-date-format-instance
+8. 本⽂件评审、修正记录
+⽂
+件
+名
+称
+Java语⾔编码规范
+序
+号
+流程
+拟
+制
+⼈/
+审
+核
+⼈
+拟
+制/
+审
+核
+时
+间
+版
+本
+号
+浩鲸云计算科技股份有限公司 版权所有
+第 111/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1
+编写
+何
+永
+进
+20
+18
+/1
+0
+/2
+0
+V
+1.
+0
+2
+增加“避免变量在使⽤前被另⼀个赋值覆盖”章节
+何
+永
+进
+20
+19
+/0
+1
+/1
+7
+V
+1.
+1
+3
+修订
+何
+永
+进
+20
+20
+/0
+3
+/2
+4
+V
+1.
+2
+4
+补充第3章22，23节，对HTTPClient的封装，以及对内存数据库事务的要
+求。
+何
+永
+进
+20
+20
+/0
+9
+/1
+4
+V
+1.
+3
+5
+补充第6章，Restful接⼝规范。
+何
+永
+进
+20
+20
+/0
+9
+/1
+5
+V
+1.
+4
+6
+补充常⻅不良习惯第14节，对⽇期运算的要求
+何
+永
+进
+20
+20
+/1
+1
+/0
+9
+V
+1.
+4.
+1
+7
+补充编程惯例第3章24节，对返回bool类型⽅法命名的建议。 补充编程惯例
+第3章25节，强制：JDBC结果集⼤⼩应当加以限
+何
+永
+20
+21
+/0
+3
+V
+1.
+4.
+浩鲸云计算科技股份有限公司 版权所有
+第 112/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+进
+/0
+1
+2
+8
+补充编程惯例第3章26节，增加对SQL注⼊的防范要求。
+何
+永
+进
+20
+21
+/0
+4
+/2
+9
+V
+1.
+4.
+3
+9
+合并《Java开发⼿册》v1.5.0
+何
+永
+进
+20
+22
+/0
+1
+/1
+8
+v
+1.
+5
+1
+0
+发布
+Ja
+va
+规
+范
+组
+20
+22
+/0
+5
+/1
+2
+V
+2.
+0
+1
+1
+编程惯例章节添加关于“保护程序免遭⾮法输⼊数据的破坏”的规范要求
+何
+永
+进
+20
+22
+/0
+5
+/1
+9
+V
+2.
+0.
+1
+1
+2
+发布
+Ja
+va
+规
+范
+组
+20
+22
+/0
+6
+/1
+4
+V
+2.
+1
+1
+3
+增加第7章 浩鲸科技Java开发环境搭建指引
+何
+永
+进
+20
+22
+/0
+8
+/2
+3
+V
+2.
+1.
+1
+Ja
+20
+22
+浩鲸云计算科技股份有限公司 版权所有
+第 113/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+1
+4
+发布
+va
+规
+范
+组
+/0
+9
+/1
+6
+V
+2.
+2
+1
+5
+修正2.7.2章节反例的格式问题
+何
+永
+进
+20
+22
+/1
+1
+/2
+1
+V
+2.
+2.
+1
+1
+6
+更新Java开发环境搭建指引增加SpotBugs的安装指引
+何
+永
+进
+20
+22
+/1
+2
+/1
+6
+V
+2.
+2.
+2
+1
+7
+发布
+Ja
+va
+规
+范
+组
+20
+22
+/1
+2
+/2
+0
+V
+2.
+3
+1
+8
+修订"3.2 并发处理" 章节，增加通过Lock类加锁时的相关要求和使⽤规范。
+何
+永
+进
+20
+23
+/0
+5
+/1
+8
+V
+2.
+3.
+1
+1
+9
+发布
+Ja
+va
+规
+范
+组
+20
+23
+/0
+5
+/1
+9
+V
+2.
+4
+2
+0
+修订"3.2. 并发处理" 章节，在多线程访问Map场景下的相关要求从【参考】 
+改为【强制】 。
+何
+永
+进
+20
+23
+/0
+5
+/2
+5
+V
+2.
+4.
+1
+浩鲸云计算科技股份有限公司 版权所有
+第 114/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+2
+1
+发布
+Ja
+va
+规
+范
+组
+20
+23
+/0
+6
+/2
+5
+V
+2.
+5
+2
+2
+修订"7.浩鲸科技Java开发环境搭建指引" 章节，增加圈复杂度检测⼯具
+Lizard的安装使⽤说明 。
+何
+永
+进
+20
+23
+/0
+6
+/2
+6
+V
+2.
+5.
+1
+2
+3
+发布
+Ja
+va
+规
+范
+组
+20
+23
+/0
+7
+/2
+0
+V
+2.
+6
+2
+4
+3.1章节修改规范：不要在列表遍历的循环⾥进⾏元素的 remove/add 操作。
+remove 元素请使⽤Iterator ⽅式，如果并发操作，需要对 Iterator 对象加
+锁。
+3.5章节修改规范：在调⽤ RPC、⼆⽅包、或动态⽣成类的相关⽅法时，捕
+捉异常建议使⽤ Throwable类来进⾏拦截。
+3.7章节修改规范：强制：所有的相同类型的包装类对象之间值的⽐较，全部
+使⽤equals⽅法⽐较。(浮点数的包装类除外) 
+6.2.11章节修改规范：Controller接⼝建议使⽤注解给接⼝⽅法和参数添加说
+明，⽅便通过swagger来查看具体接⼝。
+Ja
+va
+规
+范
+组
+20
+24
+/0
+4
+/3
+0
+V
+2.
+6.
+1
+2
+5
+2.7.2.4章节增加规范：⽅法名最好是⼀个动词或者动词短语，与参数或参数
+名共同组成动宾短语，即动词 + 名词。
+3.7章节增加规范：推荐：Long 或 long 类型变量赋值时，数值后使⽤⼤写 
+L，不能是⼩写 l ，⼩写容易跟数字混淆，造成误解。 
+3.7章节增加规范：不要使⽤⼀个常量类维护所有常量，要按常量功能进⾏归
+类，分开维护。
+4.10章节增加规范：数据类型转换导致溢出或者损失精度。
+Ja
+va
+规
+范
+组
+20
+24
+/0
+5
+/2
+0
+V
+2.
+6.
+2
+2
+6
+发布
+Ja
+va
+规
+范
+组
+20
+24
+/0
+5
+/2
+2
+V
+2.
+7
+浩鲸云计算科技股份有限公司 版权所有
+第 115/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+2
+7
+修订3.5 异常处理章节，增加了关于在静态块中妥善处理异常的规范，以避免
+类加载失败的问题。
+Ja
+va
+规
+范
+组
+20
+24
+/0
+6
+/0
+6
+V
+2.
+7.
+1
+2
+8
+发布
+Ja
+va
+规
+范
+组
+20
+24
+/0
+6
+/1
+9
+V
+2.
+8
+2
+9
+1. 增加部分规范条⽬对应的“故障警示! ”。
+2. 修订2.5章节，增加for，if-else，try-cache语句的嵌套深度要求。 
+3. 增加第8章节，补充常⻅FAQ信息
+Ja
+va
+规
+范
+组
+20
+24
+/0
+8
+/2
+0
+V
+2.
+8.
+1
+3
+0
+发布
+Ja
+va
+规
+范
+组
+20
+24
+/0
+8
+/2
+1
+V
+2.
+9
+3
+1
+1. "JDBC结果集⼤⼩应当加以限制" 相关内容迁移到 5.1 内存管理章节
+2. 添加 “5.1.7. 避免将过⼤的⽂件⼀次性加载到内存中” 章节内容 （规范来
+源：严重⽣产故障3695958）
+Ja
+va
+规
+范
+组
+20
+24
+/1
+0
+/1
+1
+V
+2.
+9.
+1
+3
+2
+发布
+Ja
+va
+规
+范
+组
+20
+24
+/1
+0
+/2
+1
+V
+2.
+1
+0
+1、新增⽂本块TextBlock、模式匹配的instanceof、Record类型、封闭类
+Sealed Class、开关表达式等JDK8~JDK17新特性相关规范条⽬及示例：
+【推荐】在JDK9以上，推荐使⽤List.of()、Set.of()、Map.of()和Map.
+ofEntries()等⼯⼚⽅法创建不可变集合。这种⽅式可以使代码更加简洁，并且
+浩鲸云计算科技股份有限公司 版权所有
+第 116/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+3
+3
+提⾼性能。
+【推荐】在JDK9以上，使⽤try-with-resources语句时，⽆需在try语句中声
+明新变量，直接使⽤已有资源变量即可。
+【推荐】在JDK14以上，在处理switch语句时，使⽤开关表达式(Switch 
+Expressions)来简化代码和提⾼可读性。
+【推荐】在JDK15以上，推荐使⽤字符串⽂本块（Text Blocks）来编写多⾏
+字符串，提⾼代码的可读性和维护性。【说明】字符串⽂本块通过三个双引
+号（"""）包围，允许字符串跨多⾏⽽⽆需转义。
+【推荐】在JDK16以上，推荐使⽤record关键字定义不可变的数据结构，它
+可以⾃动⽣成构造⽅法、equals()、hashCode()、toString()⽅法以及访问字段
+的⽅法。
+【推荐】在JDK16以上，使⽤instanceof模式匹配可以简化类型检查和转换的
+代码。
+【推荐】在JDK17以上，使⽤封闭类（Sealed Classes）来限制类的继承，
+提⾼代码的安全性和可维护性。
+2、增加8.3章节：关于
+STCAL_INVOKE_ON_STATIC_CALENDAR_INSTANCE、
+STCAL_INVOKE_ON_STATIC_DATE_FORMAT_INSTANCE 专项告警治理
+FAQ
+Ja
+va
+规
+范
+组
+20
+24
+/1
+1
+/1
+2
+V
+2.
+1
+0.
+1
+3
+4
+发布
+Ja
+va
+规
+范
+组
+20
+24
+/1
+1
+/1
+5
+V
+2.
+1
+1
+3
+5
+添加 “5.1.8. 确保 SQL 拼装时查询条件有效性，避免⼤表扫描” 章节内容 
+（规范来源：严重⽣产故障3544304,31154605）
+Ja
+va
+规
+范
+组
+20
+24
+/1
+2
+/2
+4
+V
+2.
+1
+1.
+1
+3
+6
+增加严重⽣产故障3786355相关故障警示，涉及3.2章节、3.5章节
+Ja
+va
+规
+范
+组
+20
+25
+/0
+1
+/0
+2
+V
+2.
+1
+1.
+2
+3
+7
+发布
+Ja
+va
+规
+20
+25
+/0
+V
+2.
+1
+浩鲸云计算科技股份有限公司 版权所有
+第 117/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+范
+组
+1
+/2
+0
+2
+3
+8
+第3章编程惯例中增加3.6章节资源管理相关规范内容，对HttpClient的使⽤提
+出规范化要求。（规范来源：严重⽣产故障3787588）
+Ja
+va
+规
+范
+组
+20
+25
+/0
+2
+/1
+2
+V
+2.
+1
+2.
+1
+3
+9
+完善3.2章节并发处理中【禁⽌使⽤ Timer 和 TimerTask 调度多任务，避免因
+未捕获单个任务异常⽽导致所有任务终⽌】的规范细节，补充故障案例和示
+例。（规范来源：严重⽣产故障3787793）
+Ja
+va
+规
+范
+组
+20
+25
+/0
+2
+/1
+2
+V
+2.
+1
+2.
+2
+4
+0
+发布
+Ja
+va
+规
+范
+组
+20
+25
+/0
+2
+/2
+4
+V
+2.
+1
+3
+4
+1
+3.0版本预发布，对内容进⾏重构，精简了部分内容，同时统⼀了格式，增加
+了正反例，标注了代码检查⼯具。 更新PMD、checkstyle规范⽂件下载地
+址，并给出codingplus使⽤建议。
+Ja
+va
+规
+范
+组
+20
+25
+/0
+4
+/0
+2
+V
+2.
+1
+4
+4
+2
+3.0版本正式发布
+Ja
+va
+规
+范
+组
+20
+25
+/0
+4
+/1
+4
+V
+3.
+0
+4
+3
+1. 【2.2.13】条⽬从推荐调整为强制，修改后内容：
+强制：在并发场景下，双重检查锁（double-checked locking）实现延迟初
+始化的隐患可以通过将⽬标属性声明为volatile型来解决。
+2. 【2.2.1】、【2.2.13】 条⽬增加检查⼯具说明。
+Ja
+va
+规
+范
+组
+20
+25
+/0
+5
+/1
+2
+V
+3.
+0.
+1
+20
+浩鲸云计算科技股份有限公司 版权所有
+第 118/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+4
+4
+发布
+Ja
+va
+规
+范
+组
+25
+/0
+5
+/2
+0
+V
+3.
+1
+4
+5
+增加“【2.2.8】强制：禁⽌使⽤ Timer 和 TimerTask 调度多任务，避免因未
+捕获单个任务异常⽽导致所有任务终⽌”的检查⼯具说明。
+Ja
+va
+规
+范
+组
+20
+25
+/0
+5
+/2
+0
+V
+3.
+1.
+1
+4
+6
+发布
+Ja
+va
+规
+范
+组
+20
+25
+/0
+7
+/2
+2
+V
+3.
+2
+4
+7
+1. 对存在必考题的规范条⽬进⾏标注。 
+2. 新增章节2.7.48 【J001061】推荐：避免使⽤已经过时的技术或者组件
+（规范来源：严重⽣产故障3790344）
+Ja
+va
+规
+范
+组
+20
+25
+/0
+8
+/2
+9
+V
+3.
+2.
+1
+4
+8
+发布
+Ja
+va
+规
+范
+组
+20
+25
+/0
+9
+/2
+2
+V
+3.
+3
+4
+9
+1. 调整章节“3.2.1. 【J000114】强制：不涉及多线程同步问题时，尽量选⽤
+⾮线程安全的集合类”，将规范拆分成多线程和⾮多线程两种场景，分场景明
+确是否启⽤线程安全的集合类。调整后的规范：
+3.2.1. 【J100114】强制：涉及多线程并发读写的场景，必须选⽤线程安全的
+集合类。检查⽅式：【⼈⼯检查】
+3.2.2. 【J200114】推荐：不涉及多线程同步问题时，尽量选⽤⾮线程安全的
+集合类
+2. 新增章节3.4.4. 【J001127】推荐：避免⾼并发场景下或在循环中直接调
+⽤ System.getProperty
+Ja
+va
+规
+范
+组
+20
+25
+/1
+2
+/2
+4
+V
+3.
+3.
+1
+Ja
+va
+20
+26
+V
+浩鲸云计算科技股份有限公司 版权所有
+第 119/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+5
+0
+发布
+规
+范
+组
+/0
+1
+/2
+6
+3.
+4
+5
+1
+完善2.6.2.章节，增加warn级别⽇志的输出要求，并增加严重⽣产故障案例，
+修改后规范：
+【J000054】强制：对于 trace / debug / info / warn 级别的⽇志输出，如果
+⽇志输出⽅法的⼊参存在⽅法调⽤，外部必须进⾏⽇志级别的开关判断
+Ja
+va
+规
+范
+组
+20
+26
+/0
+2
+/1
+0
+V
+3.
+4.
+1
+5
+2
+新增第4章节应⽤配置，对应规范条⽬J000128~J000132
+Ja
+va
+规
+范
+组
+20
+26
+/0
+3
+/1
+9
+V
+3.
+4.
+2
+5
+3
+发布
+Ja
+va
+规
+范
+组
+20
+26
+/0
+3
+/2
+3
+V
+3.
+5
+5
+4
+新增章节“2.7.18. 【J00007601】强制：RestTemplate和HttpClient等重量级
+⽹络通信对象必须作为单例复⽤，禁⽌在每次接⼝调⽤中新建实例”（规范来
+源：严重⽣产故障3797349）
+Ja
+va
+规
+范
+组
+20
+26
+/0
+6
+/3
+0
+V
+3.
+5.
+1
+5
+5
+新增章节“5. AI ⼯具辅助开发与⽣成代码规范”，对应规范条⽬
+J000133～J000136
+Ja
+va
+规
+范
+组
+20
+26
+/0
+7
+/0
+1
+V
+3.
+5.
+2
+5
+6
+新增章节“2.2.4. 【J00001601】强制：合理配置线程池的拒绝策略，核⼼业
+务线程提交可能发⽣阻塞的异步任务时，禁⽌使⽤ CallerRunsPolicy 作为线
+程池拒绝策略”（规范来源：严重⽣产故障3796201）
+Ja
+va
+规
+范
+组
+20
+26
+/0
+7
+/1
+4
+V
+3.
+5.
+3
+浩鲸云计算科技股份有限公司 版权所有
+第 120/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩
+
+5
+7
+发布
+Ja
+va
+规
+范
+组
+20
+26
+/0
+7
+/2
+0
+V
+3.
+6
+浩鲸云计算科技股份有限公司 版权所有
+第 121/121 ⻚
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩鲸云计算科技股份有限公司
+浩
+浩
+浩
+浩
+浩

@@ -383,21 +383,6 @@ class LLMAnalysisResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# 向量化结果
-# ---------------------------------------------------------------------------
-
-
-class EmbeddingResult(BaseModel):
-    """向量化结果（多模态增强版，统一 2048 维）"""
-
-    task_id: str = Field(..., description="故障单ID")
-    embedding: list[float] = Field(..., description="2048维向量")
-    text: str = Field(default="", description="用于向量化的文本")
-    media_type: str = Field(default="text", description="媒体类型：text / image / mixed")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="额外元数据")
-
-
-# ---------------------------------------------------------------------------
 # 统计 & 推荐
 # ---------------------------------------------------------------------------
 

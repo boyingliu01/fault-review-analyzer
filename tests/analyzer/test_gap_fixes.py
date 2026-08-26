@@ -1,7 +1,6 @@
-"""Tests for GAP fixes G1-G6 (functional GAP analysis remediation).
+"""Tests for GAP fixes G2-G6 (functional GAP analysis remediation).
 
 Covers:
-- G1: run_clustering persists embeddings to ChromaDB
 - G2: run_clustering generates semantic cluster labels
 - G3: AnalyzeHandler.analyze_root_cause_deep runs real deep root cause analysis
 - G4: run_single produces improvement recommendations
@@ -60,100 +59,6 @@ def mock_config():
     return config
 
 
-# --- G1: ChromaDB embedding persistence ---
-
-
-class TestChromaPersistence:
-    @pytest.mark.asyncio
-    async def test_run_clustering_persists_embeddings(self, mock_config):
-        """G1: run_clustering stores embeddings to ChromaDB via _store_cluster_embeddings."""
-        pipeline = AnalysisPipeline(
-            config=mock_config,
-            pipeline_config=PipelineConfig(use_llm=False),
-        )
-        mock_tasks = [_make_task(1), _make_task(2)]
-
-        mock_emb_gen = MagicMock()
-        mock_emb_gen.embed_batch = AsyncMock(return_value=[[0.1] * 128, [0.2] * 128])
-
-        mock_cluster = MagicMock()
-        mock_cluster.fit_predict.return_value = MagicMock(labels=[0, 0])
-
-        mock_chroma = MagicMock()
-        mock_chroma.add_batch_embeddings.return_value = {"1": True, "2": True}
-
-        with (
-            patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
-            patch.object(pipeline, "_get_embedding_generator", return_value=mock_emb_gen),
-            patch.object(pipeline, "_get_cluster_analyzer", return_value=mock_cluster),
-            patch.object(pipeline, "_get_chroma_manager", return_value=mock_chroma),
-        ):
-            mock_fetch.side_effect = lambda tid: next(
-                (t for t in mock_tasks if t.task_id == tid), None
-            )
-            result = await pipeline.run_clustering([1, 2])
-
-        mock_chroma.add_batch_embeddings.assert_called_once()
-        assert result["embeddings_stored"] == 2
-
-    @pytest.mark.asyncio
-    async def test_run_clustering_skips_storage_when_disabled(self, mock_config):
-        """G1: store_embeddings=False skips ChromaDB persistence."""
-        pipeline = AnalysisPipeline(
-            config=mock_config,
-            pipeline_config=PipelineConfig(use_llm=False, store_embeddings=False),
-        )
-        mock_tasks = [_make_task(1), _make_task(2)]
-
-        mock_emb_gen = MagicMock()
-        mock_emb_gen.embed_batch = AsyncMock(return_value=[[0.1] * 128, [0.2] * 128])
-        mock_cluster = MagicMock()
-        mock_cluster.fit_predict.return_value = MagicMock(labels=[0, 0])
-        mock_chroma = MagicMock()
-
-        with (
-            patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
-            patch.object(pipeline, "_get_embedding_generator", return_value=mock_emb_gen),
-            patch.object(pipeline, "_get_cluster_analyzer", return_value=mock_cluster),
-            patch.object(pipeline, "_get_chroma_manager", return_value=mock_chroma),
-        ):
-            mock_fetch.side_effect = lambda tid: next(
-                (t for t in mock_tasks if t.task_id == tid), None
-            )
-            result = await pipeline.run_clustering([1, 2])
-
-        mock_chroma.add_batch_embeddings.assert_not_called()
-        assert result["embeddings_stored"] == 0
-
-    @pytest.mark.asyncio
-    async def test_run_clustering_chroma_unavailable_degrades(self, mock_config):
-        """G1: ChromaDB unavailable → clustering still succeeds (graceful degradation)."""
-        pipeline = AnalysisPipeline(
-            config=mock_config,
-            pipeline_config=PipelineConfig(use_llm=False),
-        )
-        mock_tasks = [_make_task(1), _make_task(2)]
-
-        mock_emb_gen = MagicMock()
-        mock_emb_gen.embed_batch = AsyncMock(return_value=[[0.1] * 128, [0.2] * 128])
-        mock_cluster = MagicMock()
-        mock_cluster.fit_predict.return_value = MagicMock(labels=[0, 0])
-
-        with (
-            patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
-            patch.object(pipeline, "_get_embedding_generator", return_value=mock_emb_gen),
-            patch.object(pipeline, "_get_cluster_analyzer", return_value=mock_cluster),
-            patch.object(pipeline, "_get_chroma_manager", return_value=None),
-        ):
-            mock_fetch.side_effect = lambda tid: next(
-                (t for t in mock_tasks if t.task_id == tid), None
-            )
-            result = await pipeline.run_clustering([1, 2])
-
-        assert "tasks" in result
-        assert result["embeddings_stored"] == 0
-
-
 # --- G2: Cluster semantic labels ---
 
 
@@ -184,7 +89,6 @@ class TestClusterLabels:
             patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
             patch.object(pipeline, "_get_embedding_generator", return_value=mock_emb_gen),
             patch.object(pipeline, "_get_cluster_analyzer", return_value=mock_cluster),
-            patch.object(pipeline, "_get_chroma_manager", return_value=None),
             patch.object(pipeline, "_label_generator", mock_label_gen, create=True),
         ):
             mock_fetch.side_effect = lambda tid: next(
@@ -213,7 +117,6 @@ class TestClusterLabels:
             patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
             patch.object(pipeline, "_get_embedding_generator", return_value=mock_emb_gen),
             patch.object(pipeline, "_get_cluster_analyzer", return_value=mock_cluster),
-            patch.object(pipeline, "_get_chroma_manager", return_value=None),
         ):
             mock_fetch.side_effect = lambda tid: next(
                 (t for t in mock_tasks if t.task_id == tid), None

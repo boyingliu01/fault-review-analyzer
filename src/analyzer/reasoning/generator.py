@@ -130,7 +130,7 @@ class RootCauseAnalyzer:
 
         # 本地 LLM 偶发返回空/不完整 JSON，解析失败时重试，保证根因分析完整性
         result: RootCauseAnalysisResult | None = None
-        for attempt in range(2):
+        for _attempt in range(2):
             response = await provider.generate(
                 system=system_prompt,
                 user=user_prompt,

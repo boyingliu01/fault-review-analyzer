@@ -86,8 +86,9 @@ fault-review-analyzer/
 │   ├── cache/                  # 缓存管理
 │   │   ├── manager.py         # 缓存管理器
 │   │   └── models.py          # 缓存数据模型
-│   ├── storage/                # 向量存储
-│   │   └── chroma_manager.py  # ChromaDB 管理器
+│   ├── embedding/               # Embedding 生成
+│   │   ├── generator.py        # Embedding 生成器
+│   │   └── models.py          # Embedding 数据模型
 │   ├── feedback/               # 反馈管理
 │   │   ├── manager.py         # 反馈管理器
 │   │   ├── models.py          # 反馈数据模型
@@ -110,7 +111,7 @@ fault-review-analyzer/
 ├── config/                      # 配置文件
 │   └── config.yaml             # 系统配置（可选）
 ├── data/                        # 数据目录
-│   ├── chroma/                # ChromaDB 向量数据库
+│   ├── cache/                  # SQLite 缓存
 │   ├── rules/                 # 规则文件
 │   ├── standards/             # 开发规范文档
 │   └── cache.db               # SQLite 缓存数据库
@@ -173,7 +174,7 @@ cp .env.example .env
 ### 5. 创建必要的目录
 
 ```bash
-mkdir -p data/chroma
+mkdir -p data/cache
 mkdir -p data/rules/custom
 mkdir -p data/standards
 mkdir -p output

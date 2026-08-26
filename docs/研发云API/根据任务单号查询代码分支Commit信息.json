@@ -1,0 +1,180 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "研发云开放API",
+    "description": "研发云开放API是为开发者量身打造的一套强大接口体系，旨在通过标准化接口打通研发云平台的核心能力，让用户能够基于此开发各类 AI 程序，实现研发流程的自动化与智能化，大幅提升研发效率。",
+    "version": "0.1.0",
+    "termsOfService": "API-Token申请和使用方式详见文档 https://docs.iwhalecloud.com/doi/z9LT/circle/si1xFZ6m?single=true&head=false",
+    "contact": {
+      "name": "研发平台团队"
+    }
+  },
+  "host": "",
+  "basePath": "/",
+  "schemes": [],
+  "consumes": [
+    "*/*"
+  ],
+  "produces": [
+    "*/*"
+  ],
+  "paths": {
+    "/devspace/rpc/v3/task-branch/{taskNo}/commit-range": {
+      "post": {
+        "tags": [
+          "代码分支"
+        ],
+        "summary": "根据任务单号查询代码分支Commit信息",
+        "description": "查询任务分支的起始和结束Commit ID，用于代码比对和版本追溯",
+        "operationId": "qryRpcTaskBranchCommitRespDtoByTaskNo",
+        "parameters": [
+          {
+            "name": "taskNo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Operate-User-Code",
+            "in": "header",
+            "description": "使用系统Token需要添加调用接口的操作人工号，个人Token不需要添加"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMessageApiFeatureBranchCommitRangeRespDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMessageObject"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMessageObject"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "ResponseMessageApiFeatureBranchCommitRangeRespDto": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/components/schemas/ApiFeatureBranchCommitRangeRespDto"
+        },
+        "code": {
+          "type": "string"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "finalMessage": {
+          "type": "string"
+        }
+      }
+    },
+    "ResponseMessageObject": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object"
+        },
+        "code": {
+          "type": "string"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "finalMessage": {
+          "type": "string"
+        }
+      }
+    },
+    "ApiFeatureBranchCommitRangeRespDto": {
+      "type": "object",
+      "description": "查询代码分支的提交信息请求返回体",
+      "properties": {
+        "productModuleId": {
+          "type": "integer",
+          "format": "int32",
+          "description": "应用模块ID",
+          "refType": null
+        },
+        "productModuleName": {
+          "type": "string",
+          "description": "应用模块名称",
+          "refType": null
+        },
+        "repoId": {
+          "type": "integer",
+          "format": "int32",
+          "description": "仓库ID",
+          "refType": null
+        },
+        "repoName": {
+          "type": "string",
+          "description": "仓库名称",
+          "refType": null
+        },
+        "repoUrl": {
+          "type": "string",
+          "description": "仓库地址",
+          "refType": null
+        },
+        "branchName": {
+          "type": "string",
+          "description": "特性分支名称",
+          "refType": null
+        },
+        "baseBranchName": {
+          "type": "string",
+          "description": "来源分支名称",
+          "refType": null
+        },
+        "headCommitId": {
+          "type": "string",
+          "description": "特性分支创建的初始CommitId",
+          "refType": null
+        },
+        "lastCommitId": {
+          "type": "string",
+          "description": "特性分支最新的CommitId",
+          "refType": null
+        }
+      }
+    }
+  }
+}
