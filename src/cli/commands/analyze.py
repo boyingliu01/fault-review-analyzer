@@ -101,9 +101,44 @@ def analyze_batch(
     min_cluster_size: int = typer.Option(3, "--min-size", help="最小聚类大小"),
     output: Path | None = typer.Option(None, "--output", "-o", help="输出报告路径"),
     config_path: Path | None = typer.Option(None, "--config", "-c", help="配置文件路径"),
+    excel: Path | None = typer.Option(
+        None, "--excel", help="从 Excel 文件读取故障单号列表（替代缓存）"
+    ),
 ) -> None:
-    """批量分析缓存中的任务"""
+    """批量分析缓存或 Excel 中的任务"""
     console.print("[cyan]批量分析任务...[/cyan]")
+
+    # G16: 支持从 Excel 读取故障单号列表
+    if excel is not None:
+        from src.utils.excel_reader import read_task_ids_from_excel
+
+        try:
+            task_ids = read_task_ids_from_excel(excel)
+        except (FileNotFoundError, ValueError) as e:
+            console.print(f"[red]{e}[/red]")
+            raise typer.Exit(1) from None
+
+        if not task_ids:
+            console.print("[yellow]Excel 中未找到有效的故障单号[/yellow]")
+            return
+
+        console.print(f"[cyan]从 Excel 读取到 {len(task_ids)} 个故障单号[/cyan]")
+        try:
+            config_manager = ConfigManager(config_path)
+            config = config_manager.load()
+        except ValueError as e:
+            console.print(f"[red]配置错误: {e}[/red]")
+            raise typer.Exit(1) from None
+
+        _run_batch_analysis(
+            task_ids=task_ids,
+            cluster=cluster,
+            from_cache=from_cache,
+            config_manager=config_manager,
+            output=output,
+            console=console,
+        )
+        return
 
     try:
         config_manager = ConfigManager(config_path)
@@ -126,6 +161,26 @@ def analyze_batch(
 
     task_ids = [task["task_id"] for task in all_tasks]
 
+    _run_batch_analysis(
+        task_ids=task_ids,
+        cluster=cluster,
+        from_cache=from_cache,
+        config_manager=config_manager,
+        output=output,
+        console=console,
+    )
+
+
+def _run_batch_analysis(
+    *,
+    task_ids: list[int],
+    cluster: bool,
+    from_cache: bool,
+    config_manager: ConfigManager,
+    output: Path | None,
+    console: Console,
+) -> None:
+    """执行批量分析（缓存或 Excel 来源共用）。"""
     pipeline_config = PipelineConfig(
         use_cache=from_cache,
         use_llm=True,

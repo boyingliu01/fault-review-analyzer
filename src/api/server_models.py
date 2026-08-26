@@ -5,7 +5,9 @@ from typing import Any, Final
 
 from pydantic import BaseModel, Field, field_validator
 
-MAX_BATCH_TASK_IDS: Final = 50
+# 批量分析单次请求上限（G15: 从 50 提升到 1000，满足"支持 1000+ 故障单批量分析"）。
+# 实际并发由 pipeline 的 max_concurrency（默认 10）约束，避免压垮下游 API。
+MAX_BATCH_TASK_IDS: Final = 1000
 
 
 class HealthResponse(BaseModel):

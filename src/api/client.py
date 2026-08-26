@@ -21,6 +21,7 @@ from src.api.models import (
     TaskInfo,
 )
 from src.utils.circuit_breaker import CircuitBreaker, CircuitBreakerError
+from src.utils.rate_limiter import AdaptiveRateLimiter
 
 
 class APIClient:
@@ -34,6 +35,7 @@ class APIClient:
         api_path_prefix: str = "/portal/ai-gateway/devspace/rpc/v3/work-item",
         code_api_prefix: str = "/portal/ai-gateway/devspace/rpc/v3",
         circuit_breaker: CircuitBreaker | None = None,
+        rate_limit_qps: float = 0.0,
     ):
         self.base_url = base_url.rstrip("/")
         self.token = token or api_key
@@ -47,6 +49,10 @@ class APIClient:
             name="api_client",
             failure_threshold=5,
             reset_timeout=60.0,
+        )
+        # G17: 可选的自适应速率限制（rate_limit_qps=0 表示不启用）
+        self._rate_limiter = (
+            AdaptiveRateLimiter(initial_qps=rate_limit_qps) if rate_limit_qps > 0 else None
         )
 
     @property
@@ -110,6 +116,10 @@ class APIClient:
         if self._client is None:
             self.ensure_client()
 
+        # G17: 速率限制（可选）
+        if self._rate_limiter is not None:
+            await self._rate_limiter.acquire()
+
         # Check circuit breaker before making request
         if not self._circuit_breaker.can_execute():
             raise CircuitBreakerError(
@@ -127,6 +137,8 @@ class APIClient:
                 if response.status_code == 200:
                     result = response.json()
                     self._circuit_breaker.record_success()
+                    if self._rate_limiter is not None:
+                        self._rate_limiter.record_success()
                     return result if isinstance(result, dict) else {}
                 elif response.status_code == 401:
                     # Auth errors don't indicate service failure
@@ -137,6 +149,8 @@ class APIClient:
                 elif response.status_code == 429:
                     # Rate limit - record as failure but don't retry
                     self._circuit_breaker.record_failure(RateLimitError())
+                    if self._rate_limiter is not None:
+                        self._rate_limiter.record_failure()
                     raise RateLimitError()
                 elif response.status_code >= 500:
                     # Server errors indicate service failure
@@ -166,6 +180,8 @@ class APIClient:
         # All retries failed - record the logical request once
         if last_error:
             self._circuit_breaker.record_failure(last_error)
+            if self._rate_limiter is not None:
+                self._rate_limiter.record_failure()
         raise last_error or APIConnectionError("Unknown error")
 
     async def verify_token(self) -> bool:
