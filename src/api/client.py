@@ -230,6 +230,7 @@ class APIClient:
                 priority=task.priority,
                 create_time=task.create_time,
                 resolve_time=task.resolve_time,
+                is_commit_code=task.is_commit_code,
                 requirement=task.requirement,
                 design=task.design,
                 development=task.development,
@@ -393,7 +394,7 @@ class APIClient:
         return self._parse_production_info(response)
 
     async def get_full_task(self, task_id: int) -> TaskInfo:
-        """获取完整任务信息（含开发代码变更和生产信息）。"""
+        """获取完整任务信息（含开发代码变更、生产信息、复盘结论）。"""
         task = await self.get_task(task_id)
 
         try:
@@ -415,6 +416,12 @@ class APIClient:
             task.production = production
         except NotFoundError:
             pass
+
+        # G8: 将故障复盘结论纳入标准 fetch 流程（API 不可用时降级为 None）
+        try:
+            task.fault_analysis = await self.get_fault_analysis(str(task_id))
+        except Exception:
+            task.fault_analysis = None
 
         return task
 
@@ -450,7 +457,25 @@ class APIClient:
             priority=self._map_priority(task_data.get("taskPriId")),
             create_time=create_time or now,
             resolve_time=resolve_time,
+            is_commit_code=self._parse_is_commit_code(
+                task_data.get("isCommitCode", task_data.get("is_commit_code"))
+            ),
         )
+
+    @staticmethod
+    def _parse_is_commit_code(value: Any) -> str:
+        """将 API 返回的 isCommitCode 归一化为 'Y' / 'N'。
+
+        API 可能返回布尔、字符串 'Y'/'N'、'true'/'false' 或 1/0。
+        """
+        if value is None:
+            return "N"
+        if isinstance(value, bool):
+            return "Y" if value else "N"
+        if isinstance(value, (int, float)):
+            return "Y" if value else "N"
+        normalized = str(value).strip().lower()
+        return "Y" if normalized in {"y", "yes", "true", "1"} else "N"
 
     def _map_priority(self, pri_id: int | None) -> str:
         if pri_id is None:

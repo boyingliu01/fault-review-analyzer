@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -87,12 +88,16 @@ class TaskInfo(BaseModel):
     priority: str = Field(default="medium", description="优先级")
     create_time: datetime = Field(..., description="创建时间")
     resolve_time: datetime | None = Field(default=None, description="解决时间")
+    is_commit_code: str = Field(default="N", description="是否有代码变更: Y/N")
 
     requirement: RequirementInfo | None = Field(default=None, description="需求信息")
     design: DesignInfo | None = Field(default=None, description="设计信息")
     development: DevelopmentInfo | None = Field(default=None, description="开发信息")
     testing: TestingInfo | None = Field(default=None, description="测试信息")
     production: ProductionInfo | None = Field(default=None, description="生产信息")
+    fault_analysis: dict[str, Any] | None = Field(
+        default=None, description="故障复盘结论（研发/测试/管理环节分析）"
+    )
 
 
 class FetchResult(BaseModel):
