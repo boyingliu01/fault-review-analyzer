@@ -71,7 +71,7 @@ class FaultAnalysisUI:
         batch_anns = annotations.get(selected_batch_id, [])
         if batch_anns:
             for ann in batch_anns:
-                st.sidebar.markdown(f"- {ann.get('text','')}")
+                st.sidebar.markdown(f"- {ann.get('text', '')}")
                 st.sidebar.caption(ann.get("created_at", ""))
         else:
             st.sidebar.caption("暂无批注")
@@ -123,7 +123,9 @@ class FaultAnalysisUI:
                 st.info("该批次暂无缺陷记录")
                 return
 
-            st.caption(f"当前批次: {self._batch_name(batches, selected_batch_id)} · 共 {len(batch_recs)} 起")
+            st.caption(
+                f"当前批次: {self._batch_name(batches, selected_batch_id)} · 共 {len(batch_recs)} 起"
+            )
 
             # 顶层统计
             summary_df = build_summary_df(batch_recs)
@@ -136,7 +138,10 @@ class FaultAnalysisUI:
             with col2:
                 st.metric("根因类型数", len(summary_df))
             with col3:
-                st.metric("规范违规总数", int(violation_df["违规次数"].sum()) if not violation_df.empty else 0)
+                st.metric(
+                    "规范违规总数",
+                    int(violation_df["违规次数"].sum()) if not violation_df.empty else 0,
+                )
             with col4:
                 with_code = sum(1 for r in batch_recs.values() if r.get("has_code_change"))
                 st.metric("有代码变更", with_code)
@@ -154,9 +159,7 @@ class FaultAnalysisUI:
             # 缺陷明细（可筛选 + 联动）
             st.markdown("---")
             st.subheader("📑 缺陷明细")
-            filtered, selection = self._render_detail_table(
-                detail_df, pareto_event
-            )
+            filtered, selection = self._render_detail_table(detail_df, pareto_event)
 
             # 单起详情（联动）
             st.markdown("---")
@@ -276,16 +279,18 @@ class FaultAnalysisUI:
             cause_options = ["全部"] + sorted(detail_df["首要根因"].unique().tolist())
             default_cause = selected_cause if selected_cause in cause_options else "全部"
             cause_sel = st.selectbox(
-                "按根因筛选", cause_options, index=cause_options.index(default_cause), key="cause_filter"
+                "按根因筛选",
+                cause_options,
+                index=cause_options.index(default_cause),
+                key="cause_filter",
             )
         with filter_col2:
             rule_options = ["全部"] + sorted(
                 detail_df["规范违规"].str.split("; ").explode().unique().tolist()
-                if not detail_df.empty else []
+                if not detail_df.empty
+                else []
             )
-            rule_sel = st.selectbox(
-                "按规范条款筛选", rule_options, index=0, key="rule_filter"
-            )
+            rule_sel = st.selectbox("按规范条款筛选", rule_options, index=0, key="rule_filter")
         with filter_col3:
             code_options = ["全部", "是", "否"]
             code_sel = st.selectbox("按代码变更筛选", code_options, key="code_filter")
@@ -359,16 +364,14 @@ class FaultAnalysisUI:
 
         detail = get_detail_by_urid(recs, selected_urid)
         st.markdown(f"### {detail.get('title', '')}")
-        st.markdown(
-            f"**urId**: [{selected_urid}]({build_detail_url(selected_urid)})"
-        )
+        st.markdown(f"**urId**: [{selected_urid}]({build_detail_url(selected_urid)})")
 
         # 根因
         st.markdown("#### 根因分析")
         for rc in detail.get("root_causes", []):
             st.markdown(
-                f"- **[{rc.get('cause_type','')}]** (置信度 {rc.get('confidence',0):.2f}): "
-                f"{rc.get('description','')}"
+                f"- **[{rc.get('cause_type', '')}]** (置信度 {rc.get('confidence', 0):.2f}): "
+                f"{rc.get('description', '')}"
             )
             if rc.get("evidence"):
                 st.caption("证据: " + "; ".join(str(e)[:100] for e in rc["evidence"][:3]))
@@ -378,8 +381,8 @@ class FaultAnalysisUI:
         if detail.get("violations"):
             for v in detail["violations"]:
                 st.markdown(
-                    f"- **{v.get('rule_id','')}**: {v.get('rule_name','')} "
-                    f"(严重度: {v.get('severity','')})"
+                    f"- **{v.get('rule_id', '')}**: {v.get('rule_name', '')} "
+                    f"(严重度: {v.get('severity', '')})"
                 )
         else:
             st.info("无规范违规")
@@ -388,8 +391,8 @@ class FaultAnalysisUI:
         st.markdown("#### 改进建议")
         for imp in detail.get("improvements", []):
             st.markdown(
-                f"- **[{'🔴高' if imp.get('priority')=='high' else '🟡中' if imp.get('priority')=='medium' else '🟢低'}] "
-                f"{imp.get('measure','')}**"
+                f"- **[{'🔴高' if imp.get('priority') == 'high' else '🟡中' if imp.get('priority') == 'medium' else '🟢低'}] "
+                f"{imp.get('measure', '')}**"
             )
             if imp.get("acceptance_criteria"):
                 st.caption(f"验收标准: {imp['acceptance_criteria']}")

@@ -23,7 +23,10 @@ def get_head_commit() -> str:
     try:
         return subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, cwd=ROOT, check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=True,
         ).stdout.strip()
     except Exception:
         return "unknown"
