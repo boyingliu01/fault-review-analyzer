@@ -11,6 +11,9 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import pandas as pd
 import streamlit as st
 from loguru import logger
 from plotly import graph_objects as go
@@ -63,7 +66,7 @@ class FaultAnalysisUI:
             index=default_idx,
             key="batch_selector",
         )
-        selected_batch_id = batch_options[selected_label]
+        selected_batch_id = str(batch_options[selected_label])
 
         # 当前批次批注
         st.sidebar.markdown("---")
@@ -86,7 +89,7 @@ class FaultAnalysisUI:
         # 批次统计
         st.sidebar.markdown("---")
         st.sidebar.subheader("📊 批次统计")
-        st.sidebar.metric("缺陷数", len(batches) and self._batch_count(batches, selected_batch_id))
+        st.sidebar.metric("缺陷数", self._batch_count(batches, selected_batch_id))
 
         return selected_batch_id
 
@@ -95,7 +98,7 @@ class FaultAnalysisUI:
         """获取指定批次的缺陷数。"""
         for b in batches:
             if b["batch_id"] == batch_id:
-                return b.get("count", len(b.get("urids", [])))
+                return int(b.get("count") or len(b.get("urids") or []))
         return 0
 
     # ------------------------------------------------------------------
@@ -180,7 +183,7 @@ class FaultAnalysisUI:
             return "全部"
         for b in batches:
             if b["batch_id"] == batch_id:
-                return b.get("name", batch_id)
+                return str(b.get("name") or batch_id)
         return batch_id
 
     @staticmethod
@@ -203,7 +206,7 @@ class FaultAnalysisUI:
     # 帕累托图
     # ------------------------------------------------------------------
     @staticmethod
-    def _render_pareto_chart(summary_df) -> object:
+    def _render_pareto_chart(summary_df: pd.DataFrame) -> object:
         """渲染帕累托图（根因降序柱状 + 累计占比线），返回选择事件。"""
         if summary_df.empty:
             st.info("暂无根因数据")
@@ -248,7 +251,7 @@ class FaultAnalysisUI:
     # 规范违规分布
     # ------------------------------------------------------------------
     @staticmethod
-    def _render_violation_table(violation_df) -> object:
+    def _render_violation_table(violation_df: pd.DataFrame) -> object:
         """渲染规范违规分布（含条款内容），返回选择事件。"""
         if violation_df.empty:
             st.info("无规范违规记录")
@@ -268,7 +271,9 @@ class FaultAnalysisUI:
     # ------------------------------------------------------------------
     # 缺陷明细（联动 + 筛选）
     # ------------------------------------------------------------------
-    def _render_detail_table(self, detail_df, pareto_event):
+    def _render_detail_table(
+        self, detail_df: pd.DataFrame, pareto_event: object
+    ) -> tuple[pd.DataFrame, object]:
         """渲染缺陷明细表（含筛选 + 联动 + 研发云链接），返回过滤后表和选择事件。"""
         # 从帕累托图联动获取选中根因
         selected_cause = self._pareto_selected_cause(pareto_event)
@@ -299,17 +304,18 @@ class FaultAnalysisUI:
             hide_no_cause = st.checkbox("隐藏无根因", key="hide_no_cause")
 
         # 应用筛选
-        filtered = detail_df
+        mask = pd.Series(True, index=detail_df.index)
         if cause_sel != "全部":
-            filtered = filtered[filtered["首要根因"] == cause_sel]
+            mask &= detail_df["首要根因"] == cause_sel
         if rule_sel != "全部":
-            filtered = filtered[filtered["规范违规"].str.contains(rule_sel, na=False)]
+            mask &= detail_df["规范违规"].str.contains(rule_sel, na=False)
         if code_sel != "全部":
-            filtered = filtered[filtered["有代码变更"] == code_sel]
+            mask &= detail_df["有代码变更"] == code_sel
         if only_violation:
-            filtered = filtered[filtered["违规数"] > 0]
+            mask &= detail_df["违规数"] > 0
         if hide_no_cause:
-            filtered = filtered[filtered["首要根因"] != "无根因"]
+            mask &= detail_df["首要根因"] != "无根因"
+        filtered: pd.DataFrame = detail_df.loc[mask]
 
         st.caption(f"筛选结果: {len(filtered)} 起")
 
@@ -337,20 +343,23 @@ class FaultAnalysisUI:
         return filtered, selection
 
     @staticmethod
-    def _pareto_selected_cause(pareto_event) -> str | None:
+    def _pareto_selected_cause(pareto_event: Any) -> str | None:
         """从帕累托图选择事件提取选中的根因类型（curve_number==0 过滤）。"""
         if not pareto_event or not pareto_event.selection:
             return None
-        points = pareto_event.selection.get("points", [])
+        selection = pareto_event.selection
+        points = selection.get("points", []) if hasattr(selection, "get") else []
         bar_points = [p for p in points if p.get("curve_number", 0) == 0]
         if bar_points:
-            return bar_points[0].get("x")
+            return str(bar_points[0].get("x"))
         return None
 
     # ------------------------------------------------------------------
     # 单起详情（联动）
     # ------------------------------------------------------------------
-    def _render_single_detail(self, recs, filtered, selection) -> None:
+    def _render_single_detail(
+        self, recs: dict[int, dict], filtered: pd.DataFrame, selection: object
+    ) -> None:
         """渲染单起缺陷详情，随明细选中联动。"""
         selected_urid = self._get_selected_urid(filtered, selection)
 
@@ -400,11 +409,12 @@ class FaultAnalysisUI:
                 st.caption(f"关联规范: {', '.join(imp['rule_ids'])}")
 
     @staticmethod
-    def _get_selected_urid(filtered, selection) -> int | None:
+    def _get_selected_urid(filtered: pd.DataFrame, selection: Any) -> int | None:
         """从明细表选择事件提取选中的 urId。"""
-        if selection is None or not selection.selection:
+        if selection is None or not getattr(selection, "selection", None):
             return None
-        rows = selection.selection.get("rows", [])
+        sel = selection.selection
+        rows = sel.get("rows", []) if hasattr(sel, "get") else []
         if not rows:
             return None
         try:
