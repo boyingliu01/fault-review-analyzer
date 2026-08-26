@@ -38,9 +38,7 @@ def sample_recs() -> dict[int, dict]:
             "root_causes": [
                 {"cause_type": "设计缺陷", "description": "设计问题", "confidence": 0.8}
             ],
-            "violations": [
-                {"rule_id": "J000025", "rule_name": "接口规范", "severity": "medium"}
-            ],
+            "violations": [{"rule_id": "J000025", "rule_name": "接口规范", "severity": "medium"}],
             "improvements": [{"priority": "medium", "measure": "重新设计"}],
             "has_code_change": False,
         },
@@ -274,9 +272,7 @@ class TestDetailUrl:
     # @test REQ-5
     def test_build_detail_url_custom_template(self, monkeypatch):
         """自定义 RDEV_DETAIL_URL_TEMPLATE 生效。"""
-        monkeypatch.setenv(
-            "RDEV_DETAIL_URL_TEMPLATE", "https://example.com/task/{urId}"
-        )
+        monkeypatch.setenv("RDEV_DETAIL_URL_TEMPLATE", "https://example.com/task/{urId}")
         url = review_data.build_detail_url(12345)
         assert url == "https://example.com/task/12345"
 

@@ -152,9 +152,7 @@ def save_batches(batches: list[dict[str, Any]]) -> None:
         dedup[b["batch_id"]] = b
     payload = {"batches": list(dedup.values())}
     tmp_file = _OUT_DIR / "batches.json.tmp"
-    tmp_file.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    tmp_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp_file.replace(_OUT_DIR / "batches.json")
 
 
@@ -272,15 +270,13 @@ def build_detail_df(recs: dict[int, dict[str, Any]]) -> pd.DataFrame:
                 "首要根因": primary_cause(rec),
                 "根因数": len(rcs),
                 "根因摘要": "; ".join(
-                    f"{rc.get('cause_type','')}:{rc.get('description','')[:60]}"
-                    for rc in rcs[:2]
+                    f"{rc.get('cause_type', '')}:{rc.get('description', '')[:60]}" for rc in rcs[:2]
                 ),
                 "规范违规": "; ".join(v.get("rule_id", "") for v in viols),
                 "违规数": len(viols),
                 "改进建议数": len(imps),
                 "改进建议摘要": "; ".join(
-                    f"[{imp.get('priority','')}]{imp.get('measure','')[:50]}"
-                    for imp in imps[:3]
+                    f"[{imp.get('priority', '')}]{imp.get('measure', '')[:50]}" for imp in imps[:3]
                 ),
                 "有代码变更": "是" if rec.get("has_code_change") else "否",
                 "研发云链接": build_detail_url(u),
