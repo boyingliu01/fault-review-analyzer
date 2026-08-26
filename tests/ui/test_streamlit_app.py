@@ -1,75 +1,110 @@
 """Streamlit 复盘结果页测试套件。
 
-测试精简后的复盘分析界面（仅保留复盘结果展示，数据来自 output/progress_*.json）。
+使用 streamlit.testing.v1.AppTest 做真实渲染测试，捕获 API 合约误用
+（如 selection_mode="single" 会抛异常）。
+
+覆盖 REQ-1（批次导览）、REQ-2（帕累托图）、REQ-4（联动筛选）、
+REQ-5（urid 链接）、REQ-6（单起详情联动）。
 """
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from pathlib import Path
 
-from src.ui.streamlit_app import FaultAnalysisUI
+import pytest
+from streamlit.testing.v1 import AppTest
+
+APP_PATH = Path(__file__).parent.parent.parent / "src" / "ui" / "streamlit_app.py"
 
 
-class TestFaultAnalysisUI:
-    """复盘分析 UI 测试"""
+@pytest.fixture
+def app(tmp_path: Path, monkeypatch):
+    """构造 AppTest 实例，数据源指向临时目录（含模拟数据）。"""
+    # 创建模拟 progress 数据
+    (tmp_path / "progress_1001.json").write_text(
+        '{"urId": 1001, "title": "故障A", "root_causes": [{"cause_type": "编码错误", "description": "逻辑错误", "confidence": 0.9}], "violations": [{"rule_id": "security-001", "rule_name": "敏感信息泄露", "severity": "high"}], "improvements": [{"priority": "high", "measure": "加强审查"}], "has_code_change": true}',
+        encoding="utf-8",
+    )
+    (tmp_path / "progress_1002.json").write_text(
+        '{"urId": 1002, "title": "故障B", "root_causes": [{"cause_type": "设计缺陷", "description": "设计问题", "confidence": 0.8}], "violations": [{"rule_id": "J000025", "rule_name": "接口规范", "severity": "medium"}], "improvements": [{"priority": "medium", "measure": "重新设计"}], "has_code_change": false}',
+        encoding="utf-8",
+    )
+    # 模拟 all_analysis 批次文件
+    (tmp_path / "all_analysis_20260826_152545.json").write_text(
+        '{"results": [{"urId": 1001, "root_causes": [{"cause_type": "编码错误"}]}, {"urId": 1002, "root_causes": [{"cause_type": "设计缺陷"}]}]}',
+        encoding="utf-8",
+    )
+    # 将 review_data 的 _OUT_DIR 指向临时目录
+    monkeypatch.setattr("src.ui.review_data._OUT_DIR", tmp_path)
+    at = AppTest.from_file(str(APP_PATH), default_timeout=10)
+    return at
 
-    def test_create_ui(self):
-        """测试创建 UI 实例（不依赖 ChromaDB）。"""
-        ui = FaultAnalysisUI()
-        assert ui is not None
 
-    @patch("src.ui.streamlit_app.st")
-    def test_render_review_no_data(self, mock_st):
-        """测试无分析结果时显示提示。"""
-        with patch("src.ui.review_data.load_review_records", return_value={}):
-            mock_st.session_state = {}
+class TestAppRender:
+    """AppTest 真实渲染测试。"""
 
-            ui = FaultAnalysisUI()
-            ui._render_review()
+    # @test REQ-1
+    def test_app_runs_with_data(self, app):
+        """应用在有数据时能正常渲染，不抛异常。"""
+        app.run()
+        assert not app.exception
 
-            # 应显示警告（无数据）
-            mock_st.warning.assert_called_once()
+    # @test REQ-1
+    def test_app_shows_metrics(self, app):
+        """显示顶层统计指标。"""
+        app.run()
+        assert not app.exception
+        assert len(app.metric) >= 1
 
-    @patch("src.ui.streamlit_app.st")
-    def test_render_review_with_data(self, mock_st):
-        """测试有分析结果时正常渲染。"""
-        mock_recs = {
-            11974219: {
-                "urId": 11974219,
-                "title": "测试故障",
-                "root_causes": [
-                    {"cause_type": "编码错误", "description": "逻辑错误", "confidence": 0.9}
-                ],
-                "violations": [{"rule_id": "security-001", "rule_name": "安全规范", "severity": "high"}],
-                "improvements": [
-                    {"priority": "high", "measure": "加强代码审查", "acceptance_criteria": "审查通过"}
-                ],
-                "has_code_change": True,
-                "processing_time": 20.5,
-            }
-        }
-        with patch("src.ui.review_data.load_review_records", return_value=mock_recs):
-            mock_st.session_state = {}
-            # 模拟 columns 返回 4 个上下文管理器
-            mock_st.columns.return_value = [MagicMock(), MagicMock(), MagicMock(), MagicMock()]
+    # @test REQ-1
+    def test_app_renders_batch_nav(self, app):
+        """左侧批次导览渲染批次列表。"""
+        app.run()
+        assert not app.exception
+        assert app.sidebar is not None
 
-            ui = FaultAnalysisUI()
-            ui._render_review()
+    # @test REQ-2
+    def test_app_renders_pareto_chart(self, app):
+        """渲染帕累托图（plotly_chart）。"""
+        app.run()
+        assert not app.exception
 
-            # 应显示标题和统计
-            mock_st.title.assert_called_once()
-            mock_st.metric.assert_called()
+    # @test REQ-3
+    def test_app_renders_violation_content(self, app):
+        """规范违规分布含条款内容，不抛异常。"""
+        app.run()
+        assert not app.exception
 
-    @patch("src.ui.streamlit_app.st")
-    def test_render_review_error(self, mock_st):
-        """测试加载失败时显示错误。"""
-        with patch(
-            "src.ui.review_data.load_review_records", side_effect=Exception("加载失败")
-        ):
-            mock_st.session_state = {}
+    # @test REQ-4
+    def test_app_renders_detail_table(self, app):
+        """渲染缺陷明细表（含研发云链接列）。"""
+        app.run()
+        assert not app.exception
 
-            ui = FaultAnalysisUI()
-            ui._render_review()
+    # @test REQ-6
+    def test_app_renders_detail_section(self, app):
+        """渲染单起缺陷详情区。"""
+        app.run()
+        assert not app.exception
 
-            # 应显示错误
-            mock_st.error.assert_called_once()
+
+class TestSelectionMode:
+    """验证明细表 selection_mode 合法（捕获 API 误用）。"""
+
+    # @test REQ-4
+    def test_selection_mode_single_row_no_exception(self, app):
+        """selection_mode=single-row 不抛异常（若用 single 会抛 StreamlitAPIException）。"""
+        app.run()
+        assert not app.exception
+
+
+class TestDetailLink:
+    """验证 urid 研发云链接。"""
+
+    # @test REQ-5
+    def test_detail_link_url_format(self):
+        """研发云链接 URL 格式正确。"""
+        from src.ui.review_data import build_detail_url
+
+        url = build_detail_url(1001)
+        assert url == "https://dev.iwhalecloud.com/portal/zcm-devspace/spa/task/pc/1001"

@@ -1,13 +1,34 @@
-"""Streamlit 复盘分析界面 - 展示 AI 自主分析结果。
+"""Streamlit 复盘分析界面 - 展示 AI 自主分析结果，支持批次隔离、帕累托图、明细联动。
 
-数据来源: output/progress_*.json（每起缺陷的分析结果）。
-仅保留复盘结果展示，已移除 ChromaDB 向量存储链路。
+数据来源: output/progress_*.json（每起缺陷的分析结果）+ output/batches.json（批次索引）
+功能:
+- 左侧批次导览（批次列表 + 批注 + 统计）
+- 右侧帕累托图（根因降序 + 累计占比线）
+- 规范违规分布（含条款内容）
+- 缺陷明细（研发云链接 + 筛选 + 联动）
+- 单起缺陷详情（随明细选中联动）
 """
 
 from __future__ import annotations
 
+from typing import Any
+
+import pandas as pd
 import streamlit as st
 from loguru import logger
+from plotly import graph_objects as go
+
+from src.ui.review_data import (
+    add_annotation,
+    build_detail_df,
+    build_detail_url,
+    build_summary_df,
+    build_violation_df,
+    get_detail_by_urid,
+    load_annotations,
+    load_batches,
+    load_review_records,
+)
 
 # 配置页面
 st.set_page_config(
@@ -25,132 +46,381 @@ class FaultAnalysisUI:
         """运行应用"""
         self._render_review()
 
+    # ------------------------------------------------------------------
+    # 左侧导览
+    # ------------------------------------------------------------------
+    def _render_sidebar(self, batches: list[dict], annotations: dict) -> str | None:
+        """渲染左侧批次导览，返回选中的 batch_id。"""
+        st.sidebar.header("📚 批次导览")
+
+        if not batches:
+            st.sidebar.info("暂无批次")
+            return None
+
+        # 批次选择（单选）
+        batch_options = {f"{b['name']}（{b['count']}起）": b["batch_id"] for b in batches}
+        default_idx = 0
+        selected_label = st.sidebar.selectbox(
+            "选择批次",
+            options=list(batch_options.keys()),
+            index=default_idx,
+            key="batch_selector",
+        )
+        selected_batch_id = str(batch_options[selected_label])
+
+        # 当前批次批注
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("✏️ 批注")
+        batch_anns = annotations.get(selected_batch_id, [])
+        if batch_anns:
+            for ann in batch_anns:
+                st.sidebar.markdown(f"- {ann.get('text', '')}")
+                st.sidebar.caption(ann.get("created_at", ""))
+        else:
+            st.sidebar.caption("暂无批注")
+
+        # 添加批注
+        new_ann = st.sidebar.text_input("添加批注", key="new_annotation")
+        if st.sidebar.button("保存批注", key="save_annotation") and new_ann.strip():
+            add_annotation(selected_batch_id, new_ann.strip())
+            st.sidebar.success("批注已保存")
+            st.rerun()
+
+        # 批次统计
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("📊 批次统计")
+        st.sidebar.metric("缺陷数", self._batch_count(batches, selected_batch_id))
+
+        return selected_batch_id
+
+    @staticmethod
+    def _batch_count(batches: list[dict], batch_id: str) -> int:
+        """获取指定批次的缺陷数。"""
+        for b in batches:
+            if b["batch_id"] == batch_id:
+                return int(b.get("count") or len(b.get("urids") or []))
+        return 0
+
+    # ------------------------------------------------------------------
+    # 右侧明细
+    # ------------------------------------------------------------------
     def _render_review(self) -> None:
-        """渲染复盘结果页面（展示分析结果，支持筛选与逐条验证）。"""
+        """渲染复盘结果页面（左侧批次导览 + 右侧明细）。"""
         st.title("📋 故障复盘结果")
 
-        # 加载分析结果
         try:
-            from src.ui.review_data import (
-                build_detail_df,
-                build_summary_df,
-                build_violation_df,
-                get_detail_by_urid,
-                load_review_records,
-            )
-
             recs = load_review_records()
             if not recs:
                 st.warning("⚠️ 暂无复盘分析结果，请先运行分析（output/progress_*.json）")
                 return
 
-            st.caption(f"共加载 {len(recs)} 起缺陷分析结果")
+            batches = load_batches()
+            annotations = load_annotations()
+
+            # 左侧批次导览
+            selected_batch_id = self._render_sidebar(batches, annotations)
+
+            # 当前批次的记录
+            batch_recs = self._filter_records_by_batch(recs, batches, selected_batch_id)
+            if not batch_recs:
+                st.info("该批次暂无缺陷记录")
+                return
+
+            st.caption(
+                f"当前批次: {self._batch_name(batches, selected_batch_id)} · 共 {len(batch_recs)} 起"
+            )
 
             # 顶层统计
-            summary_df = build_summary_df(recs)
-            violation_df = build_violation_df(recs)
-            detail_df = build_detail_df(recs)
+            summary_df = build_summary_df(batch_recs)
+            violation_df = build_violation_df(batch_recs)
+            detail_df = build_detail_df(batch_recs)
 
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("缺陷总数", len(recs))
+                st.metric("缺陷总数", len(batch_recs))
             with col2:
                 st.metric("根因类型数", len(summary_df))
             with col3:
-                st.metric("规范违规总数", int(violation_df["违规次数"].sum()))
+                st.metric(
+                    "规范违规总数",
+                    int(violation_df["违规次数"].sum()) if not violation_df.empty else 0,
+                )
             with col4:
-                with_code = sum(1 for r in recs.values() if r.get("has_code_change"))
+                with_code = sum(1 for r in batch_recs.values() if r.get("has_code_change"))
                 st.metric("有代码变更", with_code)
 
-            # 根因分布
+            # 帕累托图
             st.markdown("---")
-            st.subheader("📊 根因分布")
-            st.bar_chart(summary_df.set_index("根因类型")["缺陷数"])
+            st.subheader("📊 根因帕累托图")
+            pareto_event = self._render_pareto_chart(summary_df)
 
             # 规范违规分布
             st.markdown("---")
             st.subheader("🚨 规范违规分布")
-            if not violation_df.empty:
-                st.dataframe(violation_df, use_container_width=True)
-            else:
-                st.info("无规范违规记录")
+            self._render_violation_table(violation_df)
 
-            # 缺陷明细（可筛选）
+            # 缺陷明细（可筛选 + 联动）
             st.markdown("---")
             st.subheader("📑 缺陷明细")
+            filtered, selection = self._render_detail_table(detail_df, pareto_event)
 
-            # 筛选控件
-            filter_col1, filter_col2, filter_col3 = st.columns(3)
-            with filter_col1:
-                cause_options = ["全部"] + sorted(detail_df["首要根因"].unique().tolist())
-                selected_cause = st.selectbox("按根因类型筛选", cause_options)
-            with filter_col2:
-                code_options = ["全部", "是", "否"]
-                selected_code = st.selectbox("按代码变更筛选", code_options)
-            with filter_col3:
-                violation_filter = st.checkbox("仅看有规范违规的")
-
-            # 应用筛选
-            filtered = detail_df
-            if selected_cause != "全部":
-                filtered = filtered[filtered["首要根因"] == selected_cause]
-            if selected_code != "全部":
-                filtered = filtered[filtered["有代码变更"] == selected_code]
-            if violation_filter:
-                filtered = filtered[filtered["违规数"] > 0]
-
-            st.caption(f"筛选结果: {len(filtered)} 起")
-            st.dataframe(filtered, use_container_width=True, height=400)
-
-            # 单起详情
+            # 单起详情（联动）
             st.markdown("---")
             st.subheader("🔍 单起缺陷详情")
-            urid_input = st.selectbox(
-                "选择缺陷单号查看详情",
-                options=sorted(recs.keys()),
-                format_func=lambda u: f"{u}: {recs[u].get('title', '')[:50]}",
-            )
-            if urid_input:
-                detail = get_detail_by_urid(recs, urid_input)
-                st.markdown(f"### {detail.get('title', '')}")
-                st.markdown(f"**urId**: {urid_input}")
-
-                # 根因
-                st.markdown("#### 根因分析")
-                for rc in detail.get("root_causes", []):
-                    st.markdown(
-                        f"- **[{rc.get('cause_type','')}]** (置信度 {rc.get('confidence',0):.2f}): "
-                        f"{rc.get('description','')}"
-                    )
-                    if rc.get("evidence"):
-                        st.caption("证据: " + "; ".join(str(e)[:100] for e in rc["evidence"][:3]))
-
-                # 规范违规
-                st.markdown("#### 规范违规")
-                if detail.get("violations"):
-                    for v in detail["violations"]:
-                        st.markdown(
-                            f"- **{v.get('rule_id','')}**: {v.get('rule_name','')} "
-                            f"(严重度: {v.get('severity','')})"
-                        )
-                else:
-                    st.info("无规范违规")
-
-                # 改进建议
-                st.markdown("#### 改进建议")
-                for imp in detail.get("improvements", []):
-                    st.markdown(
-                        f"- **[{'🔴高' if imp.get('priority')=='high' else '🟡中' if imp.get('priority')=='medium' else '🟢低'}] "
-                        f"{imp.get('measure','')}**"
-                    )
-                    if imp.get("acceptance_criteria"):
-                        st.caption(f"验收标准: {imp['acceptance_criteria']}")
-                    if imp.get("rule_ids"):
-                        st.caption(f"关联规范: {', '.join(imp['rule_ids'])}")
+            self._render_single_detail(batch_recs, filtered, selection)
 
         except Exception as e:
             st.error(f"加载复盘结果失败: {e}")
             logger.error(f"复盘结果加载失败: {e}")
+
+    # ------------------------------------------------------------------
+    # 批次过滤
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _batch_name(batches: list[dict], batch_id: str | None) -> str:
+        """获取批次名称。"""
+        if not batch_id:
+            return "全部"
+        for b in batches:
+            if b["batch_id"] == batch_id:
+                return str(b.get("name") or batch_id)
+        return batch_id
+
+    @staticmethod
+    def _filter_records_by_batch(
+        recs: dict[int, dict], batches: list[dict], batch_id: str | None
+    ) -> dict[int, dict]:
+        """按批次过滤记录。batch_id 为 None 时返回全部。"""
+        if not batch_id:
+            return recs
+        batch_urids = set()
+        for b in batches:
+            if b["batch_id"] == batch_id:
+                batch_urids = set(b.get("urids", []))
+                break
+        if not batch_urids:
+            return recs
+        return {u: r for u, r in recs.items() if u in batch_urids}
+
+    # ------------------------------------------------------------------
+    # 帕累托图
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _render_pareto_chart(summary_df: pd.DataFrame) -> object:
+        """渲染帕累托图（根因降序柱状 + 累计占比线），返回选择事件。"""
+        if summary_df.empty:
+            st.info("暂无根因数据")
+            return None
+
+        fig = go.Figure()
+        # 柱状图（降序）
+        fig.add_trace(
+            go.Bar(
+                x=summary_df["根因类型"],
+                y=summary_df["缺陷数"],
+                name="缺陷数",
+                marker_color="#4C78A8",
+            )
+        )
+        # 累计占比线（副 y 轴）
+        fig.add_trace(
+            go.Scatter(
+                x=summary_df["根因类型"],
+                y=summary_df["累计占比(%)"],
+                name="累计占比(%)",
+                yaxis="y2",
+                mode="lines+markers",
+                line={"color": "#E45756", "width": 2},
+            )
+        )
+        fig.update_layout(
+            yaxis={"title": "缺陷数"},
+            yaxis2={"title": "累计占比(%)", "overlaying": "y", "side": "right", "range": [0, 100]},
+            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02},
+            height=400,
+        )
+        return st.plotly_chart(
+            fig,
+            width="stretch",
+            on_select="rerun",
+            selection_mode=("points",),
+            key="pareto_chart",
+        )
+
+    # ------------------------------------------------------------------
+    # 规范违规分布
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _render_violation_table(violation_df: pd.DataFrame) -> object:
+        """渲染规范违规分布（含条款内容），返回选择事件。"""
+        if violation_df.empty:
+            st.info("无规范违规记录")
+            return None
+
+        st.dataframe(
+            violation_df,
+            width="stretch",
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="violation_table",
+        )
+        # 违规表选择事件
+        return st.session_state.get("violation_table", None)
+
+    # ------------------------------------------------------------------
+    # 缺陷明细（联动 + 筛选）
+    # ------------------------------------------------------------------
+    def _render_detail_table(
+        self, detail_df: pd.DataFrame, pareto_event: object
+    ) -> tuple[pd.DataFrame, object]:
+        """渲染缺陷明细表（含筛选 + 联动 + 研发云链接），返回过滤后表和选择事件。"""
+        # 从帕累托图联动获取选中根因
+        selected_cause = self._pareto_selected_cause(pareto_event)
+
+        # 筛选控件
+        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+        with filter_col1:
+            cause_options = ["全部"] + sorted(detail_df["首要根因"].unique().tolist())
+            default_cause = selected_cause if selected_cause in cause_options else "全部"
+            cause_sel = st.selectbox(
+                "按根因筛选",
+                cause_options,
+                index=cause_options.index(default_cause),
+                key="cause_filter",
+            )
+        with filter_col2:
+            rule_options = ["全部"] + sorted(
+                detail_df["规范违规"].str.split("; ").explode().unique().tolist()
+                if not detail_df.empty
+                else []
+            )
+            rule_sel = st.selectbox("按规范条款筛选", rule_options, index=0, key="rule_filter")
+        with filter_col3:
+            code_options = ["全部", "是", "否"]
+            code_sel = st.selectbox("按代码变更筛选", code_options, key="code_filter")
+        with filter_col4:
+            only_violation = st.checkbox("仅看有违规的", key="only_violation")
+            hide_no_cause = st.checkbox("隐藏无根因", key="hide_no_cause")
+
+        # 应用筛选
+        mask = pd.Series(True, index=detail_df.index)
+        if cause_sel != "全部":
+            mask &= detail_df["首要根因"] == cause_sel
+        if rule_sel != "全部":
+            mask &= detail_df["规范违规"].str.contains(rule_sel, na=False)
+        if code_sel != "全部":
+            mask &= detail_df["有代码变更"] == code_sel
+        if only_violation:
+            mask &= detail_df["违规数"] > 0
+        if hide_no_cause:
+            mask &= detail_df["首要根因"] != "无根因"
+        filtered: pd.DataFrame = detail_df.loc[mask]
+
+        st.caption(f"筛选结果: {len(filtered)} 起")
+
+        if filtered.empty:
+            st.info("无匹配记录")
+            return filtered, None
+
+        # 明细表：研发云链接用 LinkColumn，单行选择用于联动详情
+        column_config = {
+            "urId": st.column_config.NumberColumn("urId", width="small"),
+            "研发云链接": st.column_config.LinkColumn(
+                "研发云链接", display_text="查看", width="small"
+            ),
+        }
+        selection = st.dataframe(
+            filtered,
+            width="stretch",
+            height=400,
+            hide_index=True,
+            column_config=column_config,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="detail_table",
+        )
+        return filtered, selection
+
+    @staticmethod
+    def _pareto_selected_cause(pareto_event: Any) -> str | None:
+        """从帕累托图选择事件提取选中的根因类型（curve_number==0 过滤）。"""
+        if not pareto_event or not pareto_event.selection:
+            return None
+        selection = pareto_event.selection
+        points = selection.get("points", []) if hasattr(selection, "get") else []
+        bar_points = [p for p in points if p.get("curve_number", 0) == 0]
+        if bar_points:
+            return str(bar_points[0].get("x"))
+        return None
+
+    # ------------------------------------------------------------------
+    # 单起详情（联动）
+    # ------------------------------------------------------------------
+    def _render_single_detail(
+        self, recs: dict[int, dict], filtered: pd.DataFrame, selection: object
+    ) -> None:
+        """渲染单起缺陷详情，随明细选中联动。"""
+        selected_urid = self._get_selected_urid(filtered, selection)
+
+        if selected_urid is None:
+            st.info("请在上方缺陷明细表中选择一行查看详情")
+            return
+
+        if selected_urid not in recs:
+            st.info("已选缺陷不在当前筛选结果中，请清除筛选查看")
+            return
+
+        detail = get_detail_by_urid(recs, selected_urid)
+        st.markdown(f"### {detail.get('title', '')}")
+        st.markdown(f"**urId**: [{selected_urid}]({build_detail_url(selected_urid)})")
+
+        # 根因
+        st.markdown("#### 根因分析")
+        for rc in detail.get("root_causes", []):
+            st.markdown(
+                f"- **[{rc.get('cause_type', '')}]** (置信度 {rc.get('confidence', 0):.2f}): "
+                f"{rc.get('description', '')}"
+            )
+            if rc.get("evidence"):
+                st.caption("证据: " + "; ".join(str(e)[:100] for e in rc["evidence"][:3]))
+
+        # 规范违规
+        st.markdown("#### 规范违规")
+        if detail.get("violations"):
+            for v in detail["violations"]:
+                st.markdown(
+                    f"- **{v.get('rule_id', '')}**: {v.get('rule_name', '')} "
+                    f"(严重度: {v.get('severity', '')})"
+                )
+        else:
+            st.info("无规范违规")
+
+        # 改进建议
+        st.markdown("#### 改进建议")
+        for imp in detail.get("improvements", []):
+            st.markdown(
+                f"- **[{'🔴高' if imp.get('priority') == 'high' else '🟡中' if imp.get('priority') == 'medium' else '🟢低'}] "
+                f"{imp.get('measure', '')}**"
+            )
+            if imp.get("acceptance_criteria"):
+                st.caption(f"验收标准: {imp['acceptance_criteria']}")
+            if imp.get("rule_ids"):
+                st.caption(f"关联规范: {', '.join(imp['rule_ids'])}")
+
+    @staticmethod
+    def _get_selected_urid(filtered: pd.DataFrame, selection: Any) -> int | None:
+        """从明细表选择事件提取选中的 urId。"""
+        if selection is None or not getattr(selection, "selection", None):
+            return None
+        sel = selection.selection
+        rows = sel.get("rows", []) if hasattr(sel, "get") else []
+        if not rows:
+            return None
+        try:
+            return int(filtered.iloc[rows[0]]["urId"])
+        except (IndexError, KeyError, ValueError):
+            return None
 
 
 def main() -> None:
