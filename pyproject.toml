@@ -172,6 +172,11 @@ module = [
     "plotly.*",
     "pandas",
     "streamlit.*",
+    "shap",
+    "matplotlib",
+    "matplotlib.*",
+    "watchdog.*",
+    "fitz",
 ]
 ignore_missing_imports = true
 
