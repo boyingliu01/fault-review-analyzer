@@ -50,7 +50,7 @@ def primary_cause(rec: dict[str, Any]) -> str:
     rcs = rec.get("root_causes", [])
     if not rcs:
         return "无根因"
-    return rcs[0].get("cause_type", "未知")
+    return str(rcs[0].get("cause_type", "未知"))
 
 
 # ---------------------------------------------------------------------------
@@ -220,15 +220,11 @@ def build_summary_df(recs: dict[int, dict[str, Any]]) -> pd.DataFrame:
         )
     cause_counter = Counter(primary_cause(rec) for rec in recs.values())
     total = len(recs)
-    items = sorted(
-        [
-            {"根因类型": cause, "缺陷数": cnt, "占比(%)": round(cnt / total * 100, 1)}
-            for cause, cnt in cause_counter.items()
-        ],
-        key=lambda x: x["缺陷数"],
-        reverse=True,
-    )
-    df = pd.DataFrame(items)
+    items: list[tuple[str, int, float]] = [
+        (cause, cnt, round(cnt / total * 100, 1)) for cause, cnt in cause_counter.items()
+    ]
+    items.sort(key=lambda x: x[1], reverse=True)
+    df = pd.DataFrame([{"根因类型": c, "缺陷数": n, "占比(%)": p} for c, n, p in items])
     df["累计占比(%)"] = (df["缺陷数"].cumsum() / df["缺陷数"].sum() * 100).round(1)
     return df
 
