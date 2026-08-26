@@ -366,7 +366,7 @@ class EmbeddingGenerator:
         if self.provider == "sentence-transformers":
             model = self._init_local_model()
             emb = model.encode(text, normalize_embeddings=True)
-            return emb.tolist()
+            return [float(x) for x in emb.tolist()]
 
         import hashlib
 
