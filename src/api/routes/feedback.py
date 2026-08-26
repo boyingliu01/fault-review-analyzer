@@ -21,7 +21,9 @@ try:
         FeedbackResponse,
         FeedbackReview,
         FeedbackStatsResponse,
+        RecurrencePatternListResponse,
     )
+    from src.feedback.recurrence_detector import RecurrenceDetector
 except Exception as e:
     logger.error(f"Failed to import modules: {e}")
     raise
@@ -151,3 +153,56 @@ async def get_feedback_statistics(manager: FeedbackManager = Depends(get_feedbac
         correction_ratio=stats.get("correction_ratio", 0.0),
         positive_ratio=stats.get("positive_ratio", 0.0),
     )
+
+
+@router.get("/recurrences", response_model=RecurrencePatternListResponse)
+async def get_recurrences(
+    similarity_threshold: float = Query(0.7, ge=0.0, le=1.0),
+    limit: int = Query(50, ge=1, le=500),
+    manager: FeedbackManager = Depends(get_feedback_manager),
+) -> Any:
+    """获取复发模式
+
+    从已有反馈数据中检测重复出现的故障模式。
+
+    Args:
+        similarity_threshold: 相似度阈值（0~1）
+        limit: 返回的最大模式数
+        manager: 反馈管理器
+
+    Returns:
+        RecurrencePatternListResponse: 复发模式列表
+    """
+    try:
+        feedback_list = manager.list_feedback(reviewed=None, limit=10000)
+
+        # 从反馈中提取故障特征用于复发检测
+        tasks = []
+        task_ids = []
+        for fb in feedback_list:
+            original = fb.original_result or {}
+            tasks.append(
+                {
+                    "task_id": fb.task_id,
+                    "title": original.get("title", ""),
+                    "description": original.get("description", ""),
+                    "problem_category": original.get("problem_category", ""),
+                    "severity": original.get("severity", "medium"),
+                    "create_time": fb.created_at,
+                }
+            )
+            task_ids.append(fb.task_id)
+
+        detector = RecurrenceDetector(similarity_threshold=similarity_threshold)
+        patterns = detector.detect(tasks, task_ids=task_ids)
+
+        return RecurrencePatternListResponse(
+            total=len(patterns),
+            items=patterns[:limit],
+            offset=0,
+            limit=limit,
+        )
+
+    except Exception as e:
+        logger.error(f"Error detecting recurrences: exception_type={type(e).__name__}")
+        raise HTTPException(status_code=500, detail="An internal error occurred") from e

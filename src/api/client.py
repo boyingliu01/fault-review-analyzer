@@ -389,6 +389,24 @@ class APIClient:
         """
         return ""
 
+    async def get_code_diffs(self, task_id: int) -> list[CommitInfo]:
+        """获取任务对应 commit 的代码 diff 内容（规范命名别名）。
+
+        与 get_commits() 等价，但提供优雅降级：API 不可用时返回空列表
+        （而非抛异常），符合规范"API不可用时diff为空"的要求。
+
+        Args:
+            task_id: 任务单号
+
+        Returns:
+            含 diff 内容的 CommitInfo 列表。
+        """
+        try:
+            return await self.get_commits(task_id, with_content=True)
+        except (APIConnectionError, ServerError):
+            logger.warning(f"获取代码变更失败（降级为空）: task_id={task_id}")
+            return []
+
     async def get_production_info(self, task_id: int) -> ProductionInfo:
         response = await self._request("GET", f"/task/{task_id}/production")
         return self._parse_production_info(response)
@@ -408,7 +426,8 @@ class APIClient:
                     commits=commits,
                     code_changes=all_code_changes,
                 )
-        except NotFoundError:
+        except (NotFoundError, APIConnectionError, ServerError):
+            # 代码变更不可用时优雅降级（视为无代码变更）
             pass
 
         try:
