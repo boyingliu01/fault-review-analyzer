@@ -240,9 +240,7 @@ class TestSkipViolationForNoCodeChanges:
             # 代码变更存在，且有 code_change_analysis 中的异常检测
             assert result.code_change_analysis is not None
             detected = result.code_change_analysis.get("detected_patterns", [])
-            has_pattern = any(
-                p.get("matched") for p in detected if isinstance(p, dict)
-            )
+            has_pattern = any(p.get("matched") for p in detected if isinstance(p, dict))
             # 可能检测到异常处理模式（exception_handling）
             if has_pattern:
                 assert len(detected) > 0
@@ -439,9 +437,7 @@ try {
 
             # 违规项应包含 rule_id 字段
             for violation in result.violations:
-                assert "rule_id" in violation, (
-                    f"Violation missing rule_id: {violation}"
-                )
+                assert "rule_id" in violation, f"Violation missing rule_id: {violation}"
 
         finally:
             await pipeline.close()
