@@ -631,15 +631,17 @@ class ReportGenerator:
         template = Template(
             html_template
         )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
-        return template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
-            task_id=task_data.get("task_id", 0),  # hardcoded template, no user-supplied paths
-            title=task_data.get("title", ""),
-            summary=task_data.get("summary", ""),
-            segments=segments or [],
-            labels=labels or [],
-            root_causes=root_causes or [],
-            suggestions=suggestions or [],
-            metadata={"generated_at": self._get_timestamp()},
+        return str(
+            template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+                task_id=task_data.get("task_id", 0),  # hardcoded template, no user-supplied paths
+                title=task_data.get("title", ""),
+                summary=task_data.get("summary", ""),
+                segments=segments or [],
+                labels=labels or [],
+                root_causes=root_causes or [],
+                suggestions=suggestions or [],
+                metadata={"generated_at": self._get_timestamp()},
+            )
         )
 
     def _generate_single_pdf(
@@ -845,8 +847,8 @@ class ReportGenerator:
         template = Template(
             html_template
         )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
-        return template.render(
-            **data.to_dict()
+        return str(
+            template.render(**data.to_dict())
         )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
 
     def _generate_markdown(self, data: ReportData) -> str:
@@ -931,20 +933,22 @@ class ReportGenerator:
         template = Template(
             DEFAULT_TEMPLATE
         )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
-        return template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
-            task_id=task_data.get("task_id", 0),  # hardcoded constant template
-            title=task_data.get("title", ""),
-            summary=task_data.get("summary", ""),
-            segments=segments or [],
-            labels=labels or [],
-            root_causes=root_causes or [],
-            suggestions=suggestions or [],
-            violations=violations or [],
-            code_change_analysis=code_change_analysis,
-            standard_matches=standard_matches or [],
-            metadata={
-                "generated_at": self._get_timestamp(),
-            },
+        return str(
+            template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+                task_id=task_data.get("task_id", 0),  # hardcoded constant template
+                title=task_data.get("title", ""),
+                summary=task_data.get("summary", ""),
+                segments=segments or [],
+                labels=labels or [],
+                root_causes=root_causes or [],
+                suggestions=suggestions or [],
+                violations=violations or [],
+                code_change_analysis=code_change_analysis,
+                standard_matches=standard_matches or [],
+                metadata={
+                    "generated_at": self._get_timestamp(),
+                },
+            )
         )
 
     def _render_cluster_markdown(self, cluster_report: ClusterReport) -> str:
@@ -952,13 +956,15 @@ class ReportGenerator:
         template = Template(
             CLUSTER_TEMPLATE
         )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
-        return template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
-            cluster_id=cluster_report.cluster_id,  # hardcoded constant template
-            task_count=cluster_report.task_count,
-            labels=cluster_report.labels,
-            common_root_causes=cluster_report.common_root_causes,
-            summary=cluster_report.summary,
-            suggestions=cluster_report.suggestions,
+        return str(
+            template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+                cluster_id=cluster_report.cluster_id,  # hardcoded constant template
+                task_count=cluster_report.task_count,
+                labels=cluster_report.labels,
+                common_root_causes=cluster_report.common_root_causes,
+                summary=cluster_report.summary,
+                suggestions=cluster_report.suggestions,
+            )
         )
 
     def _render_batch_markdown(self, batch_report: BatchReport) -> str:
@@ -966,12 +972,14 @@ class ReportGenerator:
         template = Template(
             BATCH_TEMPLATE
         )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
-        return template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
-            total_tasks=batch_report.total_tasks,  # hardcoded constant template
-            cluster_count=batch_report.cluster_count,
-            cluster_reports=batch_report.cluster_reports,
-            recommendations=batch_report.recommendations,
-            generated_at=self._get_timestamp(),
+        return str(
+            template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+                total_tasks=batch_report.total_tasks,  # hardcoded constant template
+                cluster_count=batch_report.cluster_count,
+                cluster_reports=batch_report.cluster_reports,
+                recommendations=batch_report.recommendations,
+                generated_at=self._get_timestamp(),
+            )
         )
 
     def _get_timestamp(self) -> str:
