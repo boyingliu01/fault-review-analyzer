@@ -131,7 +131,47 @@ def _save_batch(records: list[dict], elapsed: float) -> Path:
     out_file = OUT_DIR / f"all_analysis_{ts}.json"
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump({"results": records, "elapsed_sec": elapsed}, f, ensure_ascii=False, indent=2)
+    _append_batch_index(records, out_file, ts)
     return out_file
+
+
+def _append_batch_index(records: list[dict], source_file: Path, ts: str) -> None:
+    """把本次运行追加到 output/batches.json（原子写 + 按 batch_id 去重）。
+
+    批次记录含：batch_id、name、created_at、source、urids、count。
+    """
+    urids = [
+        r["urId"] for r in records if not r.get("error") and r.get("root_causes")
+    ]
+    if not urids:
+        return
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    batch = {
+        "batch_id": f"batch-{ts}",
+        "name": f"分析批次 {created_at}",
+        "created_at": created_at,
+        "source": source_file.name,
+        "urids": urids,
+        "count": len(urids),
+    }
+    # 读现有 batches.json（损坏则忽略，重新建）
+    batches_file = OUT_DIR / "batches.json"
+    batches: list[dict] = []
+    if batches_file.exists():
+        try:
+            batches = json.loads(batches_file.read_text(encoding="utf-8")).get("batches", [])
+        except Exception:
+            batches = []
+    # 按 batch_id 去重（保留最新）
+    dedup: dict[str, dict] = {b["batch_id"]: b for b in batches}
+    dedup[batch["batch_id"]] = batch
+    # 原子写
+    tmp_file = OUT_DIR / "batches.json.tmp"
+    tmp_file.write_text(
+        json.dumps({"batches": list(dedup.values())}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    tmp_file.replace(batches_file)
 
 
 if __name__ == "__main__":
