@@ -151,7 +151,7 @@ ignore = [
 known-first-party = ["src"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -171,6 +171,7 @@ module = [
     "sklearn.*",
     "plotly.*",
     "pandas",
+    "numpy",
     "streamlit.*",
     "shap",
     "matplotlib",
