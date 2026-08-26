@@ -136,6 +136,9 @@ class EmbeddingGenerator:
             "bge-large-zh-v1.5": 1024,
             "text2vec-large-chinese": 1024,
             "qwen3-embedding-8b": 4096,
+            "local-bge-m3": 1024,
+            "local-qwen3-embedding-8b": 4096,
+            "g-qwen3-embedding-8b": 4096,
         }
         self._local_model: SentenceTransformer | None = None
         # 缓存
