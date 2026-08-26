@@ -32,7 +32,7 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     数据存储层                                       │
 ├─────────────────────────────────────────────────────────────────────┤
-│  SQLite 缓存        │  ChromaDB 向量库        │  文件系统 (Output)      │
+│  SQLite 缓存        │  Embedding 缓存       │  文件系统 (Output)      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -139,16 +139,16 @@ API 服务提供了 RESTful 接口，允许其他系统或工具通过 HTTP 与�
 
 ### 7. 数据存储
 
-**路径**: `src/cache/`, `src/storage/`, `src/feedback/`
+**路径**: `src/cache/`, `src/feedback/`
 
 数据存储模块负责管理系统的数据存储和检索。
 
 **核心组件**:
 - `cache/`: 缓存管理
-  - `manager.py`: 缓存管理器
+  - `manager.py`: 缓存管理器（SQLite）
   - `models.py`: 缓存数据模型
-- `storage/`: 向量存储
-  - `chroma_manager.py`: ChromaDB 管理器
+- `embedding/`: Embedding 生成与内存缓存
+  - `generator.py`: Embedding 生成器（含 LRU 缓存、自适应限流）
 - `feedback/`: 反馈管理
   - `manager.py`: 反馈管理器
   - `models.py`: 反馈数据模型
@@ -225,7 +225,7 @@ API 服务提供了 RESTful 接口，允许其他系统或工具通过 HTTP 与�
 
 ### 数据存储
 
-- **向量存储**: ChromaDB
+- **向量存储**: 内存管理（EmbeddingGenerator LRU 缓存）+ 文件持久化
 - **缓存**: SQLite
 - **文件存储**: 本地文件系统
 
@@ -289,7 +289,7 @@ Docker 容器 → Kubernetes 集群 → 负载均衡 → 应用服务 → 数据
 
 ### 数据存储方案
 
-- **向量存储**: ChromaDB 或 Pinecone
+- **向量存储**: 内存管理 + 文件持久化（可扩展至外部向量库）
 - **缓存**: Redis 或 Memcached
 - **文件存储**: 云存储（如 S3、OSS）
 

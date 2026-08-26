@@ -167,7 +167,7 @@ cp .env.example .env
 ### 步骤 5: 创建必要的目录
 
 ```bash
-mkdir -p data/chroma
+mkdir -p data/cache
 mkdir -p data/rules/custom
 mkdir -p data/standards
 mkdir -p output
@@ -230,7 +230,7 @@ COPY . .
 RUN pip install --no-cache-dir -e ".[dev]"
 
 # 创建必要的目录
-RUN mkdir -p data/chroma \
+RUN mkdir -p data/cache \
     data/rules/custom \
     data/standards \
     output \
@@ -781,7 +781,7 @@ sudo journalctl -u fault-review -f
 
 ```
 data/
-├── chroma/          # ChromaDB 向量数据库
+├── cache/           # SQLite 缓存
 ├── cache.db         # SQLite 缓存数据库
 ├── rules/           # 规则文件
 │   ├── builtin/     # 内置规则

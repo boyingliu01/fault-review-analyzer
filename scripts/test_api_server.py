@@ -1,7 +1,6 @@
 """简单测试 API 服务器"""
 
 import sys
-import asyncio
 from pathlib import Path
 
 # 添加上级目录到路径

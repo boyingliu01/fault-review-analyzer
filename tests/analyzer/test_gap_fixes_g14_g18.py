@@ -280,7 +280,6 @@ class TestNoiseTasks:
             patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
             patch.object(pipeline, "_get_embedding_generator", return_value=mock_emb_gen),
             patch.object(pipeline, "_get_cluster_analyzer", return_value=mock_cluster),
-            patch.object(pipeline, "_get_chroma_manager", return_value=None),
         ):
             mock_fetch.side_effect = lambda tid: next(
                 (t for t in mock_tasks if t.task_id == tid), None
@@ -310,7 +309,6 @@ class TestNoiseTasks:
             patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
             patch.object(pipeline, "_get_embedding_generator", return_value=mock_emb_gen),
             patch.object(pipeline, "_get_cluster_analyzer", return_value=mock_cluster),
-            patch.object(pipeline, "_get_chroma_manager", return_value=None),
         ):
             mock_fetch.side_effect = lambda tid: next(
                 (t for t in mock_tasks if t.task_id == tid), None

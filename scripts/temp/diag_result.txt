@@ -1,0 +1,7 @@
+2026-07-25 16:56:15.089 | INFO     | src.knowledge.manager:_load_category_file:70 - 加载规范类别: java_coding, 规则数: 143
+2026-07-25 16:56:15.104 | INFO     | src.knowledge.manager:_load_category_file:70 - 加载规范类别: security, 规则数: 40
+2026-07-25 16:56:24.046 | WARNING  | src.utils.circuit_breaker:record_failure:136 - Circuit breaker 'embedding_whalecloud' recorded failure (1/5): Connection error.
+embedding provider: whalecloud, model: qwen3-embedding-8b
+embedding api_key 前10位: ailab_YL+F
+规范总数: 183
+embedding测试: 失败 - APIConnectionError: Connection error.

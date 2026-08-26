@@ -4,7 +4,6 @@
   - API timeout → 500 或 504
   - Authentication failed → 401 (no token) / 403 (invalid token)
   - LLM unavailable → 500 (analysis fails)
-  - ChromaDB error → 500
 
 使用 FastAPI TestClient 测试完整请求链路，不 mock 内部组件。
 """
