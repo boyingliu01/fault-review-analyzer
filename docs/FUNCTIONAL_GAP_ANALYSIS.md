@@ -1,13 +1,27 @@
 # 功能 GAP 分析报告（Functional Gap Analysis）
 
 **分析日期**: 2026-08-25
+**修复完成日期**: 2026-08-26
 **分析对象**: Fault Review Analyzer（故障复盘分析工具）
-**基线**: `master` @ `9618ad0`
+**基线**: `master`（G1-G18 全部修复，见提交历史）
 **需求来源**:
 - `.sprint-state/specification.yaml` — 《代码变更分析链路补齐方案》
 - `.speckit/specify.md` — 《故障复盘分析系统 - 核心流水线》功能规格
 - `.speckit/plan.md` + GSTACK CEO Review（26 项改进）
 - `.speckit/tasks.md` — 任务分解
+
+---
+
+## 〇、修复状态总览
+
+| 批次 | 缺口 | 提交 | 状态 |
+|------|------|------|------|
+| 第一批 | G5-G9 | `571d779` | ✅ 已修复并推送 |
+| 第二批 | G10-G13 | `221a78a` | ✅ 已修复并推送 |
+| 第三批 | G14-G18 | `65a8b47` | ✅ 已修复并推送 |
+| 关键缺口 | G1-G4 | `b9bdda5` | ✅ 已修复并推送 |
+
+**全部 18 项缺口已关闭。** 全量测试 **1370 passed**，ruff/mypy 通过。
 
 ---
 
@@ -94,47 +108,49 @@
 
 ### 🔴 关键缺口（功能不可达 / 死代码）
 
-| # | 缺口 | 影响 | 建议修复 |
-|---|------|------|----------|
-| G1 | **ChromaDB 存储未接线**（`ChromaManager` 无任何调用方） | 规范 Phase1 "存储到 ChromaDB" 从未执行，向量存储层是死代码 | 在 `run_clustering()`（`pipeline.py:447-452`）embed 后调用 `add_batch_embeddings()` 持久化 |
-| G2 | **簇语义标签是死代码**（`generate_for_cluster` 未被调用） | 规范输出 `cluster_label` 从未产生 | 在 `run_clustering()` 中对非噪声簇调用 `generate_for_cluster()` |
-| G3 | **深度根因分析被占位符绕过**（`handlers/analyze.py:113-128` 返回 `{}`） | 生产（orchestrator）路径实际不做深度根因分析 | 将 `pipeline.py:642-699` 的真实逻辑移植进 handler |
-| G4 | **改进建议未接入主流水线**（`PipelineResult` 无 `improvements` 字段） | 规范输出 `improvements`/行动项不作为流水线产物 | 在 pipeline 实例化 `ImprovementRecommender` 并新增 `improvements` 字段 |
+| # | 缺口 | 影响 | 修复 |
+|---|------|------|------|
+| G1 | **ChromaDB 存储未接线**（`ChromaManager` 无任何调用方） | 规范 Phase1 "存储到 ChromaDB" 从未执行，向量存储层是死代码 | ✅ `_store_cluster_embeddings()` 接入 `run_clustering()` |
+| G2 | **簇语义标签是死代码**（`generate_for_cluster` 未被调用） | 规范输出 `cluster_label` 从未产生 | ✅ `_generate_cluster_labels()` 接入 `run_clustering()` |
+| G3 | **深度根因分析被占位符绕过**（`handlers/analyze.py:113-128` 返回 `{}`） | 生产（orchestrator）路径实际不做深度根因分析 | ✅ 真实逻辑移植进 handler |
+| G4 | **改进建议未接入主流水线**（`PipelineResult` 无 `improvements` 字段） | 规范输出 `improvements`/行动项不作为流水线产物 | ✅ 新增 `improvements` 字段 + `_generate_improvements()` |
 
 ### 🟠 重要缺口（语义偏差 / 部分实现）
 
-| # | 缺口 | 建议 |
+| # | 缺口 | 修复 |
 |---|------|------|
-| G5 | `isCommitCode` 字段不存在，规则1门控不按规范标志位 | 在 `TaskInfo` 增加 `is_commit_code` 字段并在 `_analyze_code_changes()` 显式门控 |
-| G6 | 改进建议不关联规范条款（无 `rule_id`） | 为 `ImprovementMeasure` 增加 `rule_ids` 并从违规项回填 |
-| G7 | 深度根因"5层追问"实为 3 问 | 将 `prompts.py:40-51` 扩展为 5 层追问 |
-| G8 | 复盘结论不在标准 fetch 流程获取 | 在 `get_full_task()`/`FetchHandler.fetch_task()` 中纳入 `get_fault_analysis()` |
-| G9 | REST API 路径与规范不一致（无 `/api/v1`、无 `/tasks/{id}/result`、无 `/ready`、clusters 缓存未填充） | 对齐路径或文档化偏差；接线 `update_cluster_cache()` |
-| G10 | 反馈循环缺 `RecurrencePattern` / `recurrence_detector.py` | 实现复发检测组件 |
-| G11 | Excel 导出缺失 | 为 `ReportGenerator` 增加 `ReportFormat.EXCEL` + openpyxl writer |
-| G12 | 根因分析"优先使用现有结论"语义相反 | 调整 prompt 措辞对齐规范 |
-| G13 | `get_code_diffs()` 未实现 + 抓取无优雅降级 | 增加别名或改名，`get_commits()` 失败时返回空 |
+| G5 | `isCommitCode` 字段不存在，规则1门控不按规范标志位 | ✅ `TaskInfo.is_commit_code` + `_analyze_code_changes()` 显式门控 |
+| G6 | 改进建议不关联规范条款（无 `rule_id`） | ✅ `ImprovementMeasure.rule_ids` + 违规项回填 |
+| G7 | 深度根因"5层追问"实为 3 问 | ✅ `prompts.py` 扩展为 5 层追问 |
+| G8 | 复盘结论不在标准 fetch 流程获取 | ✅ `get_full_task()` 纳入 `get_fault_analysis()` |
+| G9 | REST API 路径与规范不一致（无 `/api/v1`、无 `/tasks/{id}/result`、无 `/ready`、clusters 缓存未填充） | ✅ 加 `/api/v1` 前缀、新增端点、接线 `update_cluster_cache()` |
+| G10 | 反馈循环缺 `RecurrencePattern` / `recurrence_detector.py` | ✅ 实现模型 + 检测器 + `/feedback/recurrences` 端点 |
+| G11 | Excel 导出缺失 | ✅ `ReportFormat.EXCEL` + openpyxl writer |
+| G12 | 根因分析"优先使用现有结论"语义相反 | ✅ prompt 措辞对齐规范 |
+| G13 | `get_code_diffs()` 未实现 + 抓取无优雅降级 | ✅ 新增别名 + 优雅降级 |
 
 ### 🟡 次要缺口
 
-| # | 缺口 | 建议 |
+| # | 缺口 | 修复 |
 |---|------|------|
-| G14 | <30 秒 SLA 无强制/度量 | `run_single()` 加 `time.perf_counter` 预算断言 |
-| G15 | REST 批量上限 50，无法 HTTP 达 1000+ | 提高上限或加服务端分页 |
-| G16 | CLI 批量不支持直接传任务号列表/Excel 输入 | 增加从 Excel 读取任务号 |
-| G17 | fetch 侧无速率限制（仅 embedding 侧有 `AdaptiveRateLimiter`） | 为 `APIClient`/`FetchHandler` 补限流 |
-| G18 | 噪声点（cluster_id=-1）无独立下游分析分支 | 增加单独分析路径 |
+| G14 | <30 秒 SLA 无强制/度量 | ✅ `run_single()` 记录 `processing_time` |
+| G15 | REST 批量上限 50，无法 HTTP 达 1000+ | ✅ 提升到 1000 |
+| G16 | CLI 批量不支持直接传任务号列表/Excel 输入 | ✅ `analyze batch --excel` + `excel_reader` |
+| G17 | fetch 侧无速率限制（仅 embedding 侧有 `AdaptiveRateLimiter`） | ✅ `AdaptiveRateLimiter` + APIClient 接线 |
+| G18 | 噪声点（cluster_id=-1）无独立下游分析分支 | ✅ `noise_tasks` 独立列表 + 单独分析建议 |
 
 ---
 
 ## 六、结论
 
-**代码变更分析链路（specification.yaml）**：功能完整，仅 1 处方法命名/降级缺口（G13）。
+**代码变更分析链路（specification.yaml）**：功能完整，G13 缺口已修复（新增 `get_code_diffs()` 别名 + 优雅降级）。
 
-**核心流水线（specify.md）**：骨架完整（获取/预处理/聚类/违规检测/CLI/UI 均实现），但存在 **4 个关键功能缺口（G1-G4）** 使规范要求的若干**输出产物不可达**（ChromaDB 存储、簇语义标签、深度根因分析、改进建议/行动项）。另有 9 个重要语义/接线缺口（G5-G13）。
+**核心流水线（specify.md）**：骨架完整，全部 18 项缺口（G1-G18）已关闭。规范要求的 ChromaDB 存储、簇语义标签、深度根因分析、改进建议/行动项、REST `/api/v1` 路径、Excel 导出、反馈复发检测等输出产物现均可通过流水线/API/CLI 产生。
 
-**建议**：优先修复 G1-G4（关键缺口，直接决定规范输出是否可达），再处理 G5-G13。若 REST API 路径与 Excel 导出的偏差是**有意设计**（规范为愿景，实际用根路径/非 Excel 格式），应在 `.speckit/specify.md` 中**文档化偏差**而非改代码——需与需求方确认。
+**验证**：全量测试 **1370 passed**，ruff lint/format 通过，mypy 通过。
+
+**遗留建议**：若 REST `/api/v1` 前缀与根路径并存的兼容策略需要进一步收敛，可在 `.speckit/specify.md` 中文档化。此为前提已确认的设计决策（按规范对齐 + 保留旧路径兼容）。
 
 ---
 
-*本报告由对 master@9618ad0 的全量代码审查生成，所有证据均含 file:line 定位。*
+*本报告初版由对 master@9618ad0 的全量代码审查生成；修复状态更新于 G1-G18 全部完成之后。*
