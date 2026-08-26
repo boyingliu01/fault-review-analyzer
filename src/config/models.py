@@ -6,6 +6,9 @@ class APIConfig(BaseModel):
     timeout: int = Field(default=30, ge=1, description="请求超时时间(秒)")
     retry: int = Field(default=3, ge=0, le=10, description="重试次数")
     api_key: str = Field(default="", description="API认证token")
+    rate_limit_qps: float = Field(
+        default=0.0, ge=0.0, description="API请求速率限制(QPS)，0表示不限制"
+    )
     api_path_prefix: str = Field(
         default="/portal/ai-gateway/devspace/rpc/v3/work-item", description="API路径前缀"
     )

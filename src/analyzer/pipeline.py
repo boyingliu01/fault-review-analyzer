@@ -81,6 +81,7 @@ class PipelineResult:
     cluster_id: int | None = None
     report: str = ""
     error: str = ""
+    processing_time: float = 0.0  # 处理耗时（秒，不含 LLM 调用延迟）
 
 
 class AnalysisPipeline:
@@ -165,8 +166,15 @@ class AnalysisPipeline:
         return provider
 
     async def run_single(self, task_id: int) -> PipelineResult:
-        """Run analysis pipeline for a single task."""
+        """Run analysis pipeline for a single task.
+
+        记录处理耗时（不含 LLM 调用延迟），满足非功能需求
+        "单个故障单处理时间 < 30 秒"的可度量性要求。
+        """
+        import time
+
         result = PipelineResult(task_id=task_id)
+        start_time = time.perf_counter()
 
         try:
             task_data = await self._fetch_task_data(task_id)
@@ -190,6 +198,9 @@ class AnalysisPipeline:
                 exception_type=type(error).__name__,
             ).error("Analysis pipeline failed")
             result.error = "Analysis failed due to an internal error"
+
+        finally:
+            result.processing_time = time.perf_counter() - start_time
 
         return result
 
@@ -542,6 +553,19 @@ class AnalysisPipeline:
                 tasks_data, processed_tasks, labels_list
             )
 
+        # G18: 识别噪声点（cluster_id=-1），供独立下游分析
+        noise_tasks = [
+            {
+                "task_id": tasks_data[i].task_id,
+                "title": processed_tasks[i].metadata.get("title", "")
+                if i < len(processed_tasks)
+                else tasks_data[i].title or "",
+                "reason": "噪声点：不归属于任何聚类簇，建议单独进行根因分析",
+            }
+            for i, label in enumerate(labels_list)
+            if label == -1 and i < len(tasks_data)
+        ]
+
         return {
             "tasks": [
                 {
@@ -557,6 +581,7 @@ class AnalysisPipeline:
             ],
             "cluster_count": len(set(labels_list)) - (1 if -1 in labels_list else 0),
             "noise_count": sum(1 for label in labels_list if label == -1),
+            "noise_tasks": noise_tasks,
             "cluster_labels": cluster_labels,
             "total_requested": len(task_ids),
             "total_found": len(tasks_data),
@@ -709,6 +734,7 @@ class AnalysisPipeline:
                 api_key=api_config.api_key,
                 timeout=api_config.timeout,
                 retry=api_config.retry,
+                rate_limit_qps=getattr(api_config, "rate_limit_qps", 0.0),
             )
             self._api_client.ensure_client()
         return self._api_client
