@@ -42,6 +42,7 @@ dependencies = [
     "uvicorn>=0.27.0",
     "python-multipart>=0.0.6",
     "chromadb>=0.4.0",
+    "openpyxl>=3.1.0",
     # opentelemetry 子包版本必须对齐，否则 chromadb 导入失败
     "opentelemetry-exporter-otlp-proto-grpc>=1.37.0",
     "opentelemetry-exporter-otlp-proto-common>=1.37.0",

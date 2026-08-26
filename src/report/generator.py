@@ -27,6 +27,7 @@ class ReportFormat(Enum):
     HTML = "html"
     PDF = "pdf"
     JSON = "json"
+    EXCEL = "excel"
 
 
 @dataclass
@@ -487,6 +488,16 @@ class ReportGenerator:
         if not is_valid:
             raise ValueError(f"Invalid report data: {', '.join(errors)}")
 
+        # Excel 导出为二进制文件（GAP G11）
+        if format == ReportFormat.EXCEL:
+            if not (filename and self.output_dir):
+                raise ValueError("Excel export requires both filename and output_dir")
+            ext = self._get_format_extension(format)
+            full_filename = filename if filename.endswith(f".{ext}") else f"{filename}.{ext}"
+            output_path = self.output_dir / full_filename
+            self._export_excel(data, output_path)
+            return output_path
+
         # Get content (always string from _generate_content now)
         content = self._generate_content(data, format)
 
@@ -617,7 +628,9 @@ class ReportGenerator:
 </body>
 </html>
         """
-        template = Template(html_template)  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+        template = Template(
+            html_template
+        )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
         return template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
             task_id=task_data.get("task_id", 0),  # hardcoded template, no user-supplied paths
             title=task_data.get("title", ""),
@@ -648,8 +661,91 @@ class ReportGenerator:
             ReportFormat.HTML: "html",
             ReportFormat.PDF: "pdf",
             ReportFormat.JSON: "json",
+            ReportFormat.EXCEL: "xlsx",
         }
         return extensions.get(format, "txt")
+
+    def _export_excel(self, data: ReportData, output_path: Path) -> None:
+        """导出 Excel 报告（GAP G11）。
+
+        将 ReportData 的摘要、图表、表格数据写入多个 sheet 的 Excel 工作簿。
+
+        Args:
+            data: 报告数据
+            output_path: 输出文件路径
+
+        Raises:
+            ValueError: openpyxl 不可用或写入失败
+        """
+        try:
+            from openpyxl import Workbook  # type: ignore[import-untyped]
+            from openpyxl.styles import Font  # type: ignore[import-untyped]
+        except ImportError as e:  # pragma: no cover - 依赖缺失场景
+            raise ValueError(
+                "openpyxl is required for Excel export. Install with: pip install openpyxl"
+            ) from e
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        wb = Workbook()
+
+        # Sheet 1: 摘要
+        ws_summary = wb.active
+        assert ws_summary is not None
+        ws_summary.title = "摘要"
+        ws_summary.append(["标题", data.title])
+        ws_summary.append(["类型", data.type.value])
+        ws_summary.append(["生成时间", data.generated_at.strftime("%Y-%m-%d %H:%M:%S")])
+        ws_summary.append([])
+        ws_summary.append(["字段", "值"])
+        for key, value in data.summary.items():
+            ws_summary.append([str(key), self._excel_cell_value(value)])
+
+        # Sheet 2: 图表数据
+        ws_charts = wb.create_sheet("图表数据")
+        if data.charts:
+            for chart in data.charts:
+                ws_charts.append([chart.title])
+                ws_charts.append(["类型", chart.type])
+                ws_charts.append(["标签"] + [str(label) for label in chart.labels])
+                for dataset in chart.datasets:
+                    ws_charts.append(
+                        [dataset.get("label", "")]
+                        + [self._excel_cell_value(v) for v in dataset.get("data", [])]
+                    )
+                ws_charts.append([])
+        else:
+            ws_charts.append(["暂无图表数据"])
+
+        # Sheet 3: 表格数据
+        ws_tables = wb.create_sheet("表格数据")
+        if data.tables:
+            for table in data.tables:
+                ws_tables.append([table.title])
+                ws_tables.append(list(table.headers))
+                for row in table.rows:
+                    ws_tables.append([self._excel_cell_value(cell) for cell in row])
+                ws_tables.append([])
+        else:
+            ws_tables.append(["暂无表格数据"])
+
+        # 表头加粗
+        for ws in (ws_summary, ws_charts, ws_tables):
+            header_row = ws[1]
+            if header_row is not None:
+                for cell in header_row:
+                    cell.font = Font(bold=True)
+
+        wb.save(output_path)
+        logger.info(f"Excel 报告已导出: {output_path}")
+
+    @staticmethod
+    def _excel_cell_value(value: Any) -> Any:
+        """将嵌套结构转换为 Excel 可写的字符串值。"""
+        if isinstance(value, (list, dict)):
+            import json
+
+            return json.dumps(value, ensure_ascii=False, default=str)
+        return value
 
     def _generate_pdf(self, data: ReportData) -> str:
         """Generate PDF report content (HTML wrapper).
@@ -746,8 +842,12 @@ class ReportGenerator:
 </body>
 </html>
         """
-        template = Template(html_template)  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
-        return template.render(**data.to_dict())  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+        template = Template(
+            html_template
+        )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+        return template.render(
+            **data.to_dict()
+        )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
 
     def _generate_markdown(self, data: ReportData) -> str:
         """Generate Markdown report from ReportData."""
@@ -828,7 +928,9 @@ class ReportGenerator:
         standard_matches: list[dict] | None = None,
     ) -> str:
         """Render single task report with default template."""
-        template = Template(DEFAULT_TEMPLATE)  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+        template = Template(
+            DEFAULT_TEMPLATE
+        )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
         return template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
             task_id=task_data.get("task_id", 0),  # hardcoded constant template
             title=task_data.get("title", ""),
@@ -847,7 +949,9 @@ class ReportGenerator:
 
     def _render_cluster_markdown(self, cluster_report: ClusterReport) -> str:
         """Render cluster report with default template."""
-        template = Template(CLUSTER_TEMPLATE)  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+        template = Template(
+            CLUSTER_TEMPLATE
+        )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
         return template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
             cluster_id=cluster_report.cluster_id,  # hardcoded constant template
             task_count=cluster_report.task_count,
@@ -859,7 +963,9 @@ class ReportGenerator:
 
     def _render_batch_markdown(self, batch_report: BatchReport) -> str:
         """Render batch report with default template."""
-        template = Template(BATCH_TEMPLATE)  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+        template = Template(
+            BATCH_TEMPLATE
+        )  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
         return template.render(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
             total_tasks=batch_report.total_tasks,  # hardcoded constant template
             cluster_count=batch_report.cluster_count,

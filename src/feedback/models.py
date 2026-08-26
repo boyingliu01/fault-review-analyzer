@@ -72,3 +72,27 @@ class FeedbackStatsResponse(BaseModel):
     reviewed_count: int
     correction_ratio: float
     positive_ratio: float
+
+
+class RecurrencePattern(BaseModel):
+    """复发模式 - 检测到的重复故障模式"""
+
+    pattern_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str  # 模式名称
+    description: str = ""  # 模式描述
+    keywords: list[str] = Field(default_factory=list)  # 模式关键词
+    task_ids: list[str] = Field(default_factory=list)  # 关联的故障单ID
+    occurrence_count: int = Field(default=0, ge=0)  # 出现次数
+    first_seen: datetime = Field(default_factory=datetime.now)  # 首次发现
+    last_seen: datetime = Field(default_factory=datetime.now)  # 最近发现
+    similarity_threshold: float = Field(default=0.7, ge=0.0, le=1.0)  # 相似度阈值
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)  # 置信度
+    severity: str = Field(default="medium")  # 严重程度: high/medium/low
+    metadata: dict[str, Any] = Field(default_factory=dict)  # 额外元数据
+
+
+class RecurrencePatternListResponse(BaseModel):
+    total: int
+    items: list[RecurrencePattern]
+    offset: int
+    limit: int
