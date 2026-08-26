@@ -201,3 +201,101 @@ async def analyze_batch(
                 "detail": {},
             },
         ) from error
+
+
+@router.get(
+    "/tasks/{task_id}/result",
+    response_model=SingleAnalyzeResponse,
+    responses={
+        400: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        500: {"model": ErrorResponse},
+    },
+    tags=["Analysis"],
+)
+async def get_task_result(
+    task_id: str,
+    config_manager: ConfigManager = Depends(get_config_manager),
+) -> Any:
+    """
+    获取任务分析结果
+
+    Args:
+        task_id: 任务ID
+        config_manager: 配置管理器
+
+    Returns:
+        SingleAnalyzeResponse: 分析结果
+    """
+    try:
+        if not task_id.isdigit():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "InvalidTaskId",
+                    "message": "Invalid task ID format",
+                    "detail": {},
+                },
+            )
+
+        logger.info(f"Fetching analysis result for task: {task_id}")
+
+        pipeline_config = PipelineConfig(
+            use_cache=True,
+            use_llm=False,  # 获取结果不触发新的 LLM 分析
+            generate_labels=False,
+            analyze_root_cause=False,
+            analyze_root_cause_deep=False,
+            check_rules=False,
+            match_standards=False,
+            generate_report=False,
+        )
+
+        async with AnalysisPipeline(config_manager, pipeline_config) as pipeline:
+            result = await pipeline.run_single(int(task_id))
+
+        if result.error:
+            if "not found" in result.error.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={
+                        "error": "TaskNotFound",
+                        "message": f"Task {task_id} not found",
+                        "detail": {},
+                    },
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "error": "AnalysisFailed",
+                    "message": "Analysis failed due to an internal error",
+                    "detail": {},
+                },
+            )
+
+        return convert_pipeline_result_to_response(task_id, result)
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Invalid task ID {task_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "InvalidTaskId",
+                "message": "Invalid task ID format",
+                "detail": {},
+            },
+        ) from e
+    except Exception as error:
+        logger.bind(task_id=task_id, exception_type=type(error).__name__).error(
+            "Task result fetch failed"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "ResultFetchFailed",
+                "message": "Failed to fetch analysis result due to an internal error",
+                "detail": {},
+            },
+        ) from error

@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
 
+from src.analyzer.pipeline import AnalysisPipeline, PipelineConfig
 from src.api.dependencies import get_config_manager
 from src.api.server_models import (
     ClusterDetailResponse,
@@ -19,6 +20,88 @@ router = APIRouter()
 
 # 内存存储 - 实际应用中应使用数据库
 _cluster_cache: dict[int, dict[str, Any]] = {}
+
+
+@router.post(
+    "/clusters/analyze",
+    responses={
+        400: {"model": ErrorResponse},
+        500: {"model": ErrorResponse},
+    },
+    tags=["Clusters"],
+)
+async def analyze_clusters(
+    task_ids: list[int],
+    config_manager: ConfigManager = Depends(get_config_manager),
+) -> Any:
+    """
+    执行聚类分析并更新聚类缓存
+
+    运行 HDBSCAN 聚类，并将结果写入内存缓存供 /clusters 查询。
+
+    Args:
+        task_ids: 待聚类的任务ID列表
+        config_manager: 配置管理器
+
+    Returns:
+        dict: 聚类结果摘要
+    """
+    if not task_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "EmptyTaskIds",
+                "message": "task_ids must not be empty",
+                "detail": {},
+            },
+        )
+
+    try:
+        logger.info(f"Running clustering analysis for {len(task_ids)} tasks")
+
+        pipeline_config = PipelineConfig(
+            use_cache=True,
+            use_llm=False,
+            generate_labels=False,
+            analyze_root_cause=False,
+            check_rules=False,
+            generate_report=False,
+        )
+
+        async with AnalysisPipeline(config_manager, pipeline_config) as pipeline:
+            cluster_result = await pipeline.run_clustering(task_ids)
+
+        if "error" in cluster_result:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "ClusteringFailed",
+                    "message": cluster_result["error"],
+                    "detail": {},
+                },
+            )
+
+        update_cluster_cache(cluster_result)
+
+        return {
+            "cluster_count": cluster_result.get("cluster_count", 0),
+            "noise_count": cluster_result.get("noise_count", 0),
+            "total_tasks": cluster_result.get("total_found", 0),
+            "clustering_mode": cluster_result.get("clustering_mode", "text_only"),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.bind(exception_type=type(error).__name__).error("Clustering analysis failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "ClusteringFailed",
+                "message": "Clustering failed due to an internal error",
+                "detail": {},
+            },
+        ) from error
 
 
 @router.get(

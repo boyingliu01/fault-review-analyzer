@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from loguru import logger
@@ -22,6 +22,7 @@ class ImprovementMeasure:
     category: str = ""  # 改进措施类别
     responsible_role: str = ""  # 负责角色
     deadline: str = ""  # 建议完成时间
+    rule_ids: list[str] = field(default_factory=list)  # 关联的规范条款编号（如 J000001）
 
 
 @dataclass
@@ -159,6 +160,7 @@ class ImprovementRecommender:
         root_causes: list[str],
         violation_causes: list[str] | None = None,
         top_n: int = 10,
+        rule_ids_by_cause: dict[str, list[str]] | None = None,
     ) -> list[ImprovementMeasure]:
         """推荐改进措施
 
@@ -166,6 +168,7 @@ class ImprovementRecommender:
             root_causes: 根因列表
             violation_causes: 违规类根因列表
             top_n: 返回前N个改进措施
+            rule_ids_by_cause: 根因到规范条款编号的映射（如 {"并发问题": ["J000066"]}）
 
         Returns:
             改进措施列表
@@ -178,7 +181,10 @@ class ImprovementRecommender:
         measures = []
 
         for freq in frequencies[:top_n]:
-            measure = self._generate_measure_for_root_cause(freq, freq.is_violation)
+            rule_ids = (rule_ids_by_cause or {}).get(freq.root_cause, [])
+            measure = self._generate_measure_for_root_cause(
+                freq, freq.is_violation, rule_ids=rule_ids
+            )
             if measure:
                 measures.append(measure)
 
@@ -188,6 +194,7 @@ class ImprovementRecommender:
         self,
         freq: RootCauseFrequency,
         is_violation: bool = False,
+        rule_ids: list[str] | None = None,
     ) -> ImprovementMeasure | None:
         """为单个根因生成改进措施"""
         root_cause = freq.root_cause
@@ -214,6 +221,7 @@ class ImprovementRecommender:
             expected_impact=f"预计减少{template['expected_impact'].replace('减少', '')}（当前占比{percentage}%）",
             priority=priority,
             category=category,
+            rule_ids=list(rule_ids or []),
         )
 
     def _categorize_root_cause(self, root_cause: str) -> str:

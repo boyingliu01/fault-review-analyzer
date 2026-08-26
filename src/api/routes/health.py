@@ -20,3 +20,18 @@ def health_check() -> HealthResponse:
     return HealthResponse(
         status="healthy",
     )
+
+
+@router.get("/ready", response_model=HealthResponse, tags=["Health"])
+def readiness_check() -> HealthResponse:
+    """
+    就绪检查接口
+
+    返回服务是否已就绪，用于容器编排和负载均衡的 readiness probe。
+
+    Returns:
+        HealthResponse: 就绪检查响应
+    """
+    return HealthResponse(
+        status="ready",
+    )

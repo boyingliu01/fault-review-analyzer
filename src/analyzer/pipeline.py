@@ -229,14 +229,27 @@ class AnalysisPipeline:
                 result.deep_root_causes = await self._analyze_root_cause_deep(task_dict)
 
     async def _analyze_code_changes(self, task_data: TaskInfo, result: PipelineResult) -> None:
-        """分析代码变更（diff分析、模式检测、规范检查、LLM语义分析）"""
-        if not task_data.development or not task_data.development.commits:
+        """分析代码变更（diff分析、模式检测、规范检查、LLM语义分析）。
+
+        业务规则 1：只有标记为有代码变更（is_commit_code=Y）或存在 commits 的
+        故障单才进行违规检测。is_commit_code 字段未填充时（默认 'N'），
+        降级为检查 development.commits 是否存在，保证向后兼容。
+        """
+        has_commits = False
+        if task_data.development is not None:
+            has_commits = bool(task_data.development.commits)
+        has_code_changes = task_data.is_commit_code == "Y" or has_commits
+        if not has_code_changes:
+            return
+
+        development = task_data.development
+        if development is None:
             return
 
         # 构建commit字典列表供CodeChangeAnalyzer使用
         commits_data = []
         all_diff_content = ""
-        for commit in task_data.development.commits:
+        for commit in development.commits:
             commit_dict = {
                 "commit_id": commit.commit_id,
                 "author": commit.author,
@@ -364,16 +377,22 @@ class AnalysisPipeline:
 
         # 收集违规根因（带 rule_id 的违规项）
         violation_causes: list[str] = []
+        rule_ids_by_cause: dict[str, list[str]] = {}
         for v in result.violations or []:
             name = v.get("rule_name") or v.get("rule_id")
             if name:
-                violation_causes.append(str(name))
+                name_str = str(name)
+                violation_causes.append(name_str)
+                rule_id = v.get("rule_id")
+                if rule_id:
+                    rule_ids_by_cause.setdefault(name_str, []).append(str(rule_id))
 
         recommender = self._get_improvement_recommender()
         measures = recommender.recommend_measures(
             root_causes=root_causes,
             violation_causes=violation_causes or None,
             top_n=5,
+            rule_ids_by_cause=rule_ids_by_cause or None,
         )
 
         result.improvements = [
@@ -384,6 +403,7 @@ class AnalysisPipeline:
                 "expected_impact": m.expected_impact,
                 "priority": m.priority,
                 "category": m.category,
+                "rule_ids": m.rule_ids,
             }
             for m in measures
         ]

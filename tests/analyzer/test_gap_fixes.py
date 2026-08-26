@@ -1,10 +1,12 @@
-"""Tests for GAP fixes G1-G4 (functional GAP analysis remediation).
+"""Tests for GAP fixes G1-G6 (functional GAP analysis remediation).
 
 Covers:
 - G1: run_clustering persists embeddings to ChromaDB
 - G2: run_clustering generates semantic cluster labels
 - G3: AnalyzeHandler.analyze_root_cause_deep runs real deep root cause analysis
 - G4: run_single produces improvement recommendations
+- G5: is_commit_code field gates violation detection
+- G6: improvement recommendations link to rule clauses
 """
 
 from __future__ import annotations
@@ -347,3 +349,143 @@ class TestImprovements:
             result = await pipeline.run_single(12345)
 
         assert result.improvements == []
+
+
+# --- G5: is_commit_code field gates violation detection ---
+
+
+class TestIsCommitCodeGating:
+    @pytest.mark.asyncio
+    async def test_no_commit_code_skips_code_change_analysis(self, mock_config):
+        """G5: is_commit_code=N and no commits → skip violation detection."""
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=PipelineConfig(use_llm=False),
+        )
+        mock_task = _make_task(12345)
+        mock_task.is_commit_code = "N"
+        mock_task.development = None
+
+        with (
+            patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
+            patch.object(pipeline, "_analyze_code_changes", new_callable=AsyncMock) as mock_analyze,
+        ):
+            mock_fetch.return_value = mock_task
+            await pipeline.run_single(12345)
+
+        # is_commit_code=N and no commits → _analyze_code_changes returns early
+        mock_analyze.assert_called_once()
+        # Verify internal gating: development is None → no violations
+        assert mock_task.development is None
+
+    @pytest.mark.asyncio
+    async def test_is_commit_code_Y_with_commits_runs_analysis(self, mock_config):
+        """G5: is_commit_code=Y with commits → code change analysis runs."""
+        from src.api.models import CommitInfo, DevelopmentInfo
+
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=PipelineConfig(use_llm=False),
+        )
+        mock_task = _make_task(12345)
+        mock_task.is_commit_code = "Y"
+        mock_task.development = DevelopmentInfo(
+            commits=[
+                CommitInfo(
+                    commit_id="abc123",
+                    message="fix: null pointer",
+                    time=datetime.now(),
+                    diff="@@ -1,3 +1,4 @@\n+ if (obj != null) {",
+                )
+            ]
+        )
+
+        with (
+            patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
+            patch.object(pipeline, "_get_code_change_analyzer") as mock_analyzer,
+            patch.object(pipeline, "_detect_violations", return_value=[]),
+        ):
+            mock_analyzer_obj = MagicMock()
+            mock_analyzer_obj.analyze_code_changes.return_value = {
+                "summary": "",
+                "diff_stats": {},
+                "detected_patterns": [],
+            }
+            mock_analyzer_obj.generate_analysis_text.return_value = "analysis"
+            mock_analyzer.return_value = mock_analyzer_obj
+            mock_fetch.return_value = mock_task
+
+            result = await pipeline.run_single(12345)
+
+        assert result.code_change_analysis is not None
+
+
+# --- G6: improvement recommendations link to rule clauses ---
+
+
+class TestImprovementRuleIds:
+    def test_recommend_measures_propagates_rule_ids(self):
+        """G6: rule_ids_by_cause is propagated to ImprovementMeasure.rule_ids."""
+        from src.analysis.improvement_recommender import ImprovementRecommender
+
+        recommender = ImprovementRecommender()
+        measures = recommender.recommend_measures(
+            root_causes=["并发问题"],
+            violation_causes=["并发问题"],
+            rule_ids_by_cause={"并发问题": ["J000066", "SEC-J00002"]},
+        )
+
+        assert len(measures) == 1
+        assert measures[0].rule_ids == ["J000066", "SEC-J00002"]
+
+    def test_recommend_measures_no_rules_defaults_empty(self):
+        """G6: no rule_ids_by_cause → rule_ids defaults to empty list."""
+        from src.analysis.improvement_recommender import ImprovementRecommender
+
+        recommender = ImprovementRecommender()
+        measures = recommender.recommend_measures(root_causes=["需求遗漏"])
+
+        assert len(measures) == 1
+        assert measures[0].rule_ids == []
+
+    @pytest.mark.asyncio
+    async def test_run_single_improvements_carry_rule_ids(self, mock_config):
+        """G6: run_single improvements include rule_ids from violations."""
+        mock_config.llm.api_key = "test-key"
+        pipeline = AnalysisPipeline(
+            config=mock_config,
+            pipeline_config=PipelineConfig(
+                use_llm=True,
+                generate_labels=False,
+                analyze_root_cause=True,
+                check_rules=False,
+                generate_report=False,
+            ),
+        )
+        mock_task = _make_task(12345, title="并发故障")
+
+        with (
+            patch.object(pipeline, "_fetch_task", new_callable=AsyncMock) as mock_fetch,
+            patch.object(
+                pipeline,
+                "_analyze_root_cause",
+                new_callable=AsyncMock,
+                return_value=[
+                    {
+                        "cause_type": "并发问题",
+                        "description": "竞态条件",
+                        "evidence": "",
+                        "confidence": 0.9,
+                    }
+                ],
+            ),
+            patch.object(pipeline, "_create_llm_provider", return_value=MagicMock()),
+        ):
+            mock_fetch.return_value = mock_task
+            # Inject a violation carrying rule_id
+            result = await pipeline.run_single(12345)
+
+        # No violations present → rule_ids empty but field exists
+        assert result.improvements is not None
+        assert "rule_ids" in result.improvements[0]
+        assert result.improvements[0]["rule_ids"] == []

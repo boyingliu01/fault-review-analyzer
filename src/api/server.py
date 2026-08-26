@@ -149,12 +149,28 @@ def create_app(
         allow_headers=cors_headers,
     )
 
-    # 注册路由
+    # 注册路由 - 同时提供 /api/v1 版本化路径与根路径（向后兼容）
+    _api_v1_prefix = "/api/v1"
+
+    # 健康检查（含 /ready）
     app.include_router(health.router, prefix="")
+    app.include_router(health.router, prefix=_api_v1_prefix)
+
+    # 分析
     app.include_router(analyze.router, prefix="")
+    app.include_router(analyze.router, prefix=_api_v1_prefix)
+
+    # 聚类
     app.include_router(clusters.router, prefix="")
+    app.include_router(clusters.router, prefix=_api_v1_prefix)
+
+    # 报告
     app.include_router(reports.router, prefix="")
+    app.include_router(reports.router, prefix=_api_v1_prefix)
+
+    # 反馈
     app.include_router(feedback.router, prefix="")
+    app.include_router(feedback.router, prefix=_api_v1_prefix)
 
     @app.get("/", tags=["Root"])
     async def root() -> dict[str, str]:
