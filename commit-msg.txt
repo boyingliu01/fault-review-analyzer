@@ -1,1 +1,0 @@
-fix(githooks): 修正覆盖率统计范围 --cov=. 改为 --cov=src

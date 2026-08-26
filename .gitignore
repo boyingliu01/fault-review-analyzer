@@ -46,3 +46,11 @@ config.yaml
 .omo/
 
 .worktrees/
+
+# 工具生成物/临时文件
+.xp-gate/
+.code-walkthrough-result.json
+.quality-history.jsonl
+commit-msg.txt
+issue-body.md
+scripts/temp/
