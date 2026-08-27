@@ -50,46 +50,55 @@ class FaultAnalysisUI:
     # 左侧导览
     # ------------------------------------------------------------------
     def _render_sidebar(self, batches: list[dict], annotations: dict) -> str | None:
-        """渲染左侧批次导览，返回选中的 batch_id。"""
+        """渲染左侧批次导览，返回选中的 batch_id（None 表示全部缺陷）。"""
         st.sidebar.header("📚 批次导览")
 
         if not batches:
             st.sidebar.info("暂无批次")
             return None
 
-        # 批次选择（单选）
-        batch_options = {f"{b['name']}（{b['count']}起）": b["batch_id"] for b in batches}
-        default_idx = 0
+        # 顶部提供全量聚合视图
+        # 按 urid 去重后的真实总数（跨批次可能有重叠）
+        all_urids = {u for b in batches for u in (b.get("urids") or [])}
+        real_total = len(all_urids)
+
+        batch_options = {f"⭐ 全部缺陷（{real_total}起）": ""}
+        batch_options.update({f"{b['name']}（{b['count']}起）": b["batch_id"] for b in batches})
         selected_label = st.sidebar.selectbox(
-            "选择批次",
+            "选择范围",
             options=list(batch_options.keys()),
-            index=default_idx,
+            index=0,
             key="batch_selector",
         )
-        selected_batch_id = str(batch_options[selected_label])
+        selected_batch_id = str(batch_options[selected_label]) or None
 
         # 当前批次批注
         st.sidebar.markdown("---")
         st.sidebar.subheader("✏️ 批注")
-        batch_anns = annotations.get(selected_batch_id, [])
-        if batch_anns:
-            for ann in batch_anns:
-                st.sidebar.markdown(f"- {ann.get('text', '')}")
-                st.sidebar.caption(ann.get("created_at", ""))
+        if selected_batch_id is None:
+            st.sidebar.caption("选择具体批次后可添加批注")
         else:
-            st.sidebar.caption("暂无批注")
+            batch_anns = annotations.get(selected_batch_id, [])
+            if batch_anns:
+                for ann in batch_anns:
+                    st.sidebar.markdown(f"- {ann.get('text', '')}")
+                    st.sidebar.caption(ann.get("created_at", ""))
+            else:
+                st.sidebar.caption("暂无批注")
 
-        # 添加批注
-        new_ann = st.sidebar.text_input("添加批注", key="new_annotation")
-        if st.sidebar.button("保存批注", key="save_annotation") and new_ann.strip():
-            add_annotation(selected_batch_id, new_ann.strip())
-            st.sidebar.success("批注已保存")
-            st.rerun()
+            new_ann = st.sidebar.text_input("添加批注", key="new_annotation")
+            if st.sidebar.button("保存批注", key="save_annotation") and new_ann.strip():
+                add_annotation(selected_batch_id, new_ann.strip())
+                st.sidebar.success("批注已保存")
+                st.rerun()
 
         # 批次统计
         st.sidebar.markdown("---")
         st.sidebar.subheader("📊 批次统计")
-        st.sidebar.metric("缺陷数", self._batch_count(batches, selected_batch_id))
+        if selected_batch_id is None:
+            st.sidebar.metric("缺陷数", real_total)
+        else:
+            st.sidebar.metric("缺陷数", self._batch_count(batches, selected_batch_id))
 
         return selected_batch_id
 
@@ -126,9 +135,12 @@ class FaultAnalysisUI:
                 st.info("该批次暂无缺陷记录")
                 return
 
-            st.caption(
-                f"当前批次: {self._batch_name(batches, selected_batch_id)} · 共 {len(batch_recs)} 起"
+            scope_label = (
+                f"⭐ 全部缺陷（{len(batch_recs)} 起，跨批次聚合）"
+                if selected_batch_id is None
+                else f"当前批次: {self._batch_name(batches, selected_batch_id)} · 共 {len(batch_recs)} 起"
             )
+            st.caption(scope_label)
 
             # 顶层统计
             summary_df = build_summary_df(batch_recs)
