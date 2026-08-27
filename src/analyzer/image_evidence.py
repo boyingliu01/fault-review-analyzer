@@ -35,15 +35,20 @@ _PLACEHOLDER_RE = re.compile(
 # 默认输出目录: <repo>/output/cos_images
 _OUT_DIR = Path(__file__).parent.parent.parent / "output" / "cos_images"
 
-# 视觉读图 prompt
-_VISION_PROMPT = """你是多模态图像分析专家。请仔细分析这张研发云故障单截图，提取其中的关键信息。
+# 视觉读图 prompt（结构化 schema，便于机器消费与跨单去重）
+_VISION_PROMPT = """你是多模态图像分析专家。请仔细分析这张研发云故障单截图，严格按以下分节输出提取结果。
 
-请提取：
-1. 图片类型（接口报错截图 / 界面操作截图 / 数据表格 / 其他）
-2. 图中所有可见文字内容（报错信息、错误码、接口名、URL、参数名/值、界面字段、堆栈信息等）
-3. 关键故障线索（图中体现的与故障原因相关的信息）
+【图片类型】接口报错截图 / 界面操作截图 / 数据表格 / IM群聊记录 / 设计文档 / 其他
 
-请用简洁的要点列出提取到的内容，不要编造图中不存在的信息。"""
+【错误码与报错】图中出现的所有错误码、resultCode、resultMsg、HTTP状态码、异常堆栈（原样照抄，没有则写"无"）
+
+【接口信息】请求方法+URL、请求参数名/值、响应字段/值（原样照抄，没有则写"无"）
+
+【界面要点】页面名称、关键字段值、表单状态、按钮位置、被红框/箭头标注的区域及其含义
+
+【故障线索】基于以上内容，图中体现的与故障原因直接相关的关键信息（1-3条）
+
+要求：只提取图中实际存在的信息，不要编造；错误码和参数必须逐字准确。"""
 
 
 def extract_image_refs(description: str) -> list[tuple[str, str, str]]:
@@ -186,14 +191,31 @@ class ImageEvidenceExtractor:
     def _evidence_cache_path(self, urid: int) -> Path:
         return self._out_dir / str(urid) / "image_evidence.json"
 
-    def _load_cached_evidence(self, urid: int) -> str:
-        """读取已缓存的证据文本；存在则返回，否则空串。"""
+    @staticmethod
+    def _description_hash(description: str) -> str:
+        """描述内容的 hash，用于缓存失效判断（任务单后续补图/改描述时重新提取）。"""
+        import hashlib
+
+        return hashlib.sha256((description or "").encode("utf-8")).hexdigest()[:16]
+
+    def _load_cached_evidence(self, urid: int, description_hash: str) -> str:
+        """读取已缓存的证据文本；存在且描述未变更则返回，否则空串（触发重提取）。"""
         fp = self._evidence_cache_path(urid)
         if not fp.exists():
             return ""
         try:
             data = json.loads(fp.read_text(encoding="utf-8"))
         except Exception:
+            return ""
+        # 描述 hash 不一致 → 缓存陈旧（任务单后来补传/修改了内容），失效
+        cached_hash = data.get("description_hash", "")
+        if cached_hash and cached_hash != description_hash:
+            logger.info(
+                "[图片证据] {urid} 描述已变更({old}→{new})，缓存失效",
+                urid=urid,
+                old=cached_hash,
+                new=description_hash,
+            )
             return ""
         # 组装证据文本
         parts: list[str] = []
@@ -219,7 +241,7 @@ class ImageEvidenceExtractor:
     ) -> str:
         """获取单起故障的图片证据文本。
 
-        若已有缓存则直接返回；否则下载图片 + 视觉读图 + 缓存。
+        若已有有效缓存（描述未变更）则直接返回；否则下载图片 + 视觉读图 + 缓存。
         无占位符图片或失败时返回空串。
 
         Args:
@@ -235,8 +257,10 @@ class ImageEvidenceExtractor:
         if urid is None:
             return ""
 
-        # 1. 已有缓存 → 直接返回
-        cached = self._load_cached_evidence(int(urid))
+        desc_hash = self._description_hash(description)
+
+        # 1. 已有有效缓存 → 直接返回
+        cached = self._load_cached_evidence(int(urid), desc_hash)
         if cached:
             return cached
 
@@ -262,10 +286,11 @@ class ImageEvidenceExtractor:
         if not evidence_list:
             return ""
 
-        # 5. 缓存
+        # 5. 缓存（含描述 hash，供后续失效判断）
         payload = {
             "urId": int(urid),
             "title": title,
+            "description_hash": desc_hash,
             "image_evidence": evidence_list,
             "real_root_cause": "",
         }

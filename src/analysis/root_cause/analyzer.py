@@ -77,6 +77,28 @@ class RootCauseAnalyzer:
             test_improve_stage=existing_analysis.test_improve_stage,
         )
 
+    @staticmethod
+    def _parse_json_loose(response: str) -> dict[str, Any] | None:
+        """宽松解析 LLM 的 JSON 响应（容忍 markdown 围栏/前后杂文）。
+
+        代理模型偶发把 JSON 包在 ```json 围栏里或附加说明文字，
+        直接 json.loads 会失败导致整单深度分析丢失。
+        """
+        t = (response or "").strip()
+        if not t:
+            return None
+        # 剥离 markdown 围栏
+        if "```" in t:
+            start = t.find("{")
+            end = t.rfind("}")
+            if start >= 0 and end > start:
+                t = t[start : end + 1]
+        try:
+            data = json.loads(t)
+        except json.JSONDecodeError:
+            return None
+        return data if isinstance(data, dict) else None
+
     async def analyze(
         self, fault_input: FaultAnalysisInput, existing_analysis: ExistingFaultAnalysis
     ) -> RootCauseAnalysisResult:
@@ -93,11 +115,23 @@ class RootCauseAnalyzer:
         prompt = self._build_prompt(fault_input, existing_analysis)
         logger.debug("开始调用LLM进行根因分析，task_no={}", fault_input.task_no)
 
-        response = await self.llm_client.generate(prompt)
-        logger.debug("LLM响应长度: {}", len(response))
+        parsed: dict[str, Any] | None = None
+        response = ""
+        for attempt in range(2):
+            response = await self.llm_client.generate(prompt)
+            logger.debug("LLM响应长度: {}", len(response))
+            parsed = self._parse_json_loose(response)
+            if parsed is not None:
+                break
+            logger.warning(
+                "根因分析响应无法解析为JSON(task_no={}，第{}次)，重试",
+                fault_input.task_no,
+                attempt + 1,
+            )
+        if parsed is None:
+            raise ValueError(f"根因分析响应无法解析为JSON: {response[:200]}")
 
-        # 解析JSON响应
-        result_data = json.loads(response)
+        result_data = _convert_keys(parsed)
 
         # 转换camelCase键为snake_case
         result_data = _convert_keys(result_data)

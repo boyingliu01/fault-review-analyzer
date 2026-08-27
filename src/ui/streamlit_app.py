@@ -408,6 +408,40 @@ class FaultAnalysisUI:
             if imp.get("rule_ids"):
                 st.caption(f"关联规范: {', '.join(imp['rule_ids'])}")
 
+        # 深度根因分析（5 层追问）
+        deep = detail.get("deep_root_causes") or {}
+        if deep:
+            st.markdown("#### 深度根因分析（5层追问）")
+            meta_bits = []
+            if deep.get("problem_category"):
+                meta_bits.append(f"问题分类: **{deep['problem_category']}**")
+            if deep.get("initial_cause"):
+                meta_bits.append(f"初步归因: {deep['initial_cause']}")
+            if meta_bits:
+                st.markdown(" · ".join(meta_bits))
+            for rc in deep.get("deep_root_causes", []):
+                title_head = str(rc.get("root_cause", ""))[:60]
+                with st.expander(f"[{rc.get('layer', '')}] {title_head}"):
+                    st.markdown(f"**为什么**: {rc.get('why_reason', '')}")
+                    st.caption(f"证据: {rc.get('evidence', '')}")
+            acts = deep.get("actionable_improvements") or []
+            if acts:
+                st.markdown("**可落地改进行动:**")
+                for a in acts:
+                    st.markdown(
+                        f"- [{a.get('priority', '')}] ({a.get('type', '')} → 责任方: {a.get('owner', '')}) "
+                        f"{a.get('action', '')}"
+                    )
+            checks = deep.get("checklist_recommendations") or []
+            if checks:
+                st.caption("Checklist 建议: " + " ｜ ".join(str(c) for c in checks[:6]))
+
+        # 图片证据（截图提取内容）
+        img_ev = detail.get("image_evidence")
+        if img_ev:
+            with st.expander("📷 图片证据（截图提取内容）", expanded=False):
+                st.text(str(img_ev)[:4000])
+
     @staticmethod
     def _get_selected_urid(filtered: pd.DataFrame, selection: Any) -> int | None:
         """从明细表选择事件提取选中的 urId。"""

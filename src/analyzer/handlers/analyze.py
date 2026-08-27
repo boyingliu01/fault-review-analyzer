@@ -151,7 +151,13 @@ class AnalyzeHandler:
         if analyzer is None:
             return {}
 
-        task_no = str(task_data.get("task_no", task_data.get("taskId", "")))
+        # TaskInfo.model_dump() 后的字段名是 task_id（不是 task_no/taskId）
+        task_no = str(
+            task_data.get("task_no")
+            or task_data.get("taskId")
+            or task_data.get("task_id")
+            or ""
+        )
         if not task_no:
             return {}
 
@@ -164,10 +170,22 @@ class AnalyzeHandler:
             except Exception as e:
                 logger.warning(f"获取故障复盘结论失败，使用空结论: {e}")
 
+        # 图片证据注入：把故障单截图提取内容并入描述，
+        # 使 5 层深挖基于完整信息（描述+截图）而非残缺文本。
+        description = task_data.get("description", "")
+        try:
+            from src.analyzer.image_evidence import ImageEvidenceExtractor
+
+            evidence = await ImageEvidenceExtractor().get_image_evidence(task_data)
+            if evidence:
+                description = f"{description}\n\n## 故障单截图证据\n{evidence}"
+        except Exception as e:
+            logger.warning(f"图片证据注入失败(忽略，降级为纯描述): {str(e)[:80]}")
+
         fault_input = FaultAnalysisInput(
             task_no=task_no,
             title=task_data.get("title", ""),
-            description=task_data.get("description", ""),
+            description=description,
             task_src=task_data.get("task_src", ""),
             created_date=task_data.get("created_date", task_data.get("createdDate", "")),
             finish_date=task_data.get("finish_date", task_data.get("finishDate", "")),

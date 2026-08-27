@@ -5,7 +5,6 @@
   - output/复盘分析报告.xlsx   (多 sheet)
   - output/复盘分析汇总.md     (管理层摘要)
 """
-import glob
 import json
 import sys
 from collections import Counter, defaultdict
@@ -20,8 +19,8 @@ OUT_DIR = Path(__file__).parent.parent / "output"
 
 def load_all_records() -> dict[int, dict]:
     recs = {}
-    for fp in glob.glob(str(OUT_DIR / "progress_*.json")):
-        with open(fp, encoding="utf-8") as fh:
+    for fp in sorted(OUT_DIR.glob("progress_*.json")):
+        with fp.open(encoding="utf-8") as fh:
             rec = json.load(fh)
         recs[rec["urId"]] = rec
     return recs
@@ -54,14 +53,22 @@ def build_detail_df(recs: dict) -> pd.DataFrame:
         # 规范违规
         viols = rec.get("violations", [])
         viol_ids = "; ".join(v.get("rule_id", "") for v in viols)
-        # 代码变更
-        code = rec.get("code_change_analysis", {})
+        # 深度分析（5层追问）
+        deep = rec.get("deep_root_causes") or {}
+        deep_summary = "; ".join(
+            f"[{rc.get('layer', '')}] {rc.get('root_cause', '')[:40]}"
+            for rc in deep.get("deep_root_causes", [])[:2]
+        )
         rows.append({
             "urId": u,
             "标题": rec.get("title", ""),
             "首要根因": primary,
             "根因数": len(rcs),
             "根因摘要": root_summary,
+            "问题分类(deep)": deep.get("problem_category", ""),
+            "初步归因(deep)": str(deep.get("initial_cause", ""))[:80],
+            "深层根因摘要(deep)": deep_summary,
+            "Checklist建议数(deep)": len(deep.get("checklist_recommendations", [])),
             "规范违规": viol_ids,
             "违规数": len(viols),
             "改进建议数": len(imps),
@@ -153,6 +160,28 @@ def build_summary_md(recs: dict, group_df: pd.DataFrame, viol_df: pd.DataFrame) 
         lines.append(f"### {row['缺陷模式']}（{row['涉及缺陷数']} 起，占比 {row['占比(%)']}%）")
         lines.append(f"- 规范违规重点: {row['主要规范违规']}")
         lines.append("")
+
+    # 深度分析问题分类分布
+    deep_cat = Counter()
+    deep_covered = 0
+    for rec in recs.values():
+        d = rec.get("deep_root_causes")
+        if d and isinstance(d, dict) and d.get("problem_category"):
+            deep_covered += 1
+            deep_cat[d["problem_category"]] += 1
+    if deep_covered:
+        lines += [
+            "",
+            "## 六、深度分析·问题分类分布",
+            "",
+            f"已完成 {deep_covered}/{len(recs)} 起的 5 层深度根因分析。",
+            "",
+            "| 问题分类 | 数量 | 占比 |",
+            "|---------|------|------|",
+        ]
+        for cat, cnt in deep_cat.most_common():
+            lines.append(f"| {cat} | {cnt} | {round(cnt / len(recs) * 100, 1)}% |")
+
     return "\n".join(lines)
 
 
