@@ -11,6 +11,7 @@ from src.analysis.root_cause import ExistingFaultAnalysis, FaultAnalysisInput
 from src.analysis.root_cause import RootCauseAnalyzer as DeepRootCauseAnalyzer
 from src.analysis.standards_matcher import StandardsMatcher
 from src.analysis.violation_detector import ViolationDetector
+from src.analyzer.image_evidence import ImageEvidenceExtractor
 from src.analyzer.labeling import LabelGenerator
 from src.analyzer.llm_provider import create_llm_provider
 from src.analyzer.reasoning import RootCauseAnalyzer
@@ -21,7 +22,7 @@ from src.clustering.analyzer import ClusterAnalyzer
 from src.config.manager import ConfigManager
 from src.embedding.generator import EmbeddingGenerator
 from src.knowledge.manager import StandardsManager
-from src.preprocessor.models import ProcessedTask
+from src.preprocessor.models import ProcessedTask, TextSegment
 from src.preprocessor.processor import DataPreprocessor
 from src.report.generator import ReportFormat, ReportGenerator
 from src.rules.engine import RulesEngine
@@ -99,6 +100,7 @@ class AnalysisPipeline:
         self._llm_providers: list[Any] = []
         self._cluster_analyzer: ClusterAnalyzer | None = None
         self._preprocessor = DataPreprocessor()
+        self._image_evidence_extractor = ImageEvidenceExtractor()
         self._label_generator: LabelGenerator | None = None
         self._root_cause_analyzer: RootCauseAnalyzer | None = None
         self._deep_root_cause_analyzer: DeepRootCauseAnalyzer | None = None
@@ -211,6 +213,8 @@ class AnalysisPipeline:
         """Prepare task data by converting to dict and preprocessing."""
         result.task_data = task_data.model_dump()
         preprocessed = self._preprocessor.process(task_data)
+        # 图片证据增强：若有占位符图片，下载 + 视觉读图，追加为 image_evidence segment
+        await self._enrich_with_image_evidence(task_data, preprocessed)
         result.preprocessed = {
             "task_id": preprocessed.task_id,
             "combined_text": preprocessed.combined_text,
@@ -220,6 +224,46 @@ class AnalysisPipeline:
             ],
         }
         return preprocessed
+
+    async def _enrich_with_image_evidence(
+        self, task_data: TaskInfo, preprocessed: ProcessedTask
+    ) -> None:
+        """下载并读取故障单中的占位符图片，把图片证据追加为 segment。
+
+        图片证据使 LLM 能基于完整信息（描述 + 截图内容）做根因分析，
+        避免因读不到图片而得出"信息不足/无法定位"的结论。
+
+        无占位符图片或提取失败时静默跳过，不影响主分析流程。
+        """
+        try:
+            evidence = await self._image_evidence_extractor.get_image_evidence(
+                task_data.model_dump()
+            )
+            if not evidence:
+                return
+            preprocessed.segments.append(
+                TextSegment(
+                    task_id=preprocessed.task_id,
+                    type="image_evidence",
+                    content=evidence,
+                    metadata={"source": "cos_images"},
+                )
+            )
+            # 同步更新合并文本（供规范匹配等下游使用）
+            preprocessed.combined_text = (
+                f"{preprocessed.combined_text}\n\n[图片证据]\n{evidence}"
+            )
+            logger.info(
+                "urId={} 已注入图片证据（{} 字符）",
+                task_data.task_id,
+                len(evidence),
+            )
+        except Exception as e:
+            logger.warning(
+                "urId={} 图片证据提取失败，降级为无图片证据: {}",
+                task_data.task_id,
+                str(e)[:100],
+            )
 
     async def _analyze_with_llm(
         self, task_data: TaskInfo, preprocessed: ProcessedTask, result: PipelineResult
