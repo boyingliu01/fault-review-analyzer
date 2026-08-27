@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -64,6 +65,126 @@ def load_records() -> dict[int, dict[str, Any]]:
     return recs
 
 
+# ---------------------------------------------------------------------------
+# 产品线映射（口径: 基于故障单标题中的 ZSmart 模块标识与业务关键词推断）
+# 如个别单子归属不准确，修正下表规则后重跑本脚本即可。
+# ---------------------------------------------------------------------------
+LINE_CHANNEL = "国际数字渠道产品线"
+LINE_BSS = "国际BSS产品线"
+LINE_PLATFORM = "平台/公共组件"
+
+# ZSmart 模块标识 → 产品线（强信号，优先级最高）
+_MODULE_LINE = {
+    # 渠道触点与营销互动侧
+    "ZSmart_MobileSC": LINE_CHANNEL,   # 移动端前端框架(RN)
+    "ZSmart_WebSC": LINE_CHANNEL,      # Web端前端框架
+    "ZSmart_ceeAPP": LINE_CHANNEL,     # 客户互动APP
+    "ZSmart_GCP": LINE_CHANNEL,        # 营销云(短链/UTM/创意投放)
+    "ZSmart_MCCM": LINE_CHANNEL,       # 营销活动管理(Campaign Canvas)
+    "ZSmart_eShopF": LINE_CHANNEL,     # 电商前端
+    "ZSmart_ceePlat": LINE_CHANNEL,    # CEE 客户互动平台(App Push/邮件等触达)
+    "ZSmart_ceeSDK": LINE_CHANNEL,     # CEE SDK
+    # BSS 业务支撑侧
+    "ZSmart_COC": LINE_BSS,            # 订单中心
+    "ZSmart_DRM": LINE_BSS,            # 用户域(号码/订阅/开户)
+    "ZSmart_CUSTC": LINE_BSS,          # 客户中心(360视图/KYC)
+    "ZSmart_SIC": LINE_BSS,            # 卡与库存(physical SIM/eSIM流转)
+}
+
+# 标题业务关键词 → 产品线（弱信号，用于无模块标识的单子）
+_KW_CHANNEL = [
+    # 营销互动/触点
+    "Campaign", "campaign", "GCP短链", "gcp 短链", "UTM", "utm", "App Push", "apppush",
+    "站内信", "banner", "启动页", "DEEPLINK", "deeplink", "深链",
+    "live person", "创意中", "creative", "html builder", "Template manage",
+    "template 使用", "广告相关", "page builder", "积分配置", "promotionActionList",
+    "promo逻辑", "promo code", "Wrong display of promo",
+    # 渠道 App/Web 前端
+    "PenTest", "Sensitiv", "Enumerat", "CX APP", "BX APP", "GOMO BB", "EDGE BROWSER",
+    "客户侧", "Redemption Management", "eload Transfer 可以重复选择Account",
+    "键盘重复输入", "下拉刷新", "白屏", "loading时不能返回",
+]
+_KW_BSS = [
+    "port in", "Port In", "portin", "BXportin", "port out", "mnp", "MNP",
+    "COC ", "话单", "waiver", "Waiver", "Waiv", "eKYC", "ekyc", "KYC",
+    "GLC", "SIC", "OTP", "esim", "Esim", "ESIM", "MSISDN", "Reserve密码",
+    "订单中心", "Retailer", "Distributor", "零售", "物流", "发货",
+    "payment", "Payment", "支付提醒", "pin码", "subscriber-management",
+    "Order Query", "order query", "Order Didnt Go Through", "order cancelled",
+    "Order cancelled", "Delivery", "SIM_CARD_LOST", "Line Pause", "SMS Delivery",
+    "renew offer", "AutoReactive", "RE-REG", "过户", "复机", "heya", "在途单",
+    "IDD", "账本", "CRM_SUBSCRIBER", "NLT is down", "StandardAddress",
+    "创建客户", "Invalid cust name", "customer info", "app config",
+    "POP Station", "Postal Code", "Distributor rep trf", "wallet being deducted",
+    "promo issue", "POP Station Postal",
+]
+_KW_PLATFORM = [
+    "aws资源", "Azure-Database", "cpu_percent", "cpu过高", "dabasease",
+    "配置读取失败", "指标上报SQL", "exception management", "运维能力提升",
+]
+
+_FALLBACK_ORDER = [(_KW_CHANNEL, LINE_CHANNEL), (_KW_BSS, LINE_BSS), (_KW_PLATFORM, LINE_PLATFORM)]
+
+
+def classify_product_line(title: str) -> str:
+    """按模块标识 → 业务关键词 的顺序判定产品线。"""
+    t = title or ""
+    m = re.search(r"[（(](ZSmart_[^）)_]+)", t)
+    if m:
+        mod = m.group(1)
+        for prefix, line in _MODULE_LINE.items():
+            if mod.startswith(prefix):
+                return line
+    for kws, line in _FALLBACK_ORDER:
+        hits = sum(1 for k in kws if k in t)
+        if hits >= 2:
+            return line
+    for kws, line in _FALLBACK_ORDER:
+        if any(k in t for k in kws):
+            return line
+    return "其他/待确认"
+
+
+def _apply_group_majority(pre_line: dict[int, str]) -> None:
+    """未判定(其他/待确认)单子按项目组多数派兜底归类。
+
+    项目组键来自 output/urid_project_map.json (projectId, zmpProjectId)；
+    同组内已判定的多数产品线视为该组的业务归属，映射给未判定成员。
+    """
+    map_file = OUT_DIR / "urid_project_map.json"
+    if not map_file.exists():
+        return
+    try:
+        pmap: dict[str, Any] = json.loads(map_file.read_text(encoding="utf-8"))
+    except Exception:
+        return
+
+    pending = [u for u, v in pre_line.items() if v == "其他/待确认"]
+    if not pending:
+        return
+    groups: dict[tuple[Any, Any], list[int]] = defaultdict(list)
+    for u_str, info in pmap.items():
+        if not info:
+            continue
+        u = int(u_str)
+        groups[(info.get("projectId"), info.get("zmpProjectId"))].append(u)
+    for key in groups:
+        members = [u for u in groups[key] if u in pre_line]
+        if len(members) < 2:
+            continue
+        votes: Counter[str] = Counter()
+        for u in members:
+            v = pre_line.get(u)
+            if v is not None and v != "其他/待确认":
+                votes[v] += 1
+        if not votes:
+            continue
+        majority = votes.most_common(1)[0][0]
+        for u in members:
+            if pre_line[u] == "其他/待确认":
+                pre_line[u] = majority
+
+
 def aggregate(recs: dict[int, dict[str, Any]]) -> dict[str, Any]:
     """确定性统计聚合。"""
     n = len(recs)
@@ -73,12 +194,21 @@ def aggregate(recs: dict[int, dict[str, Any]]) -> dict[str, Any]:
     viol_rules: Counter[str] = Counter()
     viol_urids: dict[str, set[int]] = defaultdict(set)
     imp_by_cat_prio: Counter[tuple[str, str]] = Counter()
+    line_recs: dict[str, dict[int, dict[str, Any]]] = defaultdict(dict)
+
+    # 第一步: 按标题关键词初步判定
+    pre_line: dict[int, str] = {u: classify_product_line(r.get("title", "")) for u, r in recs.items()}
+    # 第二步: 未判定单子按 (projectId, zmpProjectId) 组内多数派投票兜底
+    _apply_group_majority(pre_line)
+
     with_code = sum(1 for r in recs.values() if r.get("has_code_change"))
     img_ev_used = sum(1 for r in recs.values() if r.get("image_evidence"))
     conf_sum = 0.0
     conf_n = 0
 
     for u, r in recs.items():
+        line = pre_line.get(u) or "其他/待确认"
+        line_recs[line][u] = r
         rc0 = r["root_causes"][0] if r["root_causes"] else {}
         primary_causes[rc0.get("cause_type", "未知") or "未知"] += 1
         for rc in r["root_causes"]:
@@ -111,10 +241,20 @@ def aggregate(recs: dict[int, dict[str, Any]]) -> dict[str, Any]:
         "viols": viol_rules.most_common(),
         "viol_urid_count": {rid: len(s) for rid, s in viol_urids.items()},
         "imps": imp_by_cat_prio.most_common(),
+        # 产品线维度
+        "line_recs": dict(line_recs),
     }
 
 
-_LLM_THEMES_PROMPT = """你是软件质量改进专家。以下是从 {total} 起泄漏缺陷的深度根因分析中提取的分层根因清单。
+def aggregate_line(line: str, recs: dict[int, dict[str, Any]]) -> dict[str, Any]:
+    """单条产品线的聚合统计。"""
+    stats = aggregate(recs)
+    stats["line"] = line
+    stats["deep_cats_count"] = dict(stats["deep_cats"])
+    return stats
+
+
+_LLM_THEMES_PROMPT_ALL = """你是软件质量改进专家。以下是从 {total} 起泄漏缺陷的深度根因分析中提取的分层根因清单。
 请归纳出 **5~8 个跨单位的共性根因主题**（同类问题在不同功能模块反复出现的模式），每个主题给出简洁命名和说明。
 
 要求：
@@ -128,10 +268,30 @@ _LLM_THEMES_PROMPT = """你是软件质量改进专家。以下是从 {total} �
 """
 
 
-async def _llm_common_themes(stats: dict[str, Any]) -> list[dict[str, str]]:
-    """调用 LLM 归纳共性主题；失败返回空列表（降级）。"""
+_LLM_THEMES_PROMPT_LINE = """你是软件质量改进专家。以下是「{line}」的 {total} 起泄漏缺陷深度根因分析中提取的分层根因清单。
+请归纳出 **3~5 个本产品线内跨模块的共性根因主题**，每个主题给出简洁命名和说明。
+
+要求：
+- 主题必须基于清单中的实际内容，不要泛泛而谈
+- 每个主题标注主要集中哪一层，并估算涉及条数区间
+- 严格输出 JSON: {{"themes":[{{"name":"...","layer":"...","estimate":"约N起","description":"..."}}]}}
+- 不要输出 JSON 以外的任何内容
+
+【分层根因清单】
+{items}
+"""
+
+
+async def _llm_common_themes(
+    stats: dict[str, Any], line: str | None = None
+) -> list[dict[str, str]]:
+    """调用 LLM 归纳共性主题；失败返回空列表（降级）。
+
+    line=None 用全量 prompt；传入产品线名用产品线专属 prompt（3~5 主题）。
+    """
     items_txt_parts: list[str] = []
     for layer in _LAYER_ORDER:
+
         items = stats["layer_items"].get(layer, [])
         if not items:
             continue
@@ -156,9 +316,10 @@ async def _llm_common_themes(stats: dict[str, Any]) -> list[dict[str, str]]:
         provider = create_llm_provider(ConfigManager().load().llm)
         if provider is None:
             return []
+        template = _LLM_THEMES_PROMPT_LINE if line else _LLM_THEMES_PROMPT_ALL
         response = await provider.generate(
             system="你只输出合法 JSON。",
-            user=_LLM_THEMES_PROMPT.format(total=stats["total"], items="\n\n".join(items_txt_parts)),
+            user=template.format(line=line or "", total=stats["total"], items="\n\n".join(items_txt_parts)),
         )
         await provider.close()
         t = response.strip()
@@ -172,7 +333,12 @@ async def _llm_common_themes(stats: dict[str, Any]) -> list[dict[str, str]]:
         return []
 
 
-def render_md(stats: dict[str, Any], themes: list[dict[str, str]], use_llm: bool) -> str:
+def render_md(
+    stats: dict[str, Any],
+    themes: list[dict[str, str]],
+    use_llm: bool,
+    line_themes: dict[str, list[dict[str, str]]] | None = None,
+) -> str:
     """组装 Markdown 报告。"""
     n = stats["total"]
     lines: list[str] = []
@@ -283,8 +449,65 @@ def render_md(stats: dict[str, Any], themes: list[dict[str, str]], use_llm: bool
                     break
             add("")
 
-    # 五、规范符合性
-    add("## 五、规范符合性分析")
+    # 五、产品线维度分析
+    add("## 五、产品线维度分析")
+    add("")
+    add(
+        "> 口径: 按故障单标题中的 ZSmart 模块标识与业务关键词归属产品线（"
+        + "、".join(_MODULE_LINE.keys())
+        + " 等）；个别单子靠业务关键词推断，如归属有偏差可调整映射规则后重跑。"
+    )
+    add("")
+    line_names = list(stats["line_recs"].keys())
+    line_stats_map = {line: aggregate_line(line, recs) for line, recs in stats["line_recs"].items()}
+    # 按缺陷量降序展示
+    ordered_lines = sorted(line_names, key=lambda name: -line_stats_map[name]["total"])
+
+    add("### 缺陷量与问题分类对比")
+    add("")
+    cat_cols = [c for c, _ in stats["deep_cats"]]
+    header = "| 产品线 | 缺陷数 | 占比 | " + " | ".join(cat_cols) + " |"
+    add(header)
+    add("|" + "---------|" * (3 + len(cat_cols)))
+    for line in ordered_lines:
+        s = line_stats_map[line]
+        m = s["total"]
+        cells = [str(s["deep_cats_count"].get(c, 0)) for c in cat_cols]
+        add(f"| {line} | {m} | {round(m/n*100,1)}% | " + " | ".join(cells) + " |")
+    add("")
+
+    for line in ordered_lines:
+        s = line_stats_map[line]
+        add(f"### {line}（{s['total']} 起）")
+        add("")
+        top3 = "、".join(c for c, _ in s["primary_top"][:3])
+        add(f"- **Top 缺陷模式**: {top3}")
+        layer_brief = []
+        for layer in _LAYER_ORDER:
+            cnt_ln = len(s["layer_items"].get(layer, []))
+            if cnt_ln:
+                layer_brief.append(f"{layer} {cnt_ln}")
+        add("- **五层根因分布**: " + "、".join(layer_brief))
+        if s["viols"]:
+            viol_line = "、".join(f"{rid}({c})" for rid, c in s["viols"][:3])
+            add(f"- **主要规范违规**: {viol_line}")
+        else:
+            add("- **主要规范违规**: 无")
+        lt = (line_themes or {}).get(line) or []
+        if lt and use_llm:
+            add("")
+            for t in lt:
+                add(f"- 🎯 **{t.get('name','')}** ({t.get('layer','—')} / {t.get('estimate','—')})：{t.get('description','')}")
+        elif not use_llm or not lt:
+            ex_items = [it for layer in _LAYER_ORDER for it in s["layer_items"].get(layer, [])][:2]
+            if ex_items:
+                add("")
+                for it in ex_items:
+                    add(f"  - 根因示例: {it[:100]}")
+        add("")
+
+    # 六、规范符合性
+    add("## 六、规范符合性分析")
     add("")
     if stats["viols"]:
         add("| 规范条款 | 违规次数 | 涉及缺陷数 |")
@@ -298,8 +521,8 @@ def render_md(stats: dict[str, Any], themes: list[dict[str, str]], use_llm: bool
         )
         add("")
 
-    # 六、改进路线图
-    add("## 六、改进路线图（建议优先级）")
+    # 七、改进路线图
+    add("## 七、改进路线图（建议优先级）")
     add("")
     prio_label = {"high": "🔴 高优先级", "medium": "🟡 中优先级", "low": "🟢 低优先级"}
     by_prio: dict[str, list[tuple[str, int]]] = defaultdict(list)
@@ -350,12 +573,21 @@ async def main_async(use_llm: bool) -> None:
     recs = load_records()
     print(f"加载 {len(recs)} 起分析结果")
     stats = aggregate(recs)
+    print("产品线分布:", {name: len(r) for name, r in stats["line_recs"].items()})
     themes: list[dict[str, str]] = []
+    line_themes: dict[str, list[dict[str, str]]] = {}
     if use_llm:
-        print("调用 LLM 归纳共性根因主题...")
+        print("调用 LLM 归纳全量共性根因主题...")
         themes = await _llm_common_themes(stats)
         print(f"  → {len(themes)} 个主题")
-    md = render_md(stats, themes, use_llm)
+        for line, recs_line in stats["line_recs"].items():
+            if len(recs_line) < 3:
+                continue
+            print(f"调用 LLM 归纳 [{line}] 共性主题...")
+            lt = await _llm_common_themes(aggregate_line(line, recs_line), line=line)
+            line_themes[line] = lt
+            print(f"  → {len(lt)} 个主题")
+    md = render_md(stats, themes, use_llm, line_themes)
     out = OUT_DIR / "复盘综合分析报告.md"
     out.write_text(md, encoding="utf-8")
     print(f"报告已生成: {out}")
