@@ -46,10 +46,9 @@ Run the Streamlit dashboard:
 streamlit run src/ui/streamlit_app.py
 ```
 
-Run the two-phase batch scripts directly (no install required):
+Run the batch analysis scripts directly (no install required):
 ```bash
-python scripts/phase1_prepare.py   # Fetch + preprocess + embed → stores to ChromaDB
-python scripts/phase2_analyze.py   # Cluster + label + root-cause analysis
+python scripts/run_all_parallel.py all   # Fetch + analyze all tasks (writes output/progress_<urId>.json)
 ```
 
 ## Architecture
@@ -75,7 +74,7 @@ Data flows through a five-stage pipeline orchestrated by `src/analyzer/pipeline.
 | `src/preprocessor/` | Data cleaning and formatting |
 | `src/rules/` | Rule-based violation detection engine |
 | `src/report/` | Report generator with Jinja2 templates |
-| `src/storage/chroma_manager.py` | ChromaDB vector database management |
+| `src/feedback/` | Feedback collection and recurrence detection |
 | `src/visualization/` | Chart generation (Plotly) and scatter plots |
 | `src/ui/streamlit_app.py` | Streamlit Web application |
 | `src/config/manager.py` | Configuration manager (YAML + env vars) |
@@ -148,8 +147,8 @@ Key config sections:
 
 ## Data Storage
 
-- **ChromaDB**: `./data/chroma/` — Vector embeddings, metadata, documents
 - **SQLite Cache**: `./data/cache.db` — API response cache (TTL: 24 hours)
+- **Image Evidence**: `./output/cos_images/` — Downloaded fault screenshots + vision-LLM extracted evidence cache
 - **Rules**: `src/rules/builtin/` and `data/rules/custom/` — Built-in and custom rules
 - **Standards**: `data/standards/` — JSON-formatted development standards
 - **Reports**: `./output/` — Analysis reports (configurable)
@@ -277,7 +276,7 @@ tests/
 ├── test_*.py           # Unit tests for individual modules
 ├── analysis/           # Analysis module tests
 ├── api/               # API client tests
-├── storage/           # ChromaDB tests
+├── feedback/          # Recurrence detection tests
 ├── knowledge/         # Standards manager tests
 ├── visualization/      # Visualization tests
 ├── ui/                # Streamlit component tests (mock-based)

@@ -18,7 +18,7 @@ src/
 ├── embedding/        # Embedding生成
 ├── preprocessor/     # 数据清洗与格式化
 ├── cache/            # SQLite缓存管理
-├── storage/          # ChromaDB向量存储
+├── feedback/         # 反馈采集与复发检测
 ├── config/           # Pydantic配置管理
 ├── rules/            # 规范规则引擎
 ├── report/           # Jinja2报告生成

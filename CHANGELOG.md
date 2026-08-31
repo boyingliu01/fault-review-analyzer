@@ -13,3 +13,4 @@
 - **fix(feedback)**: `recurrence_detector._parse_timestamp` 解析失败返回 `None`（不再伪造 `now()`），成功解析的 aware 时间戳统一归一化为 UTC naive 后返回，消除与 naive 值混排时 `min()/max()` 抛 `TypeError` 的崩溃风险。
 - **fix(analysis)**: `weak_encryption` 弱加密检测误报修复（故障单 11964851）——旧正则缺少词头 `\b` 且全局 IGNORECASE，JS 的 `.includes()` 词尾 "des" 被误判为弱加密；改为双侧词边界 + 算法常量大小写敏感（md5/sha1 允许小写），`VIOLATION_PATTERNS` 支持 per-pattern `flags`，新增回归测试覆盖真实误报样本与真实弱加密用法。
 - **fix(scripts)**: `reanalyze_with_images.py` 覆盖生产 progress json 前自动备份至 `output/reanalysis_backup/`（低质量重分析可随时恢复）；`run_all_parallel.py` 的 `_to_record` 补写 `image_evidence` 字段，打通图片证据到 progress 数据的持久化。
+- **chore(architecture)**: `architecture.yaml` 清理 ChromaDB 移除后的悬空 `src/storage` 引用（cli/ui），feedback 层依赖修正为 core/utils/config、knowledge 层收窄为 core，消除重复层定义；CLAUDE.md/AGENTS.md 文档同步对齐；Delphi 三轮走查共识记录入库。

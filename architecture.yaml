@@ -4,8 +4,8 @@
 layers:
   - name: cli
     path: "src/cli"
-    allow: ["src/api", "src/analyzer", "src/config", "src/report", "src/storage", "src/utils"]
-    description: "CLI entry point - depends on API, analyzer, config, report, storage, utils"
+    allow: ["src/api", "src/analyzer", "src/config", "src/report", "src/utils"]
+    description: "CLI entry point - depends on API, analyzer, config, report, utils"
 
   - name: api
     path: "src/api"
@@ -47,11 +47,6 @@ layers:
     allow: ["src/core", "src/config", "src/utils", "src/visualization", "src/i18n"]
     description: "Report generation - depends on core, config, visualization, i18n"
 
-  - name: storage
-    path: "src/storage"
-    allow: ["src/core", "src/config", "src/utils", "src/embedding"]
-    description: "Vector storage (ChromaDB) - depends on core, config, embedding"
-
   - name: cache
     path: "src/cache"
     allow: ["src/utils"]
@@ -84,8 +79,8 @@ layers:
 
   - name: feedback
     path: "src/feedback"
-    allow: ["src/core", "src/storage", "src/utils"]
-    description: "Feedback loop - depends on core, storage, utils"
+    allow: ["src/core", "src/utils", "src/config"]
+    description: "Feedback and recurrence detection - depends on core, utils, config"
 
   - name: visualization
     path: "src/visualization"
@@ -94,12 +89,12 @@ layers:
 
   - name: knowledge
     path: "src/knowledge"
-    allow: ["src/core", "src/storage"]
-    description: "Knowledge base - depends on core, storage"
+    allow: ["src/core"]
+    description: "Knowledge base - depends on core"
 
   - name: ui
     path: "src/ui"
-    allow: ["src/analyzer", "src/config", "src/report", "src/storage", "src/utils"]
-    description: "Streamlit UI - depends on analyzer, config, report, storage, utils"
+    allow: ["src/analyzer", "src/config", "src/report", "src/utils"]
+    description: "Streamlit UI - depends on analyzer, config, report, utils"
 
 deny_all: false
