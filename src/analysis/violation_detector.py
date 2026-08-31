@@ -12,7 +12,7 @@ from src.core.models import ViolationDetection
 if TYPE_CHECKING:
     from src.knowledge.manager import StandardsManager
 
-VIOLATION_PATTERNS: dict[str, dict[str, str]] = {
+VIOLATION_PATTERNS: dict[str, dict[str, Any]] = {
     # === Java编码规范 ===
     "empty_catch": {
         "pattern": r"catch\s*\([^)]+\)\s*\{\s*\}",
@@ -107,7 +107,11 @@ VIOLATION_PATTERNS: dict[str, dict[str, str]] = {
         "rule_id": "SEC-J00036",
     },
     "weak_encryption": {
-        "pattern": r"(DES|MD5|SHA-?1|RC4)\b",
+        # 双侧词边界；DES/DESede/RC4 仅匹配大写算法常量（历史缺陷：旧正则缺少
+        # 词头 \\b 且全局 IGNORECASE，导致 JS 的 .includes() 词尾 "des" 误报，
+        # 见故障单 11964851）；md5/sha1 允许大小写（JS 中常以小写出现）。
+        "pattern": r"\b(DES|DESede|RC4)\b|\b[Mm][Dd]5\b|\b[Ss][Hh][Aa]-?1\b",
+        "flags": re.MULTILINE,  # 大小写敏感（覆盖默认 IGNORECASE）
         "category": "security",
         "subcategory": "其他安全规则",
         "description": "使用弱加密算法（SEC-J00034）",
@@ -166,7 +170,8 @@ class ViolationDetector:
 
         for violation_name, pattern_info in self._violation_patterns.items():
             pattern = pattern_info["pattern"]
-            if re.search(pattern, code_snippet, re.IGNORECASE | re.MULTILINE):
+            flags = pattern_info.get("flags", re.IGNORECASE | re.MULTILINE)
+            if re.search(pattern, code_snippet, flags):
                 rule_id = pattern_info.get("rule_id", "")
                 rule_label = f"{rule_id}:{violation_name}" if rule_id else violation_name
                 violated_rules.append(rule_label)

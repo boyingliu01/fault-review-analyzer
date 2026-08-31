@@ -3,6 +3,8 @@
 import re
 from unittest.mock import Mock
 
+import pytest
+
 from src.analysis.violation_detector import VIOLATION_PATTERNS, ViolationDetector
 
 
@@ -392,3 +394,77 @@ class TestViolationPatternsBoundary:
 
         for _name, info in VIOLATION_PATTERNS.items():
             assert info["category"] in valid_categories or True  # 允许新类别
+
+
+class TestWeakEncryptionPattern:
+    """SEC-J00034 weak_encryption 误报修复回归测试。
+
+    根因（故障单 11964851 误报）：旧正则 r"(DES|MD5|SHA-?1|RC4)\b" 缺少
+    前置 \\b 且 detect() 全局 IGNORECASE，导致 JS 的 .includes() 调用
+    （单词末尾 "des"）被误判为弱加密算法。
+    """
+
+    @staticmethod
+    def _detect(code_snippet: str):
+        mock_standards = Mock()
+        mock_standards.get_all_categories.return_value = []
+        mock_standards._rules_index = {}
+        detector = ViolationDetector(mock_standards)
+        return detector.detect({"code_snippet": code_snippet})
+
+    def test_js_includes_not_flagged_as_weak_encryption(self):
+        """JS .includes() 调用不应触发弱加密（真实误报样本，来自 11964851 diff）"""
+        snippet = (
+            "if (eventTypeId && ESALES.BusinessConst.nonRechargePaymentList.includes(eventTypeId)) {\n"
+            "  const orderDetailInfo = await this.getCeeOrderDetail();\n"
+            "}\n"
+            "const appDealRetailEventList = ESALES.BusinessConst.appDealRetailEventList;\n"
+            "value: appDealRetailEventList.includes(eventTypeId) ? this.state.orderNbr || orderId : orderId,\n"
+        )
+        result = self._detect(snippet)
+
+        assert not any("weak_encryption" in r for r in result.violated_rules)
+        assert result.is_violation is False
+
+    @pytest.mark.parametrize(
+        "code",
+        [
+            'Cipher.getInstance("DES");',  # Java 弱加密
+            'Cipher.getInstance("DESede");',
+            'MessageDigest.getInstance("MD5");',
+            'MessageDigest.getInstance("SHA-1");',
+            'Cipher.getInstance("RC4");',
+            "crypto.createHash('md5')",  # JS 小写写法
+            "crypto.createHash('sha1')",
+        ],
+    )
+    def test_real_weak_crypto_still_detected(self, code: str):
+        """真实弱加密用法（Java/JS 常见写法）仍应被检出"""
+        result = self._detect(code)
+
+        assert any("weak_encryption" in r for r in result.violated_rules), (
+            f"应检出弱加密但未检出: {code}"
+        )
+
+    @pytest.mark.parametrize(
+        "code",
+        [
+            "const des = req.body;",  # 小写 des 变量（非算法常量）
+            "loadDES = config.value;",  # 词中 des（无词头边界）
+        ],
+    )
+    def test_lowercase_des_word_not_flagged(self, code: str):
+        """小写 des 或词中 des 不应被当作弱加密算法"""
+        result = self._detect(code)
+
+        assert not any("weak_encryption" in r for r in result.violated_rules)
+
+    def test_weak_encryption_pattern_flags_are_strict(self):
+        """weak_encryption 模式应使用严格标志（大小写敏感 + 双侧词边界）"""
+        info = VIOLATION_PATTERNS["weak_encryption"]
+        flags = info.get("flags", re.IGNORECASE | re.MULTILINE)
+
+        assert re.search(info["pattern"], 'Cipher.getInstance("DES")', flags)
+        assert re.search(info["pattern"], "crypto.createHash('md5')", flags)
+        assert not re.search(info["pattern"], "list.includes(eventTypeId)", flags)
+        assert not re.search(info["pattern"], "const des = value;", flags)
