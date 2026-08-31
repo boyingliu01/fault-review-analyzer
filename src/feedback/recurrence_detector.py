@@ -8,7 +8,7 @@ GAP G10: 实现规范要求的 recurrence_detector.py 组件。
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from loguru import logger
@@ -50,7 +50,11 @@ class RecurrenceDetector:
         if not tasks:
             return []
 
-        ids = task_ids or [str(t.get("task_id", i)) for i, t in enumerate(tasks)]
+        # task_ids 与 tasks 必须一一对应，否则退化为从任务字段读取，避免索引越界
+        if task_ids and len(task_ids) == len(tasks):
+            ids = [str(tid) for tid in task_ids]
+        else:
+            ids = [str(t.get("task_id", i)) for i, t in enumerate(tasks)]
 
         # 提取每个任务的特征文本
         features = [self._extract_features(t) for t in tasks]
@@ -203,13 +207,20 @@ class RecurrenceDetector:
         # 汇总关键词
         keywords = self._aggregate_keywords(member_tasks)
 
-        # 时间信息
-        timestamps = [
-            t.get("create_time", t.get("created_at", t.get("createdDate", "")))
-            for t in member_tasks
+        # 时间信息：仅采信可解析的时间戳，
+        # 无法解析/缺失的值不伪造为当前时间，避免时间线失真
+        parsed_ts = [
+            dt
+            for dt in (
+                self._parse_timestamp(
+                    t.get("create_time", t.get("created_at", t.get("createdDate", "")))
+                )
+                for t in member_tasks
+            )
+            if dt is not None
         ]
-        first_seen = self._parse_timestamp(min(timestamps, key=lambda x: str(x)))
-        last_seen = self._parse_timestamp(max(timestamps, key=lambda x: str(x)))
+        first_seen = min(parsed_ts) if parsed_ts else datetime.now()
+        last_seen = max(parsed_ts) if parsed_ts else datetime.now()
 
         # 严重程度：取最高
         severity = "medium"
@@ -261,13 +272,21 @@ class RecurrenceDetector:
         return keywords
 
     @staticmethod
-    def _parse_timestamp(value: Any) -> datetime:
-        """将各种时间格式解析为 datetime。"""
+    def _parse_timestamp(value: Any) -> datetime | None:
+        """将各种时间格式解析为 naive UTC datetime；无法解析时返回 None。
+
+        aware 时间戳统一转为 UTC naive 后返回，
+        避免与 naive 值混排时 min/max 比较抛出 TypeError。
+        """
         if isinstance(value, datetime):
-            return value
-        if value is None or value == "":
-            return datetime.now()
-        try:
-            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        except (ValueError, TypeError):
-            return datetime.now()
+            parsed = value
+        elif value is None or value == "":
+            return None
+        else:
+            try:
+                parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                return None
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
