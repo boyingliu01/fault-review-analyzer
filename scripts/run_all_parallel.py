@@ -21,10 +21,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from typing import TYPE_CHECKING, Any
+
 from loguru import logger
 
 from src.analyzer import AnalysisPipeline, PipelineConfig
 from src.config.manager import ConfigManager
+
+if TYPE_CHECKING:
+    from src.analyzer.pipeline import PipelineResult
 
 OUT_DIR = Path(__file__).parent.parent / "output"
 MAX_CONCURRENCY = 5  # 官方 g-deepseek-v4-flash 并发 5 稳定
@@ -60,7 +65,7 @@ def _save_progress(rec: dict) -> None:
         json.dump(rec, fh, ensure_ascii=False, indent=2)
 
 
-def _to_record(result) -> dict:
+def _to_record(result: PipelineResult) -> dict:
     """把 PipelineResult 转为可序列化记录。"""
     task_data = result.task_data or {}
     return {
@@ -79,6 +84,7 @@ def _to_record(result) -> dict:
         "code_change_analysis": result.code_change_analysis or {},
         "improvements": result.improvements or [],
         "standard_matches": result.standard_matches or [],
+        "image_evidence": result.image_evidence or "",
     }
 
 
@@ -146,7 +152,7 @@ def _append_batch_index(records: list[dict], source_file: Path, ts: str) -> None
     if not urids:
         return
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    batch = {
+    batch: dict[str, Any] = {
         "batch_id": f"batch-{ts}",
         "name": f"分析批次 {created_at}",
         "created_at": created_at,

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import sys
 import time
 from datetime import datetime
@@ -122,7 +123,10 @@ def _parse_llm_json(text: str) -> dict[str, Any]:
         if lines and lines[-1].strip().startswith("```"):
             lines = lines[:-1]
         t = "\n".join(lines)
-    return json.loads(t)
+    data = json.loads(t)
+    if not isinstance(data, dict):
+        raise ValueError(f"LLM 返回的 JSON 不是对象: {type(data).__name__}")
+    return data
 
 
 def _merge_record(original: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
@@ -182,6 +186,14 @@ async def reanalyze_one(urid: int, provider: OpenAILLMProvider) -> dict[str, Any
         return None
 
     merged = _merge_record(rec, new)
+    # 覆盖前备份当前记录到 output/reanalysis_backup/，
+    # 保留重分析前的原始分析结果，低质量重分析可随时恢复
+    backup_dir = OUT_DIR / "reanalysis_backup"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup = backup_dir / (
+        f"progress_{urid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
+    shutil.copyfile(progress_file, backup)
     progress_file.write_text(
         json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8"
     )
