@@ -25,16 +25,20 @@ class AdaptiveRateLimiter:
         self.recovery_factor = recovery_factor
         self.current_qps = initial_qps
         self._last_request_time: float = 0.0
-        self._min_interval = 1.0 / max_qps
+        self._lock = asyncio.Lock()
 
     async def acquire(self) -> None:
-        """获取请求令牌（按当前 QPS 间隔等待）。"""
-        now = asyncio.get_event_loop().time()
-        elapsed = now - self._last_request_time
-        interval = 1.0 / self.current_qps
-        if elapsed < interval:
-            await asyncio.sleep(interval - elapsed)
-        self._last_request_time = asyncio.get_event_loop().time()
+        """获取请求令牌（按当前 QPS 间隔等待，协程安全）。"""
+        async with self._lock:
+            now = asyncio.get_running_loop().time()
+            elapsed = now - self._last_request_time
+            interval = 1.0 / self.current_qps
+            wait = max(0.0, interval - elapsed)
+            # 在锁内原子预约本次请求的放行时刻，
+            # 保证并发协程严格按间隔依次放行（不持锁睡眠）
+            self._last_request_time = now + wait
+        if wait > 0:
+            await asyncio.sleep(wait)
 
     def record_success(self) -> None:
         """记录成功请求（恢复 QPS）。"""

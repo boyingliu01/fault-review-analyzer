@@ -47,9 +47,7 @@ def test_extract_image_refs_resolved_url() -> None:
 
 def test_resolve_url() -> None:
     url = resolve_url("default_add", "abc-123", "image.png")
-    assert url == (
-        "https://dev.iwhalecloud.com/cos-devspace/task/default_add/abc-123/image.png"
-    )
+    assert url == ("https://dev.iwhalecloud.com/cos-devspace/task/default_add/abc-123/image.png")
 
 
 def test_no_images_returns_empty(tmp_path: Path) -> None:
@@ -73,9 +71,7 @@ def test_cached_evidence_reused(tmp_path: Path) -> None:
     (urid_dir / "image_evidence.json").write_text(
         __import__("json").dumps(payload, ensure_ascii=False), encoding="utf-8"
     )
-    result = asyncio_run(
-        ext.get_image_evidence({"urId": 123, "description": DESC_WITH_IMAGES})
-    )
+    result = asyncio_run(ext.get_image_evidence({"urId": 123, "description": DESC_WITH_IMAGES}))
     assert "缓存证据内容" in result
 
 
@@ -87,9 +83,7 @@ def test_failed_download_returns_empty(tmp_path: Path, monkeypatch: pytest.Monke
         return []
 
     monkeypatch.setattr(ext, "download_images", _fake_download)
-    result = asyncio_run(
-        ext.get_image_evidence({"urId": 999, "description": DESC_WITH_IMAGES})
-    )
+    result = asyncio_run(ext.get_image_evidence({"urId": 999, "description": DESC_WITH_IMAGES}))
     assert result == ""
 
 

@@ -1,6 +1,8 @@
 import json
 from typing import Any
 
+from loguru import logger
+
 from src.analyzer.labeling.models import LLMProvider
 from src.rules.categories import CAUSE_TYPES
 
@@ -139,6 +141,11 @@ class RootCauseAnalyzer:
             if parsed.root_causes:
                 return parsed
             # 解析失败或根因为空，重试（本地模型偶发输出不完整）
+            logger.warning(
+                "task_id={} LLM 响应为空/不完整，重试（第 {} 次）",
+                task_id,
+                _attempt + 1,
+            )
             result = parsed
 
         assert result is not None
@@ -199,10 +206,13 @@ class RootCauseAnalyzer:
                 management_factors=data.get("management_factors", []),
             )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
-            import sys
-
-            print(f"[DEBUG] 根因分析响应解析失败: {e}", file=sys.stderr)
-            print(f"[DEBUG] 原始响应: {response[:500]}", file=sys.stderr)
+            # 可观测性：解析失败必须留下日志，否则 LLM 响应质量问题无法感知
+            logger.warning(
+                "task_id={} 根因分析响应解析失败: {} 原始响应片段: {}",
+                task_id,
+                e,
+                response[:500],
+            )
             return RootCauseAnalysisResult(
                 task_id=task_id,
                 root_causes=[],

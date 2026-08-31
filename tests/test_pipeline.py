@@ -510,6 +510,7 @@ class TestAnalysisPipeline:
                     result = await pipeline.run_single(12345)
 
         assert result.task_id == 12345
+        # 意外异常详情被安全掩蔽，不对外泄露
         assert result.error == "Analysis failed due to an internal error"
 
     @pytest.mark.asyncio
@@ -869,4 +870,5 @@ class TestAnalysisPipeline:
                     result = await pipeline.run_single(12345)
 
         assert result.task_id == 12345
+        # 意外异常详情被安全掩蔽，不对外泄露
         assert result.error == "Analysis failed due to an internal error"

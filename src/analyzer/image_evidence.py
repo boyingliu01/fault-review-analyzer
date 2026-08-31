@@ -136,13 +136,20 @@ class ImageEvidenceExtractor:
                 paths.append(dest)
                 continue
             try:
-                with httpx.Client(timeout=self._timeout) as client:
-                    r = client.get(url)
+                # 异步下载：避免在事件循环内阻塞，拖慢批量并发分析
+                async with httpx.AsyncClient(
+                    timeout=self._timeout, follow_redirects=True
+                ) as client:
+                    r = await client.get(url)
                 if r.status_code == 200 and r.content:
                     dest.write_bytes(r.content)
                     paths.append(dest)
                 else:
-                    logger.warning("[图片证据] {urid} 图片下载失败 HTTP {status}", urid=urid, status=r.status_code)
+                    logger.warning(
+                        "[图片证据] {urid} 图片下载失败 HTTP {status}",
+                        urid=urid,
+                        status=r.status_code,
+                    )
             except Exception as e:
                 logger.warning("[图片证据] {urid} 图片下载异常: {err}", urid=urid, err=str(e)[:80])
         return paths
@@ -182,7 +189,9 @@ class ImageEvidenceExtractor:
             finally:
                 await client.close()
         except Exception as e:
-            logger.warning("[图片证据] 视觉读图失败 {path}: {err}", path=image_path.name, err=str(e)[:80])
+            logger.warning(
+                "[图片证据] 视觉读图失败 {path}: {err}", path=image_path.name, err=str(e)[:80]
+            )
             return ""
 
     # ------------------------------------------------------------------
@@ -236,9 +245,7 @@ class ImageEvidenceExtractor:
     # ------------------------------------------------------------------
     # 主入口
     # ------------------------------------------------------------------
-    async def get_image_evidence(
-        self, task_data: dict[str, Any]
-    ) -> str:
+    async def get_image_evidence(self, task_data: dict[str, Any]) -> str:
         """获取单起故障的图片证据文本。
 
         若已有有效缓存（描述未变更）则直接返回；否则下载图片 + 视觉读图 + 缓存。
@@ -279,9 +286,7 @@ class ImageEvidenceExtractor:
         for path in image_paths:
             text = await self._vision_read(path)
             if text:
-                evidence_list.append(
-                    {"image": path.name, "type": "", "content": text, "clue": ""}
-                )
+                evidence_list.append({"image": path.name, "type": "", "content": text, "clue": ""})
 
         if not evidence_list:
             return ""

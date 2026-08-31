@@ -80,6 +80,7 @@ class PipelineResult:
     cluster_id: int | None = None
     report: str = ""
     error: str = ""
+    image_evidence: str = ""  # 图片证据文本（无则空串，供报告/UI展示）
     processing_time: float = 0.0  # 处理耗时（秒，不含 LLM 调用延迟）
 
 
@@ -196,6 +197,8 @@ class AnalysisPipeline:
                 task_id=task_id,
                 exception_type=type(error).__name__,
             ).error("Analysis pipeline failed")
+            # 安全掩蔽：意外异常消息可能含敏感内容（URL/密钥/SQL），
+            # 不写入对外结果；排查通过日志中的 exception_type + task_id 关联。
             result.error = "Analysis failed due to an internal error"
 
         finally:
@@ -214,7 +217,7 @@ class AnalysisPipeline:
         result.task_data = task_data.model_dump()
         preprocessed = self._preprocessor.process(task_data)
         # 图片证据增强：若有占位符图片，下载 + 视觉读图，追加为 image_evidence segment
-        await self._enrich_with_image_evidence(task_data, preprocessed)
+        result.image_evidence = await self._enrich_with_image_evidence(task_data, preprocessed)
         result.preprocessed = {
             "task_id": preprocessed.task_id,
             "combined_text": preprocessed.combined_text,
@@ -227,20 +230,20 @@ class AnalysisPipeline:
 
     async def _enrich_with_image_evidence(
         self, task_data: TaskInfo, preprocessed: ProcessedTask
-    ) -> None:
+    ) -> str:
         """下载并读取故障单中的占位符图片，把图片证据追加为 segment。
 
         图片证据使 LLM 能基于完整信息（描述 + 截图内容）做根因分析，
         避免因读不到图片而得出"信息不足/无法定位"的结论。
 
-        无占位符图片或提取失败时静默跳过，不影响主分析流程。
+        无占位符图片或提取失败时返回空串，不影响主分析流程。
         """
         try:
             evidence = await self._image_evidence_extractor.get_image_evidence(
                 task_data.model_dump()
             )
             if not evidence:
-                return
+                return ""
             preprocessed.segments.append(
                 TextSegment(
                     task_id=preprocessed.task_id,
@@ -250,20 +253,20 @@ class AnalysisPipeline:
                 )
             )
             # 同步更新合并文本（供规范匹配等下游使用）
-            preprocessed.combined_text = (
-                f"{preprocessed.combined_text}\n\n[图片证据]\n{evidence}"
-            )
+            preprocessed.combined_text = f"{preprocessed.combined_text}\n\n[图片证据]\n{evidence}"
             logger.info(
                 "urId={} 已注入图片证据（{} 字符）",
                 task_data.task_id,
                 len(evidence),
             )
+            return evidence
         except Exception as e:
             logger.warning(
                 "urId={} 图片证据提取失败，降级为无图片证据: {}",
                 task_data.task_id,
                 str(e)[:100],
             )
+            return ""
 
     async def _analyze_with_llm(
         self, task_data: TaskInfo, preprocessed: ProcessedTask, result: PipelineResult
@@ -873,10 +876,7 @@ class AnalysisPipeline:
 
         # TaskInfo.model_dump() 后的字段名是 task_id（不是 task_no/taskId）
         task_no = str(
-            task_data.get("task_no")
-            or task_data.get("taskId")
-            or task_data.get("task_id")
-            or ""
+            task_data.get("task_no") or task_data.get("taskId") or task_data.get("task_id") or ""
         )
         if not task_no:
             return {}
@@ -894,9 +894,8 @@ class AnalysisPipeline:
         # 使 5 层深挖基于完整信息（描述+截图）而非残缺文本。
         description = task_data.get("description", "")
         try:
-            from src.analyzer.image_evidence import ImageEvidenceExtractor
-
-            evidence = await ImageEvidenceExtractor().get_image_evidence(task_data)
+            # 复用共享实例，避免重复创建（与主分析链路共用缓存）
+            evidence = await self._image_evidence_extractor.get_image_evidence(task_data)
             if evidence:
                 description = f"{description}\n\n## 故障单截图证据\n{evidence}"
         except Exception as e:

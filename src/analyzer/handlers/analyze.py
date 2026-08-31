@@ -153,10 +153,7 @@ class AnalyzeHandler:
 
         # TaskInfo.model_dump() 后的字段名是 task_id（不是 task_no/taskId）
         task_no = str(
-            task_data.get("task_no")
-            or task_data.get("taskId")
-            or task_data.get("task_id")
-            or ""
+            task_data.get("task_no") or task_data.get("taskId") or task_data.get("task_id") or ""
         )
         if not task_no:
             return {}
