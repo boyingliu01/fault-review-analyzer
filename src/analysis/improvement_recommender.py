@@ -188,7 +188,35 @@ class ImprovementRecommender:
             if measure:
                 measures.append(measure)
 
+        measures = self._merge_duplicate_measures(measures)
         return self._sort_by_priority(measures)
+
+    def _merge_duplicate_measures(
+        self, measures: list[ImprovementMeasure]
+    ) -> list[ImprovementMeasure]:
+        """合并重复措施：不同根因命中同一类别同一优先级时共用同一模板。
+
+        多个根因指向同一条措施文本时合并为一条，避免报告中罗列多遍；
+        root_cause 用顿号连接保留全部根因，rule_ids 合并去重，
+        expected_impact 保留最高频根因的占比。
+        """
+        merged: dict[tuple[str, str], ImprovementMeasure] = {}
+        result: list[ImprovementMeasure] = []
+        for m in measures:
+            key = (m.category, m.priority)
+            kept = merged.get(key)
+            if kept is None:
+                merged[key] = m
+                result.append(m)
+                continue
+            causes = [c for c in kept.root_cause.split("、") if c]
+            if m.root_cause and m.root_cause not in causes:
+                causes.append(m.root_cause)
+            kept.root_cause = "、".join(causes)
+            for rid in m.rule_ids:
+                if rid and rid not in kept.rule_ids:
+                    kept.rule_ids.append(rid)
+        return result
 
     def _generate_measure_for_root_cause(
         self,

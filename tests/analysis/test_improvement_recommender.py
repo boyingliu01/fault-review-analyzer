@@ -206,3 +206,103 @@ class TestImprovementRecommender:
 
         assert len(filtered) == 2
         assert all(m.priority == "high" for m in filtered)
+
+
+class TestMergeDuplicateMeasures:
+    """重复措施合并测试（同类别同优先级共用同一模板时只保留一条）"""
+
+    def test_merge_same_category_and_priority(self):
+        """同类别同优先级的重复措施合并为一条，root_cause 顿号连接"""
+        recommender = ImprovementRecommender()
+
+        measures = recommender.recommend_measures(
+            ["边界条件未处理", "异常处理不当"]
+        )
+
+        assert len(measures) == 1
+        assert measures[0].category == "代码类"
+        assert measures[0].root_cause == "边界条件未处理、异常处理不当"
+
+    def test_merge_keeps_highest_frequency_impact(self):
+        """合并后 expected_impact 保留最高频根因的占比"""
+        recommender = ImprovementRecommender()
+
+        measures = recommender.recommend_measures(
+            ["边界条件未处理", "边界条件未处理", "边界条件未处理", "异常处理不当"]
+        )
+
+        assert len(measures) == 1
+        assert "75.0%" in measures[0].expected_impact
+        assert measures[0].root_cause == "边界条件未处理、异常处理不当"
+
+    def test_no_merge_across_priorities(self):
+        """同类别不同优先级不合并"""
+        recommender = ImprovementRecommender()
+
+        # 4/6=66.7% -> high, 1/6=16.7% -> medium（同属代码类）
+        measures = recommender.recommend_measures(
+            ["边界条件未处理", "边界条件未处理", "边界条件未处理",
+             "边界条件未处理", "异常处理不当", "设计缺陷"]
+        )
+
+        assert len(measures) == 3
+        code_measures = [m for m in measures if m.category == "代码类"]
+        assert {m.priority for m in code_measures} == {"high", "medium"}
+        # 高优先级条目不跨优先级合并
+        assert code_measures[0].root_cause == "边界条件未处理"
+        assert code_measures[1].root_cause == "异常处理不当"
+
+    def test_no_merge_across_categories(self):
+        """不同类别不合并"""
+        recommender = ImprovementRecommender()
+
+        measures = recommender.recommend_measures(
+            ["设计遗漏", "边界条件未处理"]
+        )
+
+        assert len(measures) == 2
+        assert {m.category for m in measures} == {"需求类", "代码类"}
+
+    def test_merge_combines_rule_ids(self):
+        """合并时 rule_ids 去重合并"""
+        recommender = ImprovementRecommender()
+
+        measures = recommender.recommend_measures(
+            ["边界条件未处理", "异常处理不当"],
+            rule_ids_by_cause={
+                "边界条件未处理": ["J000025"],
+                "异常处理不当": ["J000025", "J000033"],
+            },
+        )
+
+        assert len(measures) == 1
+        assert measures[0].rule_ids == ["J000025", "J000033"]
+
+    def test_recommend_measures_deduplicated_end_to_end(self):
+        """端到端：真实样例（11757373）合并后 measure 文本无重复"""
+        recommender = ImprovementRecommender()
+
+        measures = recommender.recommend_measures(
+            ["设计遗漏", "边界条件未处理", "异常处理不当"]
+        )
+
+        measure_texts = [m.measure for m in measures]
+        assert len(measure_texts) == len(set(measure_texts))
+
+    def test_merge_preserves_order_by_root_cause_frequency(self):
+        """合并条目顺序保持根因频次序（高频根因的措施在前）"""
+        recommender = ImprovementRecommender()
+
+        # "需求分析不充分"占3条, "违反Java异常处理规范"占2条
+        measures = recommender.recommend_measures(
+            ["违反Java异常处理规范", "违反Java异常处理规范",
+             "需求分析不充分", "需求分析不充分", "需求分析不充分"],
+            violation_causes=["违反Java异常处理规范"],
+        )
+
+        assert len(measures) == 2
+        assert {m.category for m in measures} == {"违规类", "需求类"}
+        assert {m.root_cause for m in measures} == {
+            "违反Java异常处理规范",
+            "需求分析不充分",
+        }
