@@ -37,6 +37,16 @@ VIOLATION_PATTERNS: dict[str, dict[str, Any]] = {
     },
     "non_thread_safe_collection": {
         "pattern": r"(new\s+)?(HashMap|ArrayList|HashSet)<",
+        # 集合创建本身不构成违规，只有处于多线程上下文时才违反 J000025；
+        # 旧逻辑不看上下文导致大量单线程场景误报（修正前 16/181 单命中
+        # 多数不可信）。context_pattern 命中才检测主 pattern。
+        "context_pattern": (
+            r"\b(Thread|Runnable|Callable|synchronized|Executors?Service?"
+            r"|ThreadPoolExecutor|ThreadPoolTaskExecutor|newFixedThreadPool"
+            r"|newCachedThreadPool|@Async|parallelStream|CompletableFuture"
+            r"|ForkJoin|CountDownLatch|Semaphore|Atomic\w+"
+            r"|ConcurrentHashMap|CopyOnWrite\w+|BlockingQueue)\b"
+        ),
         "category": "java_coding",
         "subcategory": "并发处理",
         "description": "多线程环境下使用非线程安全集合（J000025）",
@@ -171,6 +181,11 @@ class ViolationDetector:
         for violation_name, pattern_info in self._violation_patterns.items():
             pattern = pattern_info["pattern"]
             flags = pattern_info.get("flags", re.IGNORECASE | re.MULTILINE)
+            # 部分模式需要代码中存在特定上下文才成立（如非线程安全集合
+            # 需要多线程特征），避免脱离语境的误报
+            context_pattern = pattern_info.get("context_pattern")
+            if context_pattern and not re.search(context_pattern, code_snippet, re.IGNORECASE):
+                continue
             if re.search(pattern, code_snippet, flags):
                 rule_id = pattern_info.get("rule_id", "")
                 rule_label = f"{rule_id}:{violation_name}" if rule_id else violation_name

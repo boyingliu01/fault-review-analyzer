@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -15,6 +16,10 @@ class Rule:
     condition: str = ""
     message: str = ""
     enabled: bool = True
+    # 正则匹配 flags；默认 IGNORECASE 保持历史行为，个别规则可覆写
+    # （如弱加密等大小写敏感的检测，与 violation_detector 的
+    # per-pattern flags 机制对齐）
+    flags: int = re.IGNORECASE
     check_function: Any = None  # Backward compat: old-style check function
     options: dict[str, Any] = field(default_factory=dict)  # Backward compat
 

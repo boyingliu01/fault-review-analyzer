@@ -75,7 +75,26 @@ class TestViolationDetectorBoundary:
         assert any("database_connection_leak" in r for r in result.violated_rules)
 
     def test_detect_non_thread_safe_collection(self):
-        """测试非线程安全集合检测"""
+        """测试非线程安全集合检测（需存在多线程上下文）"""
+        mock_standards = Mock()
+        mock_standards.get_all_categories.return_value = []
+        mock_standards._rules_index = {}
+
+        detector = ViolationDetector(mock_standards)
+        result = detector.detect(
+            {
+                "code_snippet": (
+                    "ExecutorService pool = Executors.newFixedThreadPool(4);\n"
+                    "Map<String, Object> map = new HashMap<>();"
+                ),
+            }
+        )
+
+        assert result.is_violation is True
+        assert any("non_thread_safe_collection" in r for r in result.violated_rules)
+
+    def test_non_thread_safe_collection_without_concurrency_not_flagged(self):
+        """单线程场景下创建集合不应报 J000025（无多线程上下文，避免误报）"""
         mock_standards = Mock()
         mock_standards.get_all_categories.return_value = []
         mock_standards._rules_index = {}
@@ -87,8 +106,8 @@ class TestViolationDetectorBoundary:
             }
         )
 
-        assert result.is_violation is True
-        assert any("non_thread_safe_collection" in r for r in result.violated_rules)
+        assert not any("non_thread_safe_collection" in r for r in result.violated_rules)
+        assert result.is_violation is False
 
     def test_detect_system_out_println(self):
         """测试System.out.println检测"""

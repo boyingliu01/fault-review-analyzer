@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- **fix(rules)**: 规范违规检测四项隐含缺陷修复（A1/A2/A3/A7）——① 新增 `src/utils/diff_utils.extract_added_lines()`，规则引擎与违规检测器只检测 diff 新增行（删除行/上下文行是历史或被移除代码，混入会被误判为本次引入，见 11964851）；`code_changes` 只检测 `new_content`，不再降级检测 `old_content`。② `security-001` 正则收紧为明确凭证词（password/secret/token/api_key 等），移除裸词 `key|token`（IGNORECASE 下 cacheKey/KEY 等普通变量名大量误报，修正前 41/181 单命中），要求值长度≥6 过滤占位符；evidence 从 `re.findall` 分组元组改为完整代码行（旧证据如 `['KEY','key',...]` 无法复核）。③ `J000025 非线程安全集合` 增加 `context_pattern` 多线程上下文前置检测（无 Thread/Executor/parallelStream 等特征不报）。④ `Rule` 模型支持规则级 `flags`（默认 IGNORECASE 保持兼容），与 `violation_detector` 的 per-pattern flags 机制对齐。修复后重算 181 单：违规 2→18 条（security-001×6、SEC-J00033×6、J000025×4、J000066×1、SEC-J00002×1），新增 `scripts/rerun_violations.py`（备份后仅重算 violations 字段，不重跑 LLM）。
 - **fix(utils)**: `AdaptiveRateLimiter.acquire()` 改为 asyncio.Lock 锁内原子预约放行时刻 + 锁外 sleep，消除并发雷群效应；`get_running_loop()` 替代 3.12 已废弃的 `get_event_loop()`；删除 `src/embedding/generator.py` 中的旧副本，统一使用共享实现（重新导出保持测试导入兼容）。
 - **fix(analyzer)**: 图片证据链路端到端贯通（`PipelineResult.image_evidence` 字段 → 赋值 → progress 持久化 → 读端生效）；图片下载 `httpx.Client` 改 `AsyncClient` + `follow_redirects`（消除事件循环阻塞与静默重定向失败）；深度根因链路复用 extractor 成员实例；恢复意外异常安全掩蔽（含敏感内容的异常详情不写入对外结果，排查走日志 `exception_type`+`task_id`）；根因推理日志 print→loguru 规范化。
 - **fix(feedback)**: `recurrence_detector._parse_timestamp` 解析失败返回 `None`（不再伪造 `now()`），成功解析的 aware 时间戳统一归一化为 UTC naive 后返回，消除与 naive 值混排时 `min()/max()` 抛 `TypeError` 的崩溃风险。

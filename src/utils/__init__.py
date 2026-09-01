@@ -1,5 +1,6 @@
 """工具函数模块"""
 
+from src.utils.diff_utils import extract_added_lines
 from src.utils.helpers import (
     chunk_text,
     count_tokens_estimate,
@@ -21,6 +22,7 @@ from src.utils.metrics import (
 )
 
 __all__ = [
+    "extract_added_lines",
     "setup_logger",
     "get_logger",
     "StructuredLogger",

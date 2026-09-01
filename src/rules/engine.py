@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
+from src.utils.diff_utils import extract_added_lines
+
 from .models import Rule, RuleCheckResult, RuleViolation
 
 if TYPE_CHECKING:
@@ -165,10 +167,18 @@ BUILTIN_RULES: list[dict] = [
     {
         "id": "security-001",
         "name": "敏感信息泄露",
-        "description": "检测代码中是否包含敏感信息如密码、密钥等",
+        "description": "检测代码中是否包含敏感信息如密码、令牌、密钥等",
         "category": "security",
         "severity": "critical",
-        "pattern": r"(password|secret|key|token|api_key|apikey)\s*=\s*['\"][^'\"]+['\"]",
+        # 只匹配明确的凭证类变量名；旧正则含裸词 key|token，IGNORECASE
+        # 下 cacheKey/KEY 等普通变量名大量误报（修正前 41/181 单命中，
+        # 证据全为变量名，如 11964009）。要求值长度 >=6 以过滤占位符。
+        "pattern": (
+            r"\b(password|passwd|pwd|secret|token|api_?key|access_?key"
+            r"|secret_?key|private_?key|auth_?token|app_?secret)\w*"
+            r"\s*[:=]\s*['\"][^'\"]{6,}['\"]"
+        ),
+        "flags": re.IGNORECASE,
         "message": "检测到敏感信息硬编码",
     },
     {
@@ -238,6 +248,7 @@ class RulesEngine:
                 pattern=rule_data.get("pattern", ""),
                 condition=rule_data.get("condition", ""),
                 message=rule_data.get("message", ""),
+                flags=rule_data.get("flags", re.IGNORECASE),
             )
             self._rules[rule.id] = rule
 
@@ -330,6 +341,8 @@ class RulesEngine:
         """Check task data against all rules.
 
         优先检查代码diff内容，如果没有diff则降级到检查commit message。
+        diff 只检测新增行（+ 行）：删除行是本次被移除的代码、上下文行
+        是未变更的历史代码，混入会把历史/已删除代码误判为本次引入的违规。
         """
         violations = []
 
@@ -340,23 +353,21 @@ class RulesEngine:
         if task_data.get("development"):
             dev = task_data["development"]
             if isinstance(dev, dict):
-                # 首先尝试从commits中获取diff
+                # 首先尝试从commits中获取diff（只取新增行）
                 for commit in dev.get("commits", []):
                     diff = commit.get("diff", "")
                     if diff:
-                        code_parts.append(diff)
+                        code_parts.append(extract_added_lines(diff))
                     else:
                         # 降级：使用commit message
                         code_parts.append(commit.get("message", ""))
 
-                # 如果有code_changes中的内容也加入检查
+                # code_changes 只检测新代码；old_content 是变更前代码，
+                # 混入会把"被删除的代码"误判为本次引入的违规
                 for change in dev.get("code_changes", []):
-                    old_content = change.get("old_content", "")
                     new_content = change.get("new_content", "")
                     if new_content:
                         code_parts.append(new_content)
-                    elif old_content:
-                        code_parts.append(old_content)
 
         # 使用 join 代替 += 拼接，限制总大小
         code_content = "\n".join(code_parts)[:max_content_size]
@@ -366,19 +377,43 @@ class RulesEngine:
                 continue
 
             if rule.pattern:
-                matches = re.findall(rule.pattern, code_content, re.IGNORECASE)
-                if matches:
+                evidence = self._match_with_context(rule, code_content)
+                if evidence:
                     violations.append(
                         RuleViolation(
                             rule_id=rule.id,
                             rule_name=rule.name,
                             severity=rule.severity,
                             message=rule.message,
-                            evidence=[str(m) for m in matches[:5]],
+                            evidence=evidence,
                         )
                     )
 
         return violations
+
+    @staticmethod
+    def _match_with_context(rule: Rule, code_content: str) -> list[str]:
+        """正则匹配并返回带上下文的证据行（最多5条）。
+
+        旧实现用 re.findall + str(m)：带分组的 pattern 只返回分组元组，
+        证据沦为裸关键词（如 ['KEY','key',...]），无法复核。此处改为
+        返回完整匹配所在的代码行；每条规则使用自己的 flags。
+        """
+        evidences: list[str] = []
+        try:
+            for m in re.finditer(rule.pattern, code_content, rule.flags):
+                line_start = code_content.rfind("\n", 0, m.start()) + 1
+                line_end = code_content.find("\n", m.end())
+                if line_end == -1:
+                    line_end = len(code_content)
+                line = code_content[line_start:line_end].strip()
+                if line:
+                    evidences.append(line[:200])
+                if len(evidences) >= 5:
+                    break
+        except re.error as e:
+            logger.warning(f"规则 {rule.id} 正则执行失败: {e}")
+        return evidences
 
 
 # ============================================================================

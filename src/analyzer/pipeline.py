@@ -26,6 +26,7 @@ from src.preprocessor.models import ProcessedTask, TextSegment
 from src.preprocessor.processor import DataPreprocessor
 from src.report.generator import ReportFormat, ReportGenerator
 from src.rules.engine import RulesEngine
+from src.utils.diff_utils import extract_added_lines
 
 
 class _LLMClientAdapter:
@@ -317,7 +318,9 @@ class AnalysisPipeline:
             }
             commits_data.append(commit_dict)
             if commit.diff:
-                all_diff_content += commit.diff + "\n"
+                # 只保留新增行：删除行/上下文行是历史或被移除代码，
+                # 混入违规检测会把它们误判为本次引入（见 11964851 误报）
+                all_diff_content += extract_added_lines(commit.diff) + "\n"
 
         # 使用CodeChangeAnalyzer进行diff分析和模式检测
         analyzer = self._get_code_change_analyzer()
