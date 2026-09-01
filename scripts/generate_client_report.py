@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import re
 import sys
@@ -25,6 +26,8 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from loguru import logger
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -66,12 +69,47 @@ def load_records() -> dict[int, dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# 产品线映射（口径: 基于故障单标题中的 ZSmart 模块标识与业务关键词推断）
-# 如个别单子归属不准确，修正下表规则后重跑本脚本即可。
+# 产品线映射。
+# 权威口径: 业务复盘xlsx的"责任产品线"字段（output/product_line_map.json，
+# 由 scripts/extract_product_line_map.py 生成）；该字段缺失的 urId 回退到
+# 基于故障单标题中 ZSmart 模块标识与业务关键词的推断（历史错误率 34%）。
+# 如个别单子归属不准确，更新业务xlsx后重跑提取脚本即可。
 # ---------------------------------------------------------------------------
 LINE_CHANNEL = "国际数字渠道产品线"
 LINE_BSS = "国际BSS产品线"
 LINE_PLATFORM = "平台/公共组件"
+LINE_ESHOP = "电商产品线"
+
+# 业务xlsx"责任产品线"取值 → 报告产品线名
+_BIZ_LINE_TO_REPORT = {
+    "BSS": LINE_BSS,
+    "数渠": LINE_CHANNEL,
+    "电商": LINE_ESHOP,
+}
+
+
+def load_product_line_map() -> dict[int, str]:
+    """加载业务复盘的责任产品线权威映射（urId → 报告产品线名）。
+
+    映射文件缺失或损坏时返回空 dict，调用方自动回退标题推断。
+    """
+    map_file = OUT_DIR / "product_line_map.json"
+    if not map_file.exists():
+        logger.warning("product_line_map.json 不存在，产品线将回退标题推断（历史错误率34%）")
+        return {}
+    try:
+        data: dict[str, Any] = json.loads(map_file.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.warning(f"product_line_map.json 解析失败: {e}")
+        return {}
+    result: dict[int, str] = {}
+    for u_str, biz_line in (data.get("map") or {}).items():
+        report_line = _BIZ_LINE_TO_REPORT.get(str(biz_line).strip())
+        if report_line:
+            with contextlib.suppress(ValueError):
+                result[int(u_str)] = report_line
+    return result
+
 
 # ZSmart 模块标识 → 产品线（强信号，优先级最高）
 _MODULE_LINE = {
@@ -196,9 +234,13 @@ def aggregate(recs: dict[int, dict[str, Any]]) -> dict[str, Any]:
     imp_by_cat_prio: Counter[tuple[str, str]] = Counter()
     line_recs: dict[str, dict[int, dict[str, Any]]] = defaultdict(dict)
 
-    # 第一步: 按标题关键词初步判定
-    pre_line: dict[int, str] = {u: classify_product_line(r.get("title", "")) for u, r in recs.items()}
-    # 第二步: 未判定单子按 (projectId, zmpProjectId) 组内多数派投票兜底
+    # 第零步: 优先采用业务复盘"责任产品线"权威映射（output/product_line_map.json）
+    biz_line = load_product_line_map()
+    # 第一步: 映射未命中的 urId 按标题关键词推断
+    pre_line: dict[int, str] = {
+        u: biz_line.get(u) or classify_product_line(r.get("title", "")) for u, r in recs.items()
+    }
+    # 第二步: 仍未判定的单子按 (projectId, zmpProjectId) 组内多数派投票兜底
     _apply_group_majority(pre_line)
 
     with_code = sum(1 for r in recs.values() if r.get("has_code_change"))
