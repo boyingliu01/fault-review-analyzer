@@ -1,0 +1,66 @@
+# Streamlit UI 迭代优化 specification
+
+## 目标
+在 MVP (v0.1.0) 基础上，对 Streamlit 复盘分析界面做 6 项展示与易用性优化：批次隔离、帕累托图、规范条款内容、明细联动筛选、urid 研发云链接、单起详情联动。
+
+## 需求 (REQ)
+
+### REQ-1: 批次隔离 + 左右分栏
+- 左侧 st.sidebar 导览：批次列表、批次批注（可添加）、批次统计
+- 右侧主区：当前批次的帕累托图、规范违规分布、缺陷明细、单起详情
+- 多批次互不干扰，批次切换只影响右侧内容
+- 批注持久化到 output/annotations.json
+- 批次索引存 output/batches.json
+
+### REQ-2: 帕累托图
+- Plotly 组合图：根因类型柱状图（降序）+ 累计占比折线（副 y 轴 0-100%）
+- 全部根因展示，用户自行关注 Top3/Top5
+- 点击柱状图某根因 → 过滤下方明细
+- 点击事件按 curve_number==0（bar trace）过滤，忽略累计线
+
+### REQ-3: 规范条款内容
+- build_violation_df 增加条款内容（rule_name）列
+- 展示：规范条款、条款内容、违规次数
+- 按 rule_id 聚合，rule_name 取首次值，违规次数按实例计数
+
+### REQ-4: 明细联动 + 筛选
+- 帕累托图点击 → 过滤明细为该根因
+- 规范条款点击 → 过滤明细为含该条款
+- 手动筛选：根因下拉、条款下拉、代码变更、仅看违规、隐藏无根因
+- 空选择 = 显示全部；用 st.session_state 保存选中状态
+
+### REQ-5: urid 研发云链接
+- build_detail_df 新增研发云链接列（URL 字符串）
+- 用 column_config.LinkColumn 渲染（URL 字符串，非 markdown）
+- URL 模板：RDEV_DETAIL_URL_TEMPLATE（默认 https://dev.iwhalecloud.com/portal/zcm-devspace/spa/task/pc/{urId}）
+
+### REQ-6: 单起详情联动
+- 明细表 on_select=rerun + selection_mode=single-row
+- 选中行 → iloc[selection.rows[0]][urId] → 下方详情同步展示
+- 用 st.session_state 保存选中 urId
+- 限制：dataframe 选择不可程序化设置，筛选变化导致选中 urId 消失时显示提示
+
+## 后端存储
+
+### 批次推断优先级
+1. output/batches.json（显式）
+2. all_analysis_*.json 文件名时间戳
+3. 孤儿 progress 归入未归档批次
+
+### batches.json 写入
+- 原子写（tmp + os.replace）
+- 读取损坏回退自动推断
+- batch_id 去重
+
+### 批注清理
+- 加载时过滤不存在的 batch_id
+
+## 技术选型
+- Plotly 6.6（帕累托组合图）
+- Streamlit 1.55（st.sidebar / column_config.LinkColumn / on_select / AppTest）
+- Pandas 2.3
+
+## 测试
+- 新增 tests/ui/test_review_data.py（批次/降序/链接/条款/原子写）
+- 重写 tests/ui/test_streamlit_app.py（批次渲染/selection_mode/LinkColumn/pareto过滤）
+- 加 1-2 个 Streamlit AppTest 真实渲染测试

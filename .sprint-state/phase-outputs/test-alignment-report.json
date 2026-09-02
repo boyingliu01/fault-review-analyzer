@@ -1,0 +1,11 @@
+{
+  "alignment_status": "PASS",
+  "phase": 2,
+  "score": 100.0,
+  "head_commit": "545a857d183b44ccdf5fbf6171bacdcfa0d6bdc3",
+  "spec_hash": "848e081eefa1948d8f79d23226cb51d1adaadc542bc73ac70b5a3852c629ca5a",
+  "timestamp": "2026-08-26T09:43:38Z",
+  "misaligned_tests": [],
+  "anti_pattern_detected": false,
+  "errors": []
+}

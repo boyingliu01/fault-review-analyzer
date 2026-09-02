@@ -1,0 +1,49 @@
+{
+  "_schema_version": 1,
+  "evidence_schema_version": 2,
+  "id": "sprint-20260826-62",
+  "task_description": "Streamlit UI 迭代优化：批次隔离、帕累托图、规范条款展示、明细联动、urid链接、详情联动",
+  "phase": 5,
+  "status": "in_progress",
+  "started_at": "2026-08-26T08:59:48.644Z",
+  "phase_history": [
+    {
+      "phase": 1,
+      "name": "PREP",
+      "status": "completed",
+      "started_at": "2026-08-26T08:59:48.644Z",
+      "completed_at": "2026-08-26T09:00:14.244Z",
+      "duration_seconds": 26
+    },
+    {
+      "phase": 2,
+      "phase_name": "DESIGN",
+      "status": "completed",
+      "completed_at": "2026-08-26T09:18:17.757Z"
+    },
+    {
+      "phase": 3,
+      "phase_name": "BUILD",
+      "status": "completed",
+      "completed_at": "2026-08-26T09:38:18.236Z"
+    },
+    {
+      "phase": 4,
+      "phase_name": "VERIFY",
+      "status": "completed",
+      "completed_at": "2026-08-26T09:46:41.917Z"
+    },
+    {
+      "phase": 5,
+      "phase_name": "SHIP",
+      "status": "completed",
+      "completed_at": "2026-08-26T11:40:59.920Z"
+    }
+  ],
+  "isolation": {
+    "worktree_path": "E:\\Study\\LLM\\Bug聚类分析\\.worktrees\\sprint\\sprint-2026-08-26-01",
+    "branch": "sprint/2026-08-26-01"
+  },
+  "outputs": {},
+  "metrics": {}
+}

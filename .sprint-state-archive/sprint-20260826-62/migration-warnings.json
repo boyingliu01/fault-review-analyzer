@@ -1,0 +1,16 @@
+[
+  {
+    "timestamp": "2026-08-26T08:59:43.676Z",
+    "warnings": [
+      "task_description was missing, set to \"-\"",
+      "id was missing, generated from timestamp",
+      "Migrated legacy phase 1 → 2 (DESIGN)",
+      "Migrated legacy phase 2 → 3 (BUILD)",
+      "Migrated legacy phase 3 → 4 (VERIFY)",
+      "Migrated legacy phase 4 → 4 (VERIFY)",
+      "Migrated legacy phase 5 → 5 (SHIP)",
+      "Migrated legacy phase 6 → 5 (SHIP)",
+      "Migrated current phase 6 → 5"
+    ]
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "verdict": "APPROVED",
+  "requirements_hash": "848e081eefa1948d8f79d23226cb51d1adaadc542bc73ac70b5a3852c629ca5a",
+  "requirements_reviewed": true,
+  "r1_approved": true,
+  "r2_delphi_approved": true,
+  "consensus_ratio": 1.0,
+  "design_doc": "review/ui-iteration-design.md",
+  "specification": ".sprint-state/specification.yaml",
+  "slices": ".sprint-state/slices-manifest.json",
+  "review_timestamp": "2026-08-26T09:10:00Z",
+  "requirements": [
+    {"id": "REQ-1", "status": "approved", "desc": "批次隔离 + 左右分栏"},
+    {"id": "REQ-2", "status": "approved", "desc": "帕累托图（降序 + 累计占比线）"},
+    {"id": "REQ-3", "status": "approved", "desc": "规范条款内容（rule_name）"},
+    {"id": "REQ-4", "status": "approved", "desc": "明细联动 + 筛选"},
+    {"id": "REQ-5", "status": "approved", "desc": "urid 研发云链接"},
+    {"id": "REQ-6", "status": "approved", "desc": "单起详情联动"}
+  ]
+}

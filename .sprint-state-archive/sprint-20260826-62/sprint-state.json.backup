@@ -1,0 +1,57 @@
+{
+  "requirement": "补齐代码diff分析链路 - 获取/分析/规范检查/聚类集成",
+  "isolation": {
+    "branch": "master",
+    "created_from": "master",
+    "worktree_path": null,
+    "created_from_commit": "f9589e5",
+    "merged": true
+  },
+  "phase": 6,
+  "status": "user_acceptance_pending",
+  "pr_url": "https://github.com/boyingliu01/fault-review-analyzer/pull/20",
+  "phase_history": [
+    {
+      "phase_name": "PREP",
+      "phase": 1,
+      "started_at": "2026-07-21T18:00:00+08:00",
+      "completed_at": "2026-07-21T18:10:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_name": "DESIGN",
+      "phase": 2,
+      "started_at": "2026-07-21T18:10:00+08:00",
+      "completed_at": "2026-07-21T19:00:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_name": "BUILD",
+      "phase": 3,
+      "started_at": "2026-07-21T19:00:00+08:00",
+      "completed_at": "2026-07-21T21:00:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_name": "VERIFY",
+      "phase": 4,
+      "started_at": "2026-07-21T21:00:00+08:00",
+      "completed_at": "2026-07-21T23:30:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_name": "SHIP",
+      "phase": 5,
+      "started_at": "2026-07-21T23:30:00+08:00",
+      "completed_at": "2026-07-22T00:10:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_name": "CLOSE",
+      "phase": 6,
+      "started_at": "2026-07-22T00:10:00+08:00",
+      "completed_at": null,
+      "status": "user_acceptance_pending"
+    }
+  ]
+}

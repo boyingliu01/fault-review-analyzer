@@ -54,3 +54,5 @@ config.yaml
 commit-msg.txt
 issue-body.md
 scripts/temp/
+# Qoder 平台生成物（repo wiki 等）
+.qoder/

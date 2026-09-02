@@ -1,0 +1,25 @@
+{
+  "slices": [
+    {
+      "slice_id": "slice-1",
+      "title": "review_data.py 数据层扩展（批次/帕累托/链接/条款）",
+      "reqs": ["REQ-1", "REQ-2", "REQ-3", "REQ-5"],
+      "files": ["src/ui/review_data.py"],
+      "tests": ["tests/ui/test_review_data.py"]
+    },
+    {
+      "slice_id": "slice-2",
+      "title": "streamlit_app.py 左右分栏 + 帕累托 + 联动重构",
+      "reqs": ["REQ-1", "REQ-2", "REQ-4", "REQ-5", "REQ-6"],
+      "files": ["src/ui/streamlit_app.py"],
+      "tests": ["tests/ui/test_streamlit_app.py"]
+    },
+    {
+      "slice_id": "slice-3",
+      "title": "run_all_parallel.py 批次写入 + .env 链接模板",
+      "reqs": ["REQ-1", "REQ-5"],
+      "files": ["scripts/run_all_parallel.py", ".env.example"],
+      "tests": []
+    }
+  ]
+}
