@@ -5,6 +5,7 @@ from src.analysis.root_cause.models import (
     ActionableImprovement,
     ExistingFaultAnalysis,
     FaultAnalysisInput,
+    RequirementContext,
     RootCause,
     RootCauseAnalysisResult,
 )
@@ -13,6 +14,7 @@ __all__ = [
     "RootCauseAnalyzer",
     "FaultAnalysisInput",
     "ExistingFaultAnalysis",
+    "RequirementContext",
     "RootCause",
     "ActionableImprovement",
     "RootCauseAnalysisResult",

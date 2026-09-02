@@ -14,14 +14,23 @@ console = Console()
 
 
 def _get_cache_db_path(config_path: Path | None) -> Path:
-    """从配置文件获取缓存数据库路径，如果无法加载则使用默认路径。"""
-    if config_path:
+    """从配置文件获取缓存数据库路径。
+
+    显式指定的 --config 若不存在或加载失败，必须可见地报错退出，
+    不得静默回退到默认路径：静默回退曾让测试与运维操作在毫不知情的
+    情况下指向真实库 data/cache/cache.db，造成缓存数据丢失事故。
+    未指定 --config 时按 CLI 惯例使用默认路径。
+    """
+    if config_path is not None:
+        if not config_path.exists():
+            console.print(f"[red]配置文件不存在: {config_path}[/red]")
+            raise typer.Exit(1) from None
         try:
-            config_manager = ConfigManager(config_path)
-            config = config_manager.load()
-            return Path(config.cache.db_path)
-        except Exception:
-            pass
+            config = ConfigManager(config_path).load()
+        except Exception as e:
+            console.print(f"[red]无法加载配置文件 {config_path}: {e}[/red]")
+            raise typer.Exit(1) from None
+        return Path(config.cache.db_path)
     return Path("./data/cache/cache.db")
 
 

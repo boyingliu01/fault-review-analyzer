@@ -9,7 +9,7 @@ class OpenAILLMProvider:
         api_key: str,
         model: str = "gpt-4",
         base_url: str = "",
-        temperature: float = 0.7,
+        temperature: float = 0.2,
         max_tokens: int = 4096,
     ):
         self.api_key = api_key
@@ -23,11 +23,18 @@ class OpenAILLMProvider:
         """Get or create the async HTTP client."""
         if self._client is None:
             try:
+                import httpx
                 from openai import AsyncOpenAI
 
                 self._client = AsyncOpenAI(
                     api_key=self.api_key,
                     base_url=self.base_url,
+                    http_client=httpx.AsyncClient(
+                        # 企业网络中避免系统代理干扰内网域名（与 APIClient 同因，
+                        # 案例：trust_env=True 时内网 LLM 代理 SSL UNEXPECTED_EOF）
+                        trust_env=False,
+                        timeout=600.0,
+                    ),
                 )
             except ImportError:
                 raise ImportError(

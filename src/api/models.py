@@ -89,6 +89,10 @@ class TaskInfo(BaseModel):
     create_time: datetime = Field(..., description="创建时间")
     resolve_time: datetime | None = Field(default=None, description="解决时间")
     is_commit_code: str = Field(default="N", description="是否有代码变更: Y/N")
+    introduce_task_no: str | None = Field(
+        default=None,
+        description="引入此缺陷的任务单号（单据未填写时为 None）",
+    )
 
     requirement: RequirementInfo | None = Field(default=None, description="需求信息")
     design: DesignInfo | None = Field(default=None, description="设计信息")

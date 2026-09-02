@@ -23,7 +23,12 @@ class CacheManager:
             )
             self._connection.row_factory = sqlite3.Row
         self._init_db()
-        self.cleanup_expired()
+        # 注意：构造时不得执行 cleanup_expired() 等删除操作。
+        # 该副作用曾导致全量 pytest 期间实例化指向真实库
+        # （默认 db_path=./data/cache/cache.db）的 CacheManager 时，
+        # 已过期的 194 条 task 数据被全部物理删除（11955497 复盘数据事故）。
+        # 过期判断由 get_task/get_all_tasks 惰性完成；物理清理只通过
+        # 显式调用 invalidate/cleanup_expired 执行。
 
     def _init_db(self) -> None:
         with self._lock:

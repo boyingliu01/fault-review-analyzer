@@ -142,18 +142,21 @@ class TestCLIConfigCommands:
 class TestCLICacheCommands:
     """测试 cache 子命令。"""
 
-    def test_cache_stats(self, runner: CliRunner, cache_with_data: Path, tmp_path: Path):  # noqa: ARG002
-        """cache stats 应显示缓存统计。"""
-        # 需要修改默认缓存路径，这里直接测试命令是否可执行
-        result = runner.invoke(app, ["cache", "stats"])
-        # 可能成功或失败（取决于默认路径），但不应崩溃
-        assert result.exit_code in (0, 1)
+    def test_cache_stats(self, runner: CliRunner, config_file: Path):
+        """cache stats 应显示 --config 指向的隔离缓存库统计。
 
-    def test_cache_list(self, runner: CliRunner):
-        """cache list 应可执行。"""
-        result = runner.invoke(app, ["cache", "list"])
-        # 命令应能执行（可能为空缓存）
-        assert result.exit_code in (0, 1)
+        必须显式传 --config：不传时命令会按默认路径打开项目真实库
+        data/cache/cache.db（曾因此在全量测试期间误清真实缓存数据）。
+        """
+        result = runner.invoke(app, ["cache", "stats", "--config", str(config_file)])
+        assert result.exit_code == 0
+        assert "总条目" in result.output or "条目" in result.output
+
+    def test_cache_list(self, runner: CliRunner, cache_with_data: Path, config_file: Path):  # noqa: ARG002
+        """cache list 应显示 --config 指向的隔离缓存库中的任务。"""
+        result = runner.invoke(app, ["cache", "list", "--config", str(config_file)])
+        assert result.exit_code == 0
+        assert "50001" in result.output
 
 
 class TestCLIReportGeneration:

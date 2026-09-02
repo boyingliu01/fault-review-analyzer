@@ -7,6 +7,7 @@ from src.analysis.root_cause.models import (
     ActionableImprovement,
     ExistingFaultAnalysis,
     FaultAnalysisInput,
+    RequirementContext,
     RootCause,
 )
 
@@ -198,6 +199,81 @@ class TestRootCauseAnalyzer:
         assert "输出格式" in prompt
         assert "开发引入" in prompt
         assert "测试泄露" in prompt
+
+    def test_build_prompt_includes_requirement_check_section(
+        self, mock_llm_client, fault_input, existing_analysis
+    ):
+        """Test that _build_prompt includes requirement-test chain check section."""
+        analyzer = RootCauseAnalyzer(mock_llm_client)
+        prompt = analyzer._build_prompt(fault_input, existing_analysis)
+
+        assert "需求-测试传导链例行检查" in prompt
+        assert "requirementCheck" in prompt
+
+    def test_build_prompt_renders_requirement_context(
+        self, mock_llm_client, existing_analysis
+    ):
+        """Test that requirement_context (evidence + gaps) is rendered into prompt."""
+        fault_input = FaultAnalysisInput(
+            task_no="11757372",
+            title="GOMO-BXportin 号码为gomo的号码接口报错",
+            description="接口报错",
+            task_src="BUG_IN_RD",
+            created_date="2026-01-04",
+            finish_date="2026-01-08",
+            requirement_context=RequirementContext(
+                requirement_no="21537689",
+                requirement_title="DPC-产品优化提升-Q3",
+                requirement_desc="本单作为Q3各类产品优化的总单",
+                test_case_ids=[6827877, 6828237],
+                source="parent_task",
+                data_gaps=["研发云未录入引入单/父需求关联"],
+            ),
+        )
+        analyzer = RootCauseAnalyzer(mock_llm_client)
+        prompt = analyzer._build_prompt(fault_input, existing_analysis)
+
+        assert "21537689" in prompt
+        assert "DPC-产品优化提升-Q3" in prompt
+        assert "本单作为Q3各类产品优化的总单" in prompt
+        assert "6827877" in prompt
+        assert "研发云未录入引入单/父需求关联" in prompt
+
+    @pytest.mark.asyncio
+    async def test_analyze_parses_requirement_check(
+        self, fault_input, existing_analysis
+    ):
+        """Test that requirementCheck in LLM response maps to requirement_check."""
+        client = MockLLMClient(
+            response="{"
+            '"problemCategory": "需求问题",'
+            '"initialCause": "验收标准不明确",'
+            '"deepRootCauses": [],'
+            '"actionableImprovements": [],'
+            '"checklistRecommendations": [],'
+            '"requirementCheck": {'
+            '"ruleDefinedInRequirement": "未定义",'
+            '"testCovered": "证据不足",'
+            '"conclusion": "命中传导链"'
+            "}"
+            "}"
+        )
+        analyzer = RootCauseAnalyzer(client)
+        result = await analyzer.analyze(fault_input, existing_analysis)
+
+        assert result.requirement_check["rule_defined_in_requirement"] == "未定义"
+        assert result.requirement_check["test_covered"] == "证据不足"
+        assert result.requirement_check["conclusion"] == "命中传导链"
+
+    @pytest.mark.asyncio
+    async def test_analyze_requirement_check_defaults_empty(
+        self, mock_llm_client, fault_input, existing_analysis
+    ):
+        """Test that missing requirementCheck (old models) degrades to empty dict."""
+        analyzer = RootCauseAnalyzer(mock_llm_client)
+        result = await analyzer.analyze(fault_input, existing_analysis)
+
+        assert result.requirement_check == {}
 
 
 class TestFaultAnalysisInput:

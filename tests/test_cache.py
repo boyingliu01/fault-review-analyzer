@@ -69,6 +69,36 @@ class TestCacheManager:
 
             assert ttl_cache_manager.get_task(12345) is None
 
+    def test_init_does_not_purge_expired_data(self, tmp_path):
+        """构造 CacheManager 不得物理删除已存在的过期数据。
+
+        背景（11955497 复盘数据事故）：__init__ 曾无条件执行
+        cleanup_expired()，全量 pytest 期间实例化指向真实库的实例时，
+        已过期的 194 条 task 数据被全部物理删除。修复后构造无副作用，
+        过期判断由 get_task 惰性完成。
+        """
+        import sqlite3
+
+        db_path = tmp_path / "cache.db"
+        with CacheManager(db_path=db_path, ttl=3600) as manager:
+            manager.save_task(12345, {"task_id": 12345, "title": "old"})
+
+        # 手工把 expires_at 改为过去，模拟已过期数据
+        conn = sqlite3.connect(db_path)
+        conn.execute("UPDATE cache SET expires_at = ?", ("2000-01-01 00:00:00",))
+        conn.commit()
+        conn.close()
+
+        # 重新构造实例：物理数据仍在（构造无删除副作用），
+        # 逻辑上过期（get_task 返回 None，其惰性单条删除是预期行为）
+        with CacheManager(db_path=db_path, ttl=3600) as manager2:
+            conn = sqlite3.connect(db_path)
+            count = conn.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
+            conn.close()
+            assert count == 1, "构造 CacheManager 不得物理删除已过期数据"
+
+            assert manager2.get_task(12345) is None
+
     def test_cache_invalidation(self, cache_manager):
         task_data = {"task_id": 12345, "title": "Test"}
         cache_manager.save_task(12345, task_data)

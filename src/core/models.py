@@ -349,6 +349,9 @@ class ViolationDetection(BaseModel):
     evidence: str = Field(default="", description="违规证据")
     confidence: float = Field(default=0.0, ge=0.0, le=1.0, description="置信度 0~1")
     relevant_standards: list[str] = Field(default_factory=list, description="相关规范引用")
+    # 各命中规则的对齐详情（rule_label/description/evidence 等），用于
+    # pipeline 生成逐规则对应的 violation 记录，避免 message 错位
+    rule_details: list[dict[str, Any]] = Field(default_factory=list, description="命中规则对齐详情")
 
 
 class RootCauseValidation(BaseModel):

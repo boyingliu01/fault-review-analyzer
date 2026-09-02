@@ -54,6 +54,65 @@ class RootCauseAnalyzer:
         """
         self.llm_client = llm_client
 
+    def _render_prior_root_causes(self, prior: list[dict[str, Any]]) -> str:
+        """把普通根因链路结论渲染为 prompt 文本（深度分析的事实锚点）。"""
+        if not prior:
+            return (
+                "（无。本单未经普通根因分析或无代码变更——"
+                "此时更要严守证据边界，证据不足的层面如实降级）"
+            )
+        lines: list[str] = []
+        for idx, rc in enumerate(prior, 1):
+            evidence = rc.get("evidence") or []
+            if isinstance(evidence, list):
+                evidence_text = "；".join(str(e) for e in evidence)
+            else:
+                evidence_text = str(evidence)
+            lines.append(
+                f"{idx}. [{rc.get('cause_type', '')}] {rc.get('description', '')}"
+                f"\n   证据: {evidence_text}"
+            )
+        return "\n".join(lines)
+
+    def _render_introduce_task_diff(self, diff: str) -> str:
+        """渲染引入单代码变更区块内容（无引入单号时输出占位说明）。"""
+        diff = (diff or "").strip()
+        if not diff:
+            return (
+                "（无。故障单未填写引入单号，或引入单无代码变更——"
+                "此时以故障单自身 diff 的旧代码与描述证据为准）"
+            )
+        return diff
+
+    @staticmethod
+    def _render_requirement_context(ctx: Any) -> str:
+        """渲染需求-测试传导链证据区块（无证据时输出 gap 声明）。"""
+        lines: list[str] = []
+        if ctx.requirement_no:
+            label = {"parent_task": "父需求/任务单", "introduce_task": "引入任务单"}.get(
+                ctx.source, "关联单据"
+            )
+            lines.append(f"- {label}: {ctx.requirement_no} {ctx.requirement_title}")
+            if ctx.requirement_desc:
+                lines.append(f"- 需求描述原文:\n{ctx.requirement_desc}")
+            else:
+                lines.append("- 需求描述: （空——该单据未填写需求内容）")
+        if ctx.test_case_ids:
+            ids_text = ", ".join(str(i) for i in ctx.test_case_ids[:20])
+            more = (
+                f"（共 {len(ctx.test_case_ids)} 个，仅列前 20）"
+                if len(ctx.test_case_ids) > 20
+                else ""
+            )
+            lines.append(f"- 故障单关联测试用例 ID: {ids_text} {more}".rstrip())
+        else:
+            lines.append("- 故障单关联测试用例: （无关联记录）")
+        if ctx.data_gaps:
+            lines.append("- 证据缺失声明（分析时必须如实引用，不得脑补缺失部分）:")
+            for gap in ctx.data_gaps:
+                lines.append(f"  * {gap}")
+        return "\n".join(lines)
+
     def _build_prompt(
         self, fault_input: FaultAnalysisInput, existing_analysis: ExistingFaultAnalysis
     ) -> str:
@@ -65,6 +124,15 @@ class RootCauseAnalyzer:
             task_src=fault_input.task_src,
             created_date=fault_input.created_date,
             finish_date=fault_input.finish_date,
+            prior_root_causes=self._render_prior_root_causes(
+                fault_input.prior_root_causes
+            ),
+            introduce_task_diff=self._render_introduce_task_diff(
+                fault_input.introduce_task_diff
+            ),
+            requirement_context=self._render_requirement_context(
+                fault_input.requirement_context
+            ),
             dev_catalog=existing_analysis.dev_catalog,
             dev_catalog_detail=existing_analysis.dev_catalog_detail,
             dev_reason=existing_analysis.dev_reason,
@@ -148,6 +216,9 @@ class RootCauseAnalyzer:
             deep_root_causes=deep_root_causes,
             actionable_improvements=actionable_improvements,
             checklist_recommendations=result_data.get("checklist_recommendations", []),
+            requirement_check=result_data.get("requirement_check")
+            if isinstance(result_data.get("requirement_check"), dict)
+            else {},
         )
 
     def analyze_to_dict(

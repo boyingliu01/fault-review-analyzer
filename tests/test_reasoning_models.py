@@ -11,15 +11,15 @@ class TestReasoningModels:
             cause_type="编码错误",
             description="代码逻辑错误导致",
             evidence=["证据1", "证据2"],
-            confidence=0.85,
         )
         assert cause.cause_type == "编码错误"
         assert cause.description == "代码逻辑错误导致"
         assert len(cause.evidence) == 2
-        assert cause.confidence == 0.85
 
-    def test_root_cause_analysis_result(self):
-        cause = RootCause(cause_type="测试", description="测试", confidence=0.5)
+    def test_root_cause_no_confidence_field(self):
+        """根因结论不携带置信度（LLM 自评未校准，方案A移除）"""
+        cause = RootCause(cause_type="测试", description="测试")
+        assert not hasattr(cause, "confidence")
         result = RootCauseAnalysisResult(
             task_id=1,
             root_causes=[cause],

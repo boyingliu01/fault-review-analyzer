@@ -79,14 +79,24 @@ class PipelineOrchestrator:
                     result.labels = await self._analyze_handler.generate_labels(
                         task_dict, preprocessed
                     )
+
+                # 引入单 diff 拉取一次，普通/深度两条根因链路共用
+                # （无引入单号或拉取失败时为空串，不阻断主流程）
+                introduce_diff = await self._analyze_handler.fetch_introduce_task_diff(
+                    task_dict
+                )
+
                 if config.analyze_root_cause:
                     result.root_causes = await self._analyze_handler.analyze_root_cause(
-                        task_dict, preprocessed
+                        task_dict, preprocessed, introduce_task_diff=introduce_diff
                     )
 
                 if config.analyze_root_cause_deep:
+                    # 传入普通根因结论作为深度分析的事实锚点（基于代码 diff）
                     result.deep_root_causes = await self._analyze_handler.analyze_root_cause_deep(
-                        task_dict
+                        task_dict,
+                        prior_root_causes=result.root_causes,
+                        introduce_task_diff=introduce_diff,
                     )
 
             # Step 4: Report

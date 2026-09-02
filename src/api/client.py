@@ -34,6 +34,7 @@ class APIClient:
         retry: int = 3,
         api_path_prefix: str = "/portal/ai-gateway/devspace/rpc/v3/work-item",
         code_api_prefix: str = "/portal/ai-gateway/devspace/rpc/v3",
+        devspace_api_prefix: str = "/portal/ai-gateway/devspace",
         circuit_breaker: CircuitBreaker | None = None,
         rate_limit_qps: float = 0.0,
     ):
@@ -43,6 +44,7 @@ class APIClient:
         self.retry = retry
         self.api_path_prefix = api_path_prefix
         self.code_api_prefix = code_api_prefix
+        self.devspace_api_prefix = devspace_api_prefix
         self._client: httpx.AsyncClient | None = None
         self._owns_client: bool = False
         self._circuit_breaker = circuit_breaker or CircuitBreaker(
@@ -247,6 +249,7 @@ class APIClient:
                 create_time=task.create_time,
                 resolve_time=task.resolve_time,
                 is_commit_code=task.is_commit_code,
+                introduce_task_no=task.introduce_task_no,
                 requirement=task.requirement,
                 design=task.design,
                 development=task.development,
@@ -473,6 +476,60 @@ class APIClient:
         url = f"{self.code_api_prefix}/{task_no}/inter-analysis"
         return await self._request("POST", url, json={})
 
+    async def get_task_relationship(self, task_no: str) -> dict[str, Any]:
+        """获取单据关系（父单、关联任务）。
+
+        接口: GET /portal/ai-gateway/devspace/rpc/v3/work-item/{taskNo}/relationship
+
+        Returns:
+            含 apiTask/parentTask/relatedTaskList 的响应 dict。
+        """
+        return await self._request(
+            "GET", f"{self.api_path_prefix}/{task_no}/relationship"
+        )
+
+    async def get_related_test_case_ids(self, internal_task_id: int) -> list[int]:
+        """获取任务关联的测试用例 ID 列表（含子单）。
+
+        接口: GET /portal/ai-gateway/devspace/rpc/task/{taskId}/list/related/test-case
+
+        Args:
+            internal_task_id: 内部 taskId（relationship 响应中的 taskId，
+                非业务单号；传业务单号会报"单号不存在"）。
+
+        Returns:
+            测试用例 ID 列表；无关联或结构异常时为空列表。
+        """
+        endpoint = (
+            f"{self.devspace_api_prefix}/rpc/task/{internal_task_id}"
+            "/list/related/test-case"
+        )
+        response = await self._request("GET", endpoint)
+        data = response.get("data")
+        ids = data.get("testCaseIdList") if isinstance(data, dict) else None
+        if not isinstance(ids, list):
+            return []
+        return [int(i) for i in ids if str(i).lstrip("-").isdigit()]
+
+    async def list_introduce_bugs(self, internal_task_id: int) -> list[dict[str, Any]]:
+        """查询需求/任务单引入的缺陷列表（需求→缺陷的反向关联）。
+
+        接口: GET /portal/ai-gateway/devspace/user-story/{taskId}/list-introduce-bug
+
+        Args:
+            internal_task_id: 内部 taskId（非业务单号）。
+
+        Returns:
+            引入的缺陷列表；未录入引入关系或结构异常时为空列表。
+        """
+        endpoint = (
+            f"{self.devspace_api_prefix}/user-story/{internal_task_id}"
+            "/list-introduce-bug"
+        )
+        response = await self._request("GET", endpoint)
+        data = response.get("data")
+        return data if isinstance(data, list) else []
+
     def _parse_task(self, data: dict[str, Any]) -> TaskInfo:
         task_data = data.get("data", {}).get("apiTask", data)
         create_time = self._parse_datetime(
@@ -495,6 +552,7 @@ class APIClient:
             is_commit_code=self._parse_is_commit_code(
                 task_data.get("isCommitCode", task_data.get("is_commit_code"))
             ),
+            introduce_task_no=self._parse_introduce_task_no(task_data),
         )
 
     @staticmethod
@@ -511,6 +569,19 @@ class APIClient:
             return "Y" if value else "N"
         normalized = str(value).strip().lower()
         return "Y" if normalized in {"y", "yes", "true", "1"} else "N"
+
+    @staticmethod
+    def _parse_introduce_task_no(task_data: dict[str, Any]) -> str | None:
+        """提取引入此缺陷的任务单号（单据未填写/为空时返回 None）。
+
+        详情接口响应是否回显 introduceTaskNo 取决于服务端版本，
+        缺失时防御性降级为 None，不影响主流程。
+        """
+        value = task_data.get("introduceTaskNo") or task_data.get("introduce_task_no")
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     def _map_priority(self, pri_id: int | None) -> str:
         if pri_id is None:

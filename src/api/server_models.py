@@ -66,12 +66,11 @@ class LabelInfo(BaseModel):
 
 
 class RootCauseInfo(BaseModel):
-    """根因信息"""
+    """根因信息（不含置信度：LLM 自评未校准，已按用户决策移除）"""
 
     cause_type: str = Field(..., description="根因类型")
     description: str = Field(..., description="根因描述")
     evidence: list[str] = Field(default_factory=list, description="证据列表")
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0, description="置信度")
 
 
 class ViolationInfo(BaseModel):

@@ -57,11 +57,22 @@ def test_get_stats_deletes_expired_rows_after_reporting_snapshot(tmp_path: Path)
         assert _task_count(db_path) == 0
 
 
-def test_initialization_deletes_expired_rows(tmp_path: Path) -> None:
+def test_initialization_does_not_delete_expired_rows(tmp_path: Path) -> None:
+    """构造 CacheManager 不得有删除副作用；物理清理只走显式 cleanup_expired。
+
+    回归背景：旧版 __init__ 无条件 cleanup_expired()，叠加测试未隔离
+    缓存路径，曾在全量 pytest 期间物理删除真实库 data/cache/cache.db
+    中全部已过期数据。
+    """
     db_path = tmp_path / "initialization.db"
     with CacheManager(db_path=db_path) as manager:
         manager.save_task(1, {"task_id": 1})
     _expire_task(db_path, 1)
 
     with CacheManager(db_path=db_path):
+        assert _task_count(db_path) == 1
+
+    # 显式调用才会物理删除
+    with CacheManager(db_path=db_path) as manager:
+        assert manager.cleanup_expired() == 1
         assert _task_count(db_path) == 0

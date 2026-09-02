@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **feat(analysis)**: 根因链路事实纪律强化与引入单号代码变更接入——根因分析 prompt 增加事实纪律七条款（区分修复变更与引入变更、禁止臆测未读代码、结论必须逐条对应证据原文）；引入单号（introduceTaskNo）代码变更接入根因两条链路（新增 `src/analyzer/introduce_diff.py`、`src/analyzer/requirement_context.py` 与配套测试）；LLM 空响应自动重试（本地模型约 20% 空响应概率）；缓存过期清理与 CLI 缓存路径支撑。
+
 ### Fixed
 
 - **chore(reports)**: 基于修复后数据重跑《复盘分析报告.xlsx》《复盘分析汇总.md》《复盘综合分析报告.md》，规范违规统计（18 条/12 起检出）、产品线维度（数渠 89/BSS 83/电商 9）、改进建议去重（381 条/单内零重复）与 progress 数据三方完全同步。

@@ -12,10 +12,13 @@ from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
-from src.analysis.root_cause import ExistingFaultAnalysis, FaultAnalysisInput
+from src.analysis.root_cause import ExistingFaultAnalysis, FaultAnalysisInput, RequirementContext
 from src.analysis.root_cause import RootCauseAnalyzer as DeepRootCauseAnalyzer
+from src.analysis.root_cause.prompts import ROOT_CAUSE_SYSTEM_PROMPT
+from src.analyzer.introduce_diff import fetch_introduce_task_diff
 from src.analyzer.labeling import LabelGenerator
 from src.analyzer.reasoning import RootCauseAnalyzer
+from src.analyzer.requirement_context import fetch_requirement_context
 
 if TYPE_CHECKING:
     from src.preprocessor.models import ProcessedTask
@@ -30,7 +33,7 @@ class _LLMClientAdapter:
     async def generate(self, prompt: str) -> str:
         """Generate using the provider with combined system and user prompt."""
         return str(
-            await self._provider.generate(system="You are a helpful assistant.", user=prompt)
+            await self._provider.generate(system=ROOT_CAUSE_SYSTEM_PROMPT, user=prompt)
         )
 
 
@@ -89,19 +92,26 @@ class AnalyzeHandler:
             for label in result.labels
         ]
 
+    async def fetch_introduce_task_diff(self, task_data: dict[str, Any]) -> str:
+        """拉取引入缺陷任务单的代码变更 diff（辅助代码走查，失败时降级为空串）。"""
+        return await fetch_introduce_task_diff(self._api_client, task_data)
+
     async def analyze_root_cause(
         self,
         task_data: dict[str, Any],
         preprocessed: ProcessedTask,
+        introduce_task_diff: str = "",
     ) -> list[dict]:
         """Analyze root cause for a task using LLM.
 
         Args:
             task_data: Task data as dict.
             preprocessed: Preprocessed task data.
+            introduce_task_diff: 引入缺陷任务单的代码变更 diff
+                （缺陷引入的直接候选证据；空串表示无引入单号）。
 
         Returns:
-            List of root cause dicts with cause_type, description, evidence, confidence.
+            List of root cause dicts with cause_type, description, evidence.
         """
         if self._root_cause_analyzer is None:
             self._root_cause_analyzer = RootCauseAnalyzer(llm_provider=self._llm_provider)
@@ -109,17 +119,18 @@ class AnalyzeHandler:
         if not self._root_cause_analyzer.is_available:
             return []
 
-        result = await self._root_cause_analyzer.analyze(
-            task_data,
-            [{"type": s.type, "content": s.content} for s in preprocessed.segments],
-        )
+        segments = [{"type": s.type, "content": s.content} for s in preprocessed.segments]
+        if introduce_task_diff:
+            # 引入单 diff 作为独立 segment 注入（标签映射见 reasoning.generator）
+            segments.append({"type": "introduce_task_diff", "content": introduce_task_diff})
+
+        result = await self._root_cause_analyzer.analyze(task_data, segments)
 
         return [
             {
                 "cause_type": rc.cause_type,
                 "description": rc.description,
                 "evidence": rc.evidence,
-                "confidence": rc.confidence,
             }
             for rc in result.root_causes
         ]
@@ -135,6 +146,8 @@ class AnalyzeHandler:
     async def analyze_root_cause_deep(
         self,
         task_data: dict[str, Any],
+        prior_root_causes: list[dict[str, Any]] | None = None,
+        introduce_task_diff: str = "",
     ) -> dict[str, Any]:
         """Perform enhanced 5-layer deep root cause analysis.
 
@@ -143,6 +156,10 @@ class AnalyzeHandler:
 
         Args:
             task_data: Task data as dict.
+            prior_root_causes: 普通根因链路（基于代码 diff）的结论，
+                作为深度分析的事实锚点，防止从描述文本脑补机制概念。
+            introduce_task_diff: 引入缺陷任务单的代码变更 diff
+                （缺陷引入的直接候选证据；空串表示无引入单号）。
 
         Returns:
             Deep root cause analysis result dict, or empty dict if unavailable.
@@ -179,6 +196,14 @@ class AnalyzeHandler:
         except Exception as e:
             logger.warning(f"图片证据注入失败(忽略，降级为纯描述): {str(e)[:80]}")
 
+        # 需求-测试传导链证据采集（例行检查输入，失败时降级为 gap 声明）
+        requirement_ctx = RequirementContext()
+        try:
+            requirement_ctx = await fetch_requirement_context(self._api_client, task_data)
+        except Exception as e:
+            logger.warning(f"需求上下文采集失败(降级忽略): {str(e)[:80]}")
+            requirement_ctx.data_gaps.append("需求上下文采集过程异常")
+
         fault_input = FaultAnalysisInput(
             task_no=task_no,
             title=task_data.get("title", ""),
@@ -190,6 +215,9 @@ class AnalyzeHandler:
             or task_data.get("productModuleId"),
             product_version_id=task_data.get("product_version_id")
             or task_data.get("productVersionId"),
+            prior_root_causes=prior_root_causes or [],
+            introduce_task_diff=introduce_task_diff,
+            requirement_context=requirement_ctx,
         )
 
         try:
