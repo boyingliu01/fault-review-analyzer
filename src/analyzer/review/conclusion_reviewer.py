@@ -1,0 +1,144 @@
+"""结论域 Delphi 复审器（sprint-20260902-77 SLICE-2）。
+
+对复盘根因结论做多专家匿名多轮共识复核（机制在基类 DelphiReviewerBase），
+双模型交叉专家各自独立评审视角：
+
+- fact_evidence_auditor（事实核对）：结论中每个事实断言必须能在证据/diff
+  原文中找到逐字或直接可推导的依据；断言无依据时判 refuted；依据不足
+  以下结论时判 insufficient_evidence
+- fix_vs_intro_discriminator（修复/引入判定）：判定结论所指问题是否为
+  本次变更引入——变更可能是修复动作（按客户要求调整校验、线程隔离改造）
+  或配置/模板占位符按设计展示；修复性变更被定性为缺陷时判 refuted
+
+事实纪律（复盘结论准确性第一）：prompt 采用正向核对指令 + 上游事实注入；
+refuted 反证门槛由引擎侧校验（validate_verdict）：key_evidence 前 60 字符
+必须在 evidence/diff 原文窗口中子串命中，反证只能锚定原文，故障标题/描述
+文本不得充当反证（描述本身即脑补高危源）；不满足门槛在解析层降级为
+insufficient_evidence——final_verdict 永不出现不满足门槛的 refuted，匿名
+反方意见反馈与共识判定口径一致。
+
+裁决语义：
+- confirmed 共识          -> 结论保留
+- refuted 共识            -> 结论撤销（记入审计，附反证行）
+- insufficient_evidence 共识 -> 结论撤销（宁缺毋滥）
+- 专家级失败 / 轮尽分歧   -> diverged：结论保留并标记待人工（不静默撤真因）
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from src.analyzer.review.base import (
+    DIVERGED,
+    DelphiReviewerBase,
+    build_context_window,
+    normalize_evidence,
+)
+
+__all__ = ["ConclusionReviewer"]
+
+CONCLUSION_SYSTEM_PROMPT = (
+    "你是故障复盘结论评审专家，只做一件事：基于证据原文核对给定的复盘根因结论"
+    "是否站得住脚。\n"
+    "纪律：\n"
+    "1. 只基于提供的证据与代码 diff 原文判断，每个事实断言都要在原文中找到"
+    "逐字或直接可推导的依据\n"
+    "2. 依据不足以下结论时，输出 insufficient_evidence\n"
+    "3. 输出严格为 JSON，不要输出任何其他文本"
+)
+
+_FACT_AUDIT_INSTRUCTIONS = """请以事实核对视角独立评审以下复盘根因结论。
+
+## 评审要求（事实核对）
+1. 结论中每个事实断言逐条对照证据与代码 diff 原文：能找到逐字或直接可推导
+   依据的判定成立
+2. 断言在原文中无依据时，verdict 取 refuted，并在 key_evidence 中给出原文中
+   的具体反证行
+3. 依据不足以下结论时，verdict 取 insufficient_evidence
+"""
+
+_FIX_VS_INTRO_INSTRUCTIONS = """请以变更性质视角独立评审以下复盘根因结论。
+
+## 评审要求（修复/引入判定）
+1. 判定结论所指问题是否为本次变更引入：本次 diff 中的变更可能是修复动作
+   （按客户要求调整校验、线程隔离改造等）或配置/模板占位符按设计展示
+2. 修复性变更或按设计展示的内容被结论定性为缺陷时，verdict 取 refuted，
+   并在 key_evidence 中给出 diff 原文中的具体反证行
+3. 无法判定变更性质时，verdict 取 insufficient_evidence
+"""
+
+_CONCLUSION_MATERIAL_TEMPLATE = """
+
+## 待评审的根因结论
+类型: {cause_type}
+结论: {description}
+结论引用的证据:
+{evidence}
+
+## 证据在代码 diff 中的上下文窗口（行首数字为片段内行号）
+```
+{context}
+```
+
+## 故障背景（仅供参考，证据原文优先）
+标题: {title}
+描述: {fault_description}
+
+## 输出格式
+1. verdict 取值：confirmed（结论成立）/ refuted（结论与事实不符）/ insufficient_evidence（证据不足）
+2. reason 引用具体证据行为说明认定理由，不超过 150 字
+3. 返回 JSON：
+{{"verdict": "...", "reason": "...", "key_evidence": "支持判定的一行证据或 diff 原文"}}"""
+
+
+class ConclusionReviewer(DelphiReviewerBase):
+    """多专家匿名多轮共识结论复审器（机制在基类，此处仅结论域实现）。"""
+
+    VALID_VERDICTS = ("confirmed", "refuted", "insufficient_evidence")
+    opinion_failure_verdict = DIVERGED  # INV-1：专家失败不撤真因，保留待人工
+    candidate_failure_verdict = DIVERGED  # INV-2：候选级异常保守保留
+    system_prompt = CONCLUSION_SYSTEM_PROMPT
+
+    def _build_material(
+        self, fault_info: dict[str, Any], candidate: dict[str, Any]
+    ) -> dict[str, str]:
+        evidence_lines = normalize_evidence(candidate.get("evidence"))
+        diff_text = fault_info.get("code_snippet", "") or ""
+        context = build_context_window(diff_text, evidence_lines, self._config.context_lines)
+        # 反证门槛锚定面：只含结论引用证据 + diff 原文窗口，不含标题/描述
+        evidence_raw = "\n".join([*evidence_lines, context])
+        material_common = _CONCLUSION_MATERIAL_TEMPLATE.format(
+            cause_type=candidate.get("cause_type", ""),
+            description=candidate.get("description", ""),
+            evidence="\n".join(f"- {ln}" for ln in evidence_lines) or "-（无）",
+            context=context,
+            title=fault_info.get("title", ""),
+            fault_description=(fault_info.get("description", "") or "")[:200],
+        )
+        return {
+            "evidence_raw": evidence_raw,
+            "base_prompt": material_common,
+            "base_prompt_fact_evidence_auditor": (_FACT_AUDIT_INSTRUCTIONS + material_common),
+            "base_prompt_fix_vs_intro_discriminator": (
+                _FIX_VS_INTRO_INSTRUCTIONS + material_common
+            ),
+        }
+
+    def validate_verdict(self, verdict: str, key_evidence: str, material: dict[str, str]) -> str:
+        """refuted 反证门槛（INV-3）：key_evidence 前 60 字符须在证据/diff 原文命中。
+
+        反证只能锚定 evidence_raw（证据行 + diff 窗口）；标题/描述不在锚定面，
+        以其充当反证视为幻觉反证，降级 insufficient_evidence（宁缺毋滥）。
+        """
+        if verdict != "refuted":
+            return verdict
+        needle = key_evidence.strip()[:60]
+        if needle and needle in material.get("evidence_raw", ""):
+            return verdict
+        return "insufficient_evidence"
+
+    def _item_identity(self, candidate: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "cause_type": candidate.get("cause_type", ""),
+            "description": candidate.get("description", ""),
+        }

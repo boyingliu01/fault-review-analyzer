@@ -237,7 +237,8 @@ class DelphiReviewerBase:
         previous: dict[str, ExpertOpinion],
     ) -> dict[str, ExpertOpinion]:
         async def ask(persona: str, provider: OpenAILLMProvider) -> ExpertOpinion:
-            user_prompt = material["base_prompt"]
+            # per-persona 指令键（结论域差异化评审视角）；无该键回退共享 base_prompt（违规域形态）
+            user_prompt = material.get(f"base_prompt_{persona}") or material["base_prompt"]
             if round_no > 1 and previous:
                 others = [op for p, op in previous.items() if p != persona]
                 if others:

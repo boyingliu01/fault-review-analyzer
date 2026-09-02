@@ -8,6 +8,8 @@
 
 ### Added
 
+- **feat(analyzer)**: 结论域 Delphi 复审器落地（`src/analyzer/review/conclusion_reviewer.py` `ConclusionReviewer` + `ConclusionReviewConfig`）——复盘根因结论经双模型交叉专家复核：fact_evidence_auditor@g-deepseek-v4-flash（事实断言逐条核对证据/diff 原文）与 fix_vs_intro_discriminator@g-qwen3.8-flash（判定问题是否本次变更引入，修复性变更/按设计展示不得定性为缺陷）；verdict 语义 confirmed/refuted/insufficient_evidence/diverged。不变量：INV-1 专家级失败兜底 diverged（严禁静默撤真因）、INV-3 refuted 反证门槛（key_evidence 前 60 字符须在证据/diff 原文子串命中，反证不得锚定故障标题/描述，解析层自动降级 insufficient_evidence）、INV-4 灰度（review.conclusion_review.enabled 默认 false，批量脚本编程传参显式启用）；基类新增 per-persona 指令键回退机制（无键回退共享 base_prompt，违规域行为不变）。测试 +18（全量 1569 passed）。
+
 - **refactor(analyzer)**: Delphi 复审机制泛化为通用基类（`src/analyzer/review/base.py` `DelphiReviewerBase`）——providers 构造/多轮循环/匿名反方意见注入/全票共识判定/两级保守兜底不变量（专家级失败→`opinion_failure_verdict` 域钩子、候选级异常→`candidate_failure_verdict` 保守保留）与 verdict JSON 解析、上下文开窗工具下沉基类；`DelphiViolationReviewer` 改为继承实现（仅保留违规域 verdict 词表/persona/prompt/材料组装/撤销应用），行为零漂移（全量 1551 passed 含既有 19 违规复审测试与 6 项新基类不变量测试），为结论域 Delphi 复审（复盘结论 confirmed/refuted 复核）提供机制复用。顺带修复 `tests/test_sprint_gate.py` 在 git hook 环境下的环境污染：pre-commit 实跑注入的 GIT_DIR/GIT_INDEX_FILE 使 tmp repo 的 git 子进程操作被重定向到外层仓库（12 项门禁行为断言误判），子进程环境剔除 GIT_* 变量修复。
 
 - **feat(analyzer)**: Delphi 多专家违规复审引擎固化——初筛（RulesEngine + ViolationDetector）全部违规候选经多专家匿名多轮共识复审（`src/analyzer/review/delphi_reviewer.py`）：strict_rule_checker（逐字对照条款要件）与 runtime_behavior_analyst（分析真实运行行为）独立会话评审，未达共识时注入匿名反方意见进入下一轮；共识误报/证据不足撤销（宁缺毋滥）、共识违规保留附依据、轮尽分歧 diverged 保留标记待人工 + 人工终裁可叠加。配置 `AppConfig.review`（config.yaml review 段），pipeline 在初筛后自动接入，Streamlit UI 与 Markdown 报告渲染复审记录，`scripts/run_delphi_review.py` 批量复审存档。实战：5 单 6 条候选经真实 LLM 复审全部共识撤销（保留集清零），测试 +22（全量 1554 passed / 覆盖率 85.19%）。

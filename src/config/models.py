@@ -148,6 +148,29 @@ class ReviewerConfig(BaseModel):
     temperature: float = Field(default=0.1, ge=0.0, le=1.0, description="评审温度")
 
 
+class ConclusionReviewConfig(BaseModel):
+    """结论域 Delphi 复审配置（复盘根因结论 confirmed/refuted 复核）。
+
+    双模型交叉专家（事实核对 + 修复/引入判定）。base_url/api_key 省略时继承
+    主 LLM 配置（当前 .env 指向 whalecloud 网关）；主配置切换网关后双模型名
+    将失效（复审全兜底 diverged，可观测），生产环境建议显式覆盖。
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description="是否启用结论Delphi复审（默认灰度关闭，批量脚本编程传参显式启用）",
+    )
+    max_rounds: int = Field(default=2, ge=1, le=5, description="最大评审轮数")
+    context_lines: int = Field(default=12, ge=2, le=50, description="证据命中行上下文行数")
+    reviewers: list[ReviewerConfig] = Field(
+        default_factory=lambda: [
+            ReviewerConfig(persona="fact_evidence_auditor", model="g-deepseek-v4-flash"),
+            ReviewerConfig(persona="fix_vs_intro_discriminator", model="g-qwen3.8-flash"),
+        ],
+        description="评审专家列表（独立会话互不可见，匿名互评）",
+    )
+
+
 class DelphiReviewConfig(BaseModel):
     """Delphi 式违规复审配置（多专家匿名多轮共识，类似代码走查）。
 
@@ -164,6 +187,10 @@ class DelphiReviewConfig(BaseModel):
             ReviewerConfig(persona="runtime_behavior_analyst"),
         ],
         description="评审专家列表（独立会话互不可见，匿名互评）",
+    )
+    conclusion_review: ConclusionReviewConfig = Field(
+        default_factory=ConclusionReviewConfig,
+        description="结论域复审配置（review.conclusion_review 段，独立灰度开关）",
     )
 
 
