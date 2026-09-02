@@ -103,7 +103,17 @@ VIOLATION_PATTERNS: dict[str, dict[str, Any]] = {
         "rule_id": "SEC-J00007",
     },
     "sensitive_info_in_log": {
-        "pattern": r"(log|logger|LOG|LOGGER)\.\w+\([^)]*(password|secret|token|credential|key|密码|口令)",
+        # 2026-09 复核修正：旧正则 [^)]*(password|...|key) 会命中日志
+        # 消息文本里的普通词汇（如 "expire token cache end"、缓存 key
+        # 输出），复核 6/181 单全部误报。改为跳过字符串字面量后仅匹配
+        # 参数中的敏感词"标识符"（输出敏感变量才算泄露），并从词表移除
+        # 裸 key（缓存键命名极常见，密钥通常以 secret/api_key 出现）。
+        # 交替分支不跨行，避免一个 log 调用吞到后续语句的误匹配。
+        "pattern": (
+            r"(?:log|logger|LOG|LOGGER)\.\w+\("
+            r"(?:[^\"'\n]|\"[^\"\n]*\"|'[^'\n]*')*?"
+            r"\b(password|passwd|pwd|secret|token|credential|api_?key|密钥|密码|口令)\w*"
+        ),
         "category": "security",
         "subcategory": "其他安全规则",
         "description": "日志中输出敏感信息（SEC-J00033）",
@@ -177,6 +187,10 @@ class ViolationDetector:
         violation_types: list[str] = []
         violation_categories: list[str] = []
         evidences: list[str] = []
+        # 各命中规则的对齐详情：pipeline 转换 violation 时用它保证
+        # message/evidence 与规则一一对应（旧实现所有规则共用
+        # violation_types[0]，多规则命中时 message 错位）
+        rule_details: list[dict[str, Any]] = []
 
         for violation_name, pattern_info in self._violation_patterns.items():
             pattern = pattern_info["pattern"]
@@ -192,7 +206,22 @@ class ViolationDetector:
                 violated_rules.append(rule_label)
                 violation_types.append(pattern_info["description"])
                 violation_categories.append(pattern_info["category"])
-                evidences.append(f"代码中检测到违规模式: {pattern_info['description']}")
+                # 记录真实命中行（旧实现只写"代码中检测到违规模式"占位
+                # 文本，证据无法复核）
+                hit_lines = self._extract_hit_lines(pattern, code_snippet, flags)
+                detail: dict[str, Any] = {
+                    "rule_label": rule_label,
+                    "rule_id": rule_id,
+                    "pattern_key": violation_name,
+                    "description": pattern_info["description"],
+                    "category": pattern_info["category"],
+                    "evidence": hit_lines,
+                }
+                rule_details.append(detail)
+                evidence_text = f"{pattern_info['description']}"
+                for hl in hit_lines[:3]:
+                    evidence_text += f"\n命中行: {hl[:200]}"
+                evidences.append(evidence_text)
 
         related_standards = self._find_related_standards(combined_text)
 
@@ -208,7 +237,29 @@ class ViolationDetector:
             evidence="\n".join(evidences) if evidences else "",
             confidence=confidence,
             relevant_standards=related_standards,
+            rule_details=rule_details,
         )
+
+    @staticmethod
+    def _extract_hit_lines(
+        pattern: str, code_snippet: str, flags: int, limit: int = 3
+    ) -> list[str]:
+        """提取正则命中所在的代码行（最多 limit 条），作为可复核证据。"""
+        lines: list[str] = []
+        try:
+            for m in re.finditer(pattern, code_snippet, flags):
+                line_start = code_snippet.rfind("\n", 0, m.start()) + 1
+                line_end = code_snippet.find("\n", m.end())
+                if line_end == -1:
+                    line_end = len(code_snippet)
+                line = code_snippet[line_start:line_end].strip()
+                if line and line not in lines:
+                    lines.append(line)
+                if len(lines) >= limit:
+                    break
+        except re.error as e:
+            logger.warning(f"违规模式命中行提取失败: {e}")
+        return lines
 
     def _find_related_standards(self, text: str) -> list[str]:
         """查找相关规范"""

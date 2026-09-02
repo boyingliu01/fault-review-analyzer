@@ -42,9 +42,7 @@ def load_task_from_cache(task_id: int) -> dict[str, Any] | None:
         return None
     conn = sqlite3.connect(db_path)
     try:
-        row = conn.execute(
-            "SELECT data FROM cache WHERE task_id = ?", (task_id,)
-        ).fetchone()
+        row = conn.execute("SELECT data FROM cache WHERE task_id = ?", (task_id,)).fetchone()
     finally:
         conn.close()
     if row is None:
@@ -90,19 +88,33 @@ def compute_violations(
             }
         )
         if detection.is_violation:
-            for rule_label in detection.violated_rules:
-                segs = rule_label.split(":", 1) if ":" in rule_label else ["", rule_label]
-                rule_id = segs[0] if len(segs) > 1 else ""
-                rule_name = segs[1] if len(segs) > 1 else segs[0]
-                rule_violations.append(
-                    {
-                        "rule_id": rule_id,
-                        "rule_name": rule_name,
-                        "severity": "warning",
-                        "message": detection.violation_type or "",
-                        "evidence": [detection.evidence] if detection.evidence else [],
-                    }
-                )
+            # 逐规则对齐输出（rule_details 与 pipeline._detect_violations 一致）：
+            # 旧实现所有规则共用 violation_types[0]，多规则命中时 message 错位
+            if detection.rule_details:
+                for detail in detection.rule_details:
+                    rule_violations.append(
+                        {
+                            "rule_id": detail.get("rule_id", ""),
+                            "rule_name": detail.get("pattern_key", ""),
+                            "severity": "warning",
+                            "message": detail.get("description", ""),
+                            "evidence": detail.get("evidence", []),
+                        }
+                    )
+            else:
+                for rule_label in detection.violated_rules:
+                    segs = rule_label.split(":", 1) if ":" in rule_label else ["", rule_label]
+                    rule_id = segs[0] if len(segs) > 1 else ""
+                    rule_name = segs[1] if len(segs) > 1 else segs[0]
+                    rule_violations.append(
+                        {
+                            "rule_id": rule_id,
+                            "rule_name": rule_name,
+                            "severity": "warning",
+                            "message": detection.violation_type or "",
+                            "evidence": [detection.evidence] if detection.evidence else [],
+                        }
+                    )
 
     return rule_violations
 

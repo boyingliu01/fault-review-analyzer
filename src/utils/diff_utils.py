@@ -31,6 +31,68 @@ _DIFF_META_PREFIXES: tuple[str, ...] = (
 # hunk 头：@@ -l,c +l,c @@（行尾可带函数上下文）
 _HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@")
 
+# 测试/mock 文件特征：目录段（__tests__/test/tests/mocks/fixtures/spec/e2e）
+# 或 jest 风格后缀（.test.js / .spec.ts 等）。其中的 mock 凭证、示例值
+# 不部署到生产，不构成"敏感信息硬编码"等生产环境违规。
+_TEST_FILE_PATTERN = re.compile(
+    r"(?:^|/)(?:__tests?__|tests?|mocks?|fixtures?|spec|e2e)(?:/|$)"
+    r"|\.(?:test|spec)\.[^.]+$",
+    re.IGNORECASE,
+)
+
+
+def is_test_file(file_path: str) -> bool:
+    """判断文件是否为测试/mock 文件（如 __tests__/DeepLink.test.js）。"""
+    if not file_path:
+        return False
+    return bool(_TEST_FILE_PATTERN.search(file_path.replace("\\", "/")))
+
+
+def _parse_diff_new_path(line: str) -> str:
+    """解析 ``+++ b/path/to/file`` 行中的文件路径。"""
+    path = line[len("+++ ") :].strip().strip('"')
+    if path.startswith("b/"):
+        path = path[2:]
+    if path == "/dev/null":
+        return ""
+    return path
+
+
+def iter_added_lines_by_file(diff_text: str) -> list[tuple[str, str]]:
+    """按文件段拆分 unified diff，返回 ``(文件路径, 该文件新增行)`` 列表。
+
+    用于需要文件上下文的检测（如跳过测试/mock 文件）。非 unified diff
+    文本返回 ``[("", 原文)]``——此类文本没有文件语义，调用方不应按
+    路径跳过。新增行为空的文件段不返回。
+    """
+    if not diff_text:
+        return []
+    if not _looks_like_unified_diff(diff_text):
+        return [("", diff_text)]
+
+    segments: list[tuple[str, str]] = []
+    current_path = ""
+    current_buf: list[str] = []
+
+    def _flush() -> None:
+        if current_buf:
+            added = extract_added_lines("\n".join(current_buf))
+            if added:
+                segments.append((current_path, added))
+            current_buf.clear()
+
+    for line in diff_text.splitlines():
+        if line.startswith("+++ "):
+            _flush()
+            current_path = _parse_diff_new_path(line)
+            continue
+        if line.startswith("--- "):
+            # --- 行属于即将开始的新文件段，不进缓冲
+            continue
+        current_buf.append(line)
+    _flush()
+    return segments
+
 
 def _looks_like_unified_diff(text: str) -> bool:
     """判断文本是否为 unified diff 格式（而非裸代码片段/普通文本）。"""

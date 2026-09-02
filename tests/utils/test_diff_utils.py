@@ -5,7 +5,7 @@
 的成因之一）。
 """
 
-from src.utils.diff_utils import extract_added_lines
+from src.utils.diff_utils import extract_added_lines, is_test_file, iter_added_lines_by_file
 
 UNIFIED_DIFF = (
     "diff --git a/src/App.java b/src/App.java\n"
@@ -17,7 +17,7 @@ UNIFIED_DIFF = (
     "-oldPassword = 'Removed123';\n"
     "+newPassword = 'Added999';\n"
     " another context\n"
-    "+System.out.println(\"added debug\");\n"
+    '+System.out.println("added debug");\n'
 )
 
 
@@ -76,3 +76,72 @@ class TestExtractAddedLines:
         )
         result = extract_added_lines(diff)
         assert result == "value = 1"
+
+
+MULTI_FILE_DIFF = (
+    "diff --git a/src/Service.java b/src/Service.java\n"
+    "index 111..222 100644\n"
+    "--- a/src/Service.java\n"
+    "+++ b/src/Service.java\n"
+    "@@ -1,2 +1,3 @@\n"
+    "+serviceCode();\n"
+    "diff --git a/src/pkg/__tests__/Util.test.js b/src/pkg/__tests__/Util.test.js\n"
+    "index 333..444 100644\n"
+    "--- a/src/pkg/__tests__/Util.test.js\n"
+    "+++ b/src/pkg/__tests__/Util.test.js\n"
+    "@@ -1 +1,2 @@\n"
+    "+const token = 'tok-mock9';\n"
+    "diff --git a/README.md b/README.md\n"
+    "index 555..666 100644\n"
+    "--- a/README.md\n"
+    "+++ b/README.md\n"
+    "@@ -1 +1,2 @@\n"
+    "+readme text\n"
+)
+
+
+class TestIterAddedLinesByFile:
+    def test_split_by_file_segments(self):
+        """多文件 diff 应按文件段拆分"""
+        segments = iter_added_lines_by_file(MULTI_FILE_DIFF)
+        paths = [p for p, _ in segments]
+        assert paths == ["src/Service.java", "src/pkg/__tests__/Util.test.js", "README.md"]
+
+    def test_added_lines_per_file(self):
+        """每个文件段的文本只含该文件的新增行"""
+        segments = dict(iter_added_lines_by_file(MULTI_FILE_DIFF))
+        assert segments["src/Service.java"] == "serviceCode();"
+        assert segments["src/pkg/__tests__/Util.test.js"] == "const token = 'tok-mock9';"
+        assert segments["README.md"] == "readme text"
+
+    def test_bare_code_no_file_semantics(self):
+        """非 unified diff 文本返回空路径段（调用方不应按路径跳过）"""
+        segments = iter_added_lines_by_file("password = 'Plain123';")
+        assert segments == [("", "password = 'Plain123';")]
+
+    def test_empty_input(self):
+        assert iter_added_lines_by_file("") == []
+
+
+class TestIsTestFile:
+    def test_jest_test_dir(self):
+        assert is_test_file("src/deeplink/__tests__/DeepLink.test.js")
+
+    def test_test_suffix(self):
+        assert is_test_file("src/service.test.ts")
+        assert is_test_file("src/service.spec.ts")
+
+    def test_test_dir_variants(self):
+        assert is_test_file("tests/test_service.py")
+        assert is_test_file("test/java/com/x/AppTest.java")
+        assert is_test_file("mocks/store.js")
+        assert is_test_file("e2e/login.spec.js")
+
+    def test_production_files_not_flagged(self):
+        assert not is_test_file("src/service/TokenService.java")
+        assert not is_test_file("src/utils/test_utils.py")  # 工具文件不是测试目录
+        assert not is_test_file("pkg/latest.js")  # latest 含 "test" 子串但非段级匹配
+
+    def test_empty_path(self):
+        assert not is_test_file("")
+        assert not is_test_file(None)  # type: ignore[arg-type]

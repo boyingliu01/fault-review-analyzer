@@ -1,5 +1,8 @@
 """违规检测器测试套件"""
 
+import re
+
+from src.analysis.violation_detector import ViolationDetector
 from src.core.models import ViolationDetection
 
 
@@ -114,3 +117,94 @@ class TestViolationDetector:
         result = violation_detector.detect(fault_info)
         assert isinstance(result, ViolationDetection)
         assert result.confidence <= 0.5
+
+
+class TestViolationDetectorRuleDetails:
+    """锁定 2026-09 复核修正后的行为：SEC-J00033 词表收紧、
+    rule_details 逐规则对齐、evidence 记录真实命中行。"""
+
+    def _fault(self, code_snippet: str, task_id: str) -> dict:
+        return {
+            "task_id": task_id,
+            "title": "日志敏感信息复核",
+            "description": "验证敏感信息日志检测行为",
+            "code_snippet": code_snippet,
+            "development": {"commits": []},
+        }
+
+    def test_log_message_text_not_flagged(self, violation_detector):
+        """日志消息文本中的裸词 token 不再命中（11807893 误报模式）。"""
+        result = violation_detector.detect(
+            self._fault('logger.debug("expire uc token start...");', "TASK-101")
+        )
+        assert "SEC-J00033:sensitive_info_in_log" not in result.violated_rules
+
+    def test_cache_key_output_not_flagged(self, violation_detector):
+        """缓存键输出不再命中：裸 key 已移出 SEC-J00033 词表。"""
+        result = violation_detector.detect(
+            self._fault('logger.debug("cache key: {}", cacheKey);', "TASK-102")
+        )
+        assert "SEC-J00033:sensitive_info_in_log" not in result.violated_rules
+
+    def test_sensitive_word_in_string_literal_not_flagged(self, violation_detector):
+        """字符串字面量内的敏感词（占位文本）不算命中，仅匹配参数标识符。"""
+        result = violation_detector.detect(
+            self._fault('logger.info("user token expired", userId);', "TASK-104")
+        )
+        assert "SEC-J00033:sensitive_info_in_log" not in result.violated_rules
+
+    def test_log_sensitive_identifier_hit(self, violation_detector):
+        """日志参数中的敏感词标识符（输出敏感变量）仍应命中且详情对齐。"""
+        result = violation_detector.detect(
+            self._fault('logger.info("token={}", token);', "TASK-103")
+        )
+        assert result.is_violation is True
+        assert "SEC-J00033:sensitive_info_in_log" in result.violated_rules
+        sec = [d for d in result.rule_details if d["rule_id"] == "SEC-J00033"]
+        assert len(sec) == 1
+        assert sec[0]["pattern_key"] == "sensitive_info_in_log"
+        assert sec[0]["category"] == "security"
+        assert sec[0]["evidence"] == ['logger.info("token={}", token);']
+
+    def test_evidence_contains_real_hit_line(self, violation_detector):
+        """evidence 记录真实命中行，不再是无从复核的占位文本。"""
+        code = 'System.out.println("debug info");\nlogger.info("pwd=" + pwd);'
+        result = violation_detector.detect(self._fault(code, "TASK-105"))
+        assert result.is_violation is True
+        assert "命中行:" in result.evidence
+        assert 'logger.info("pwd=" + pwd);' in result.evidence
+        assert "代码中检测到违规模式" not in result.evidence
+
+    def test_rule_details_align_with_violated_rules(self, violation_detector):
+        """多规则命中时 rule_details 与 violated_rules 一一对应。"""
+        code = (
+            "try { int a = 1/0; } catch (Exception e) { }\n"
+            'System.out.println("debug");\n'
+            'logger.info("password={}", password);'
+        )
+        result = violation_detector.detect(self._fault(code, "TASK-106"))
+        assert result.is_violation is True
+        labels = [d["rule_label"] for d in result.rule_details]
+        assert sorted(labels) == sorted(result.violated_rules)
+        sec = [d for d in result.rule_details if d["rule_id"] == "SEC-J00033"]
+        assert sec and sec[0]["description"] == "日志中输出敏感信息（SEC-J00033）"
+        assert any("password" in line for line in sec[0]["evidence"])
+
+    def test_rule_details_empty_when_no_violation(self, violation_detector):
+        """无违规时 rule_details 为空列表。"""
+        result = violation_detector.detect(self._fault("int result = a + b;", "TASK-107"))
+        assert result.is_violation is False
+        assert result.rule_details == []
+
+    def test_extract_hit_lines_returns_line_of_match(self):
+        """_extract_hit_lines 提取命中所在完整行（而非整段文本）。"""
+        code = "line1 = 1;\npassword = 'abc12345';\nline3 = 3;"
+        lines = ViolationDetector._extract_hit_lines(r"password", code, re.IGNORECASE)
+        assert lines == ["password = 'abc12345';"]
+
+    def test_extract_hit_lines_dedup_and_limit(self):
+        """_extract_hit_lines 去重且最多返回 limit 条。"""
+        code = "token = 'a';\ntoken = 'a';\ntoken = 'b';\ntoken = 'c';"
+        lines = ViolationDetector._extract_hit_lines(r"token", code, re.IGNORECASE, limit=2)
+        assert len(lines) == 2
+        assert lines[0] == "token = 'a';"

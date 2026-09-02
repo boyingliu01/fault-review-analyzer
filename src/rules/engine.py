@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
-from src.utils.diff_utils import extract_added_lines
+from src.utils.diff_utils import is_test_file, iter_added_lines_by_file
 
 from .models import Rule, RuleCheckResult, RuleViolation
 
@@ -173,13 +173,25 @@ BUILTIN_RULES: list[dict] = [
         # 只匹配明确的凭证类变量名；旧正则含裸词 key|token，IGNORECASE
         # 下 cacheKey/KEY 等普通变量名大量误报（修正前 41/181 单命中，
         # 证据全为变量名，如 11964009）。要求值长度 >=6 以过滤占位符。
+        # 2026-09 复核修正（181 单中 12 条敏感信息认定经逐条人工复核
+        # 全为误报后收紧）：
+        # 1. 值字符类排除空白与代码结构字符 ( ) { } , ;——消除跨引号
+        #    假阳性（如 "&token=").append(getToken())、console.log('FCM
+        #    Token:', x) 跨行吞到下一个引号的匹配）；
+        # 2. value_exclude 过滤点分配置键路径（如 PWD_EXPIRE_DAYS =
+        #    "ecare.user.pwd.expire-days"、APP_SECRET = "uc.appSecret"
+        #    是配置键名常量，不是凭证本身）；eyJ 开头的 JWT 不受影响。
         "pattern": (
             r"\b(password|passwd|pwd|secret|token|api_?key|access_?key"
             r"|secret_?key|private_?key|auth_?token|app_?secret)\w*"
-            r"\s*[:=]\s*['\"][^'\"]{6,}['\"]"
+            r"\s*[:=]\s*['\"]([^\s'\"(){},;]{6,})['\"]"
         ),
         "flags": re.IGNORECASE,
         "message": "检测到敏感信息硬编码",
+        "options": {
+            "value_group": 2,
+            "value_exclude": r"^(?!eyJ)(?:[a-z0-9_-]+\.){1,}[a-z0-9_-]+$",
+        },
     },
     {
         "id": "security-002",
@@ -249,6 +261,7 @@ class RulesEngine:
                 condition=rule_data.get("condition", ""),
                 message=rule_data.get("message", ""),
                 flags=rule_data.get("flags", re.IGNORECASE),
+                options=rule_data.get("options", {}),
             )
             self._rules[rule.id] = rule
 
@@ -343,6 +356,11 @@ class RulesEngine:
         优先检查代码diff内容，如果没有diff则降级到检查commit message。
         diff 只检测新增行（+ 行）：删除行是本次被移除的代码、上下文行
         是未变更的历史代码，混入会把历史/已删除代码误判为本次引入的违规。
+
+        按"检查单元"（diff 文件段 / code_change 文件）扫描并跳过
+        测试/mock 文件：其中的 mock 凭证、示例值不部署到生产，不构成
+        生产环境违规（如 11964009 在 __tests__/DeepLink.test.js 中的
+        mock token 被误判为敏感信息硬编码）。
         """
         violations = []
 
@@ -353,11 +371,14 @@ class RulesEngine:
         if task_data.get("development"):
             dev = task_data["development"]
             if isinstance(dev, dict):
-                # 首先尝试从commits中获取diff（只取新增行）
+                # 首先尝试从commits中获取diff（按文件段拆分，只取新增行）
                 for commit in dev.get("commits", []):
                     diff = commit.get("diff", "")
                     if diff:
-                        code_parts.append(extract_added_lines(diff))
+                        for file_path, added in iter_added_lines_by_file(diff):
+                            if is_test_file(file_path):
+                                continue
+                            code_parts.append(added)
                     else:
                         # 降级：使用commit message
                         code_parts.append(commit.get("message", ""))
@@ -366,7 +387,7 @@ class RulesEngine:
                 # 混入会把"被删除的代码"误判为本次引入的违规
                 for change in dev.get("code_changes", []):
                     new_content = change.get("new_content", "")
-                    if new_content:
+                    if new_content and not is_test_file(change.get("file_path", "")):
                         code_parts.append(new_content)
 
         # 使用 join 代替 += 拼接，限制总大小
@@ -398,10 +419,21 @@ class RulesEngine:
         旧实现用 re.findall + str(m)：带分组的 pattern 只返回分组元组，
         证据沦为裸关键词（如 ['KEY','key',...]），无法复核。此处改为
         返回完整匹配所在的代码行；每条规则使用自己的 flags。
+
+        规则可通过 options.value_group + options.value_exclude 对命中的
+        捕获组做后置排除（如 security-001 排除点分配置键路径误报）。
         """
         evidences: list[str] = []
+        value_group = rule.options.get("value_group") if rule.options else None
+        value_exclude = rule.options.get("value_exclude") if rule.options else None
         try:
             for m in re.finditer(rule.pattern, code_content, rule.flags):
+                if value_group and value_exclude:
+                    value = (
+                        m.group(value_group) if m.lastindex and m.lastindex >= value_group else ""
+                    )
+                    if value and re.fullmatch(value_exclude, value, rule.flags):
+                        continue
                 line_start = code_content.rfind("\n", 0, m.start()) + 1
                 line_end = code_content.find("\n", m.end())
                 if line_end == -1:
