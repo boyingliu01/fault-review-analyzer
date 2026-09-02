@@ -32,7 +32,7 @@ class LLMConfig(BaseModel):
     provider: str = Field(default="openai", description="LLM服务提供商")
     model: str = Field(default="gpt-4", description="模型名称")
     api_key: str = Field(default="", description="API密钥")
-    temperature: float = Field(default=0.7, ge=0.0, le=1.0, description="温度参数")
+    temperature: float = Field(default=0.2, ge=0.0, le=1.0, description="温度参数")
     max_tokens: int = Field(default=4096, ge=1, le=128000, description="最大token数")
     base_url: str = Field(default="", description="API基础URL(可选)")
 
@@ -138,6 +138,35 @@ class LoggingConfig(BaseModel):
         return v_upper
 
 
+class ReviewerConfig(BaseModel):
+    """单个 Delphi 评审专家配置。"""
+
+    persona: str = Field(default="strict_rule_checker", description="评审视角标识")
+    model: str = Field(default="", description="覆盖主LLM模型名（空=继承主配置）")
+    base_url: str = Field(default="", description="覆盖LLM base_url（空=继承主配置）")
+    api_key: str = Field(default="", description="覆盖API密钥（空=继承主配置）")
+    temperature: float = Field(default=0.1, ge=0.0, le=1.0, description="评审温度")
+
+
+class DelphiReviewConfig(BaseModel):
+    """Delphi 式违规复审配置（多专家匿名多轮共识，类似代码走查）。
+
+    初筛（正则）召回高但精确率有限，语义级判定（集合是否跨线程共享、
+    拼接目标是否用户输入、语言是否匹配条款）交给独立评审专家复核。
+    """
+
+    enabled: bool = Field(default=False, description="是否启用违规Delphi复审")
+    max_rounds: int = Field(default=2, ge=1, le=5, description="最大评审轮数")
+    context_lines: int = Field(default=12, ge=2, le=50, description="命中行上下文行数")
+    reviewers: list[ReviewerConfig] = Field(
+        default_factory=lambda: [
+            ReviewerConfig(persona="strict_rule_checker"),
+            ReviewerConfig(persona="runtime_behavior_analyst"),
+        ],
+        description="评审专家列表（独立会话互不可见，匿名互评）",
+    )
+
+
 class AppConfig(BaseModel):
     api: APIConfig = Field(default_factory=APIConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
@@ -147,3 +176,4 @@ class AppConfig(BaseModel):
     rules: RulesConfig = Field(default_factory=RulesConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    review: DelphiReviewConfig = Field(default_factory=DelphiReviewConfig)

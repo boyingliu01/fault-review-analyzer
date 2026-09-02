@@ -169,12 +169,14 @@ class FaultAnalysisUI:
             # 规范违规分布
             st.markdown("---")
             st.subheader("🚨 规范违规分布")
-            self._render_violation_table(violation_df)
+            violation_event = self._render_violation_table(violation_df)
 
             # 缺陷明细（可筛选 + 联动）
             st.markdown("---")
             st.subheader("📑 缺陷明细")
-            filtered, selection = self._render_detail_table(detail_df, pareto_event)
+            filtered, selection = self._render_detail_table(
+                detail_df, pareto_event, violation_event, violation_df
+            )
 
             # 单起详情（联动）
             st.markdown("---")
@@ -264,12 +266,12 @@ class FaultAnalysisUI:
     # ------------------------------------------------------------------
     @staticmethod
     def _render_violation_table(violation_df: pd.DataFrame) -> object:
-        """渲染规范违规分布（含条款内容），返回选择事件。"""
+        """渲染规范违规分布（含条款内容），返回选择事件（用于联动过滤明细）。"""
         if violation_df.empty:
             st.info("无规范违规记录")
             return None
 
-        st.dataframe(
+        return st.dataframe(
             violation_df,
             width="stretch",
             hide_index=True,
@@ -277,18 +279,30 @@ class FaultAnalysisUI:
             selection_mode="single-row",
             key="violation_table",
         )
-        # 违规表选择事件
-        return st.session_state.get("violation_table", None)
 
     # ------------------------------------------------------------------
     # 缺陷明细（联动 + 筛选）
     # ------------------------------------------------------------------
     def _render_detail_table(
-        self, detail_df: pd.DataFrame, pareto_event: object
+        self,
+        detail_df: pd.DataFrame,
+        pareto_event: object,
+        violation_event: object = None,
+        violation_df: pd.DataFrame | None = None,
     ) -> tuple[pd.DataFrame, object]:
-        """渲染缺陷明细表（含筛选 + 联动 + 研发云链接），返回过滤后表和选择事件。"""
+        """渲染缺陷明细表（含筛选 + 联动 + 研发云链接），返回过滤后表和选择事件。
+
+        联动来源：帕累托图选中根因 → 根因筛选；规范违规分布选中条款 →
+        规范条款筛选（再次点击违规分布同一行取消选择即恢复"全部"）。
+        """
         # 从帕累托图联动获取选中根因
         selected_cause = self._pareto_selected_cause(pareto_event)
+        # 从规范违规分布联动获取选中条款
+        selected_rule = self._violation_selected_rule(violation_event, violation_df)
+        if selected_rule:
+            st.caption(
+                f"已联动规范违规分布选中条款: **{selected_rule}**（点击该行取消选择可恢复全部）"
+            )
 
         # 筛选控件
         filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
@@ -307,7 +321,13 @@ class FaultAnalysisUI:
                 if not detail_df.empty
                 else []
             )
-            rule_sel = st.selectbox("按规范条款筛选", rule_options, index=0, key="rule_filter")
+            default_rule = selected_rule if selected_rule in rule_options else "全部"
+            rule_sel = st.selectbox(
+                "按规范条款筛选",
+                rule_options,
+                index=rule_options.index(default_rule),
+                key="rule_filter",
+            )
         with filter_col3:
             code_options = ["全部", "是", "否"]
             code_sel = st.selectbox("按代码变更筛选", code_options, key="code_filter")
@@ -366,6 +386,24 @@ class FaultAnalysisUI:
             return str(bar_points[0].get("x"))
         return None
 
+    @staticmethod
+    def _violation_selected_rule(
+        violation_event: Any, violation_df: pd.DataFrame | None
+    ) -> str | None:
+        """从规范违规分布表选择事件提取选中的条款 ID（规范条款列）。"""
+        if violation_event is None or violation_df is None:
+            return None
+        if not getattr(violation_event, "selection", None):
+            return None
+        sel = violation_event.selection
+        rows = sel.get("rows", []) if hasattr(sel, "get") else []
+        if not rows:
+            return None
+        try:
+            return str(violation_df.iloc[rows[0]]["规范条款"])
+        except (IndexError, KeyError, ValueError):
+            return None
+
     # ------------------------------------------------------------------
     # 单起详情（联动）
     # ------------------------------------------------------------------
@@ -390,10 +428,7 @@ class FaultAnalysisUI:
         # 根因
         st.markdown("#### 根因分析")
         for rc in detail.get("root_causes", []):
-            st.markdown(
-                f"- **[{rc.get('cause_type', '')}]** (置信度 {rc.get('confidence', 0):.2f}): "
-                f"{rc.get('description', '')}"
-            )
+            st.markdown(f"- **[{rc.get('cause_type', '')}]** {rc.get('description', '')}")
             if rc.get("evidence"):
                 st.caption("证据: " + "; ".join(str(e)[:100] for e in rc["evidence"][:3]))
 
@@ -405,8 +440,71 @@ class FaultAnalysisUI:
                     f"- **{v.get('rule_id', '')}**: {v.get('rule_name', '')} "
                     f"(严重度: {v.get('severity', '')})"
                 )
+                if v.get("justification"):
+                    st.caption(f"认定说明: {v['justification']}")
         else:
             st.info("无规范违规")
+
+        # 违规认定复核记录（人工/程序复核的审计线索，有记录时展示）
+        review = detail.get("violation_review") or {}
+        if isinstance(review, dict) and review:
+            with st.expander("🧾 违规认定复核记录", expanded=False):
+                st.caption(
+                    f"复核时间: {review.get('reviewed_at', '')} ｜ 复核方: {review.get('reviewer', '')}"
+                )
+                if review.get("scope"):
+                    st.caption(f"核查范围: {review['scope']}")
+                if review.get("method"):
+                    st.caption(f"复核方法: {review['method']}")
+                if review.get("conclusion"):
+                    st.markdown(f"**结论**: {review['conclusion']}")
+                for item in review.get("items", []) or []:
+                    st.markdown(
+                        f"- **[{item.get('rule_id', '')}] {item.get('rule_name', '')}**"
+                        f" — 处置: {item.get('disposition', '')}"
+                    )
+                    orig_ev = item.get("original_evidence") or []
+                    if orig_ev:
+                        st.caption("原证据: " + " ｜ ".join(str(e)[:120] for e in orig_ev[:3]))
+                    if item.get("reason"):
+                        st.caption(f"认定说明: {item['reason']}")
+
+        # Delphi 复审记录（多专家匿名共识裁决，固化于复盘引擎）
+        delphi = detail.get("delphi_review") or {}
+        if isinstance(delphi, dict) and delphi.get("items"):
+            with st.expander("⚖️ 违规 Delphi 复审（多专家共识）", expanded=False):
+                st.caption(
+                    f"复审时间: {delphi.get('reviewed_at', '')} ｜ 方法: "
+                    f"{delphi.get('method', '')} ｜ 专家: "
+                    f"{', '.join(delphi.get('reviewers', []))}（独立匿名会话）"
+                )
+                VERDICT_CN = {
+                    "violation": "违规成立",
+                    "false_positive": "误报（撤销）",
+                    "insufficient_evidence": "证据不足（撤销）",
+                    "diverged": "专家分歧（待人工裁决）",
+                }
+                for item in delphi.get("items", []) or []:
+                    verdict = item.get("final_verdict", "")
+                    st.markdown(
+                        f"- **[{item.get('rule_id', '')}]** → "
+                        f"**{VERDICT_CN.get(verdict, verdict)}**"
+                        f"（共识: {'是' if item.get('consensus') else '否'}，"
+                        f"{item.get('rounds', '')}轮）"
+                    )
+                    if item.get("reason"):
+                        st.caption(f"裁决理由: {item['reason']}")
+                    for op in item.get("opinions", []) or []:
+                        st.caption(
+                            f"　· 专家[{op.get('reviewer', '')}] R{op.get('round', '')}: "
+                            f"{VERDICT_CN.get(op.get('verdict', ''), op.get('verdict', ''))}"
+                            f" — {str(op.get('reason', ''))[:120]}"
+                        )
+                manual = delphi.get("manual_review") or {}
+                if manual:
+                    st.caption(f"人工核查: {manual.get('reviewer', '')}")
+                    for m in manual.get("items", []) or []:
+                        st.caption(f"　· [{m.get('rule_id', '')}] {m.get('reason', '')}")
 
         # 改进建议
         st.markdown("#### 改进建议")
@@ -447,6 +545,18 @@ class FaultAnalysisUI:
             checks = deep.get("checklist_recommendations") or []
             if checks:
                 st.caption("Checklist 建议: " + " ｜ ".join(str(c) for c in checks[:6]))
+
+            # 需求-测试传导链例行检查结论（旧数据无此字段时隐藏）
+            req_check = deep.get("requirement_check") or {}
+            if isinstance(req_check, dict) and req_check:
+                st.markdown("**需求-测试传导链例行检查:**")
+                st.markdown(
+                    f"- 需求源头规则定义: **{req_check.get('rule_defined_in_requirement', '证据不足')}**"
+                    f" ｜ 测试覆盖: **{req_check.get('test_covered', '证据不足')}**"
+                )
+                conclusion = str(req_check.get("conclusion", "")).strip()
+                if conclusion:
+                    st.caption(conclusion)
 
         # 图片证据（截图提取内容）
         img_ev = detail.get("image_evidence")

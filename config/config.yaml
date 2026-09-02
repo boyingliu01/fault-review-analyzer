@@ -10,7 +10,9 @@ llm:
   model: "doubao-seed-1-8-251228"
   api_key: ""  # Set via LLM_API_KEY env var
   base_url: "https://ark.cn-beijing.volces.com/api/v3"
-  temperature: 0.7
+  # 根因分析等结论生成场景需要稳定的输出，高温会放大幻觉（0.7 曾导致
+  # 11757372 把修复动作脑补成设计缺陷），默认 0.1，可经 LLM_TEMPERATURE 覆盖
+  temperature: 0.1
   max_tokens: 4096
 
 embedding:
@@ -34,6 +36,17 @@ rules:
   builtin_enabled: true
   custom_paths:
     - "./data/rules/custom/"
+
+# Delphi 式违规复审（多专家匿名多轮共识，类似代码走查）：
+# 对正则初筛的全部违规候选做语义复核，共识误报撤销、共识成立附依据、
+# 专家分歧保留并标记待人工裁决。评审温度默认 0.1（低温保证稳定输出）
+review:
+  enabled: true
+  max_rounds: 2
+  context_lines: 12
+  reviewers:
+    - persona: "strict_rule_checker"      # 逐字对照条款构成要件
+    - persona: "runtime_behavior_analyst" # 分析真实运行行为（线程/数据流）
 
 output:
   format: "markdown"

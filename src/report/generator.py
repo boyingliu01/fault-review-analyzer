@@ -152,7 +152,13 @@ DEFAULT_TEMPLATE = """# 故障复盘分析报告
 {% for violation in violations %}
 - **[{{ violation.severity }}] {{ violation.rule_name }}**: {{ violation.message }}
 {% if violation.evidence %}
-  - 证据: {{ violation.evidence[:200] }}
+  - 证据: {{ violation.evidence | join(' ｜ ') if violation.evidence is not string else violation.evidence | truncate(400) }}
+{% endif %}
+{% if violation.justification %}
+  - 认定说明: {{ violation.justification }}
+{% endif %}
+{% if violation.delphi_verdict %}
+  - Delphi 复审: {{ '共识确认' if violation.delphi_verdict == 'violation' else ('专家分歧，待人工裁决' if violation.delphi_verdict == 'diverged' else '复审撤销') }}{% if violation.delphi_reason %} — {{ violation.delphi_reason | truncate(200) }}{% endif %}
 {% endif %}
 {% endfor %}
 {% endif %}
@@ -191,8 +197,6 @@ DEFAULT_TEMPLATE = """# 故障复盘分析报告
 {% for evidence in cause.evidence %}
 - {{ evidence }}
 {% endfor %}
-
-置信度: {{ "%.0f%%"|format(cause.confidence * 100) }}
 
 {% endfor %}
 {% endif %}
@@ -607,7 +611,6 @@ class ReportGenerator:
                 <li>{{ evidence }}</li>
             {% endfor %}
             </ul>
-            <p>置信度: {{ "%.0f%%"|format(cause.confidence * 100) }}</p>
         </div>
         {% endfor %}
     </div>

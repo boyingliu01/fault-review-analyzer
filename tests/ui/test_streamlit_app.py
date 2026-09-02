@@ -108,3 +108,76 @@ class TestDetailLink:
 
         url = build_detail_url(1001)
         assert url == "https://dev.iwhalecloud.com/portal/zcm-devspace/spa/task/pc/1001"
+
+
+class TestViolationSelectionLink:
+    """验证规范违规分布选中行 → 条款提取（REQ-4 违规联动）。"""
+
+    @staticmethod
+    def _fake_event(rows: list[int] | None):
+        """模拟 Streamlit dataframe 选择事件（selection 提供 dict 式 get）。"""
+        from types import SimpleNamespace
+
+        class _Selection:
+            def __init__(self, rows: list[int] | None) -> None:
+                self._rows = rows
+
+            def get(self, key: str, default=None):
+                return self._rows if key == "rows" else default
+
+        return SimpleNamespace(selection=_Selection(rows))
+
+    @staticmethod
+    def _violation_df():
+        import pandas as pd
+
+        return pd.DataFrame({"规范条款": ["SEC-J00033", "J000025"]})
+
+    def test_extract_selected_rule(self):
+        """选中违规分布第 0 行 → 提取该行规范条款。"""
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        event = self._fake_event([0])
+        assert FaultAnalysisUI._violation_selected_rule(event, self._violation_df()) == "SEC-J00033"
+
+    def test_none_event_returns_none(self):
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        assert FaultAnalysisUI._violation_selected_rule(None, self._violation_df()) is None
+
+    def test_none_df_returns_none(self):
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        assert FaultAnalysisUI._violation_selected_rule(self._fake_event([0]), None) is None
+
+    def test_missing_selection_returns_none(self):
+        """事件无 selection 属性时返回 None（初始渲染未选中）。"""
+        from types import SimpleNamespace
+
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        event = SimpleNamespace()
+        assert FaultAnalysisUI._violation_selected_rule(event, self._violation_df()) is None
+
+    def test_none_selection_returns_none(self):
+        """selection 为 None 时返回 None。"""
+        from types import SimpleNamespace
+
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        event = SimpleNamespace(selection=None)
+        assert FaultAnalysisUI._violation_selected_rule(event, self._violation_df()) is None
+
+    def test_empty_rows_returns_none(self):
+        """取消选中（rows 为空）返回 None。"""
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        event = self._fake_event([])
+        assert FaultAnalysisUI._violation_selected_rule(event, self._violation_df()) is None
+
+    def test_out_of_range_row_returns_none(self):
+        """行号越界时不抛异常，返回 None。"""
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        event = self._fake_event([99])
+        assert FaultAnalysisUI._violation_selected_rule(event, self._violation_df()) is None

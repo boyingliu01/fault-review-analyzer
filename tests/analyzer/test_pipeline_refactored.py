@@ -3,6 +3,7 @@
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -279,10 +280,10 @@ class TestAnalysisPipelineRefactored:
     @patch("src.analyzer.pipeline.AnalysisPipeline._fetch_task_data")
     @patch("src.analyzer.pipeline.AnalysisPipeline._prepare_task_data")
     @patch("src.analyzer.pipeline.AnalysisPipeline._analyze_with_llm")
-    @patch("src.analyzer.pipeline.AnalysisPipeline._check_and_generate_report")
+    @patch("src.analyzer.pipeline.AnalysisPipeline._generate_result_report")
     async def test_run_single_refactored(
         self,
-        mock_check_report,
+        mock_generate_report,
         mock_analyze_llm,
         mock_prepare,
         mock_fetch_data,
@@ -301,7 +302,7 @@ class TestAnalysisPipelineRefactored:
         mock_fetch_data.assert_called_once_with(12345)
         mock_prepare.assert_called_once()
         mock_analyze_llm.assert_called_once()
-        mock_check_report.assert_called_once()
+        mock_generate_report.assert_called_once()
 
     @pytest.mark.asyncio
     @patch("src.analyzer.pipeline.AnalysisPipeline._fetch_task_data")
@@ -340,3 +341,101 @@ class TestAnalysisPipelineRefactored:
         assert sentinel_secret not in result.error
         assert any("RuntimeError" in message and "12345" in message for message in log_messages)
         assert all(sentinel_secret not in message for message in log_messages)
+
+    def test_detect_violations_message_aligned_by_rule(self, config_manager, sample_task_info):
+        """多规则命中时每条 violation 的 message 与 rule_id 一一对应。
+
+        旧实现所有规则共用 violation_types[0]，导致 SEC-J00033 显示
+        "非线程安全集合"等错位消息（11797806/11807893 复核发现）。
+        """
+        pipeline = AnalysisPipeline(config_manager, self._make_pipeline_config())
+        diff = 'System.out.println("debug info");\nlogger.info("password={}", password);'
+
+        violations = pipeline._detect_violations(diff, sample_task_info)
+
+        by_id = {v["rule_id"]: v for v in violations}
+        assert {"J000080", "SEC-J00033"} <= set(by_id)
+        assert "System.out" in by_id["J000080"]["message"]
+        assert "日志中输出敏感信息" in by_id["SEC-J00033"]["message"]
+        assert by_id["SEC-J00033"]["message"] != by_id["J000080"]["message"]
+        assert any("logger.info" in line for line in by_id["SEC-J00033"]["evidence"])
+
+    def test_detect_violations_empty_when_clean(self, config_manager, sample_task_info):
+        """无违规 diff 返回空列表。"""
+        pipeline = AnalysisPipeline(config_manager, self._make_pipeline_config())
+
+        violations = pipeline._detect_violations("int a = b + c;", sample_task_info)
+
+        assert violations == []
+
+    def test_delphi_revocation_updates_violations_and_audit(self, config_manager, sample_task_info):
+        """共识误报撤销：violations 更新、delphi_review 记录含撤销审计。"""
+        pipeline = AnalysisPipeline(config_manager, self._make_pipeline_config())
+        result = PipelineResult(task_id=12345)
+        result.violations = [
+            {"rule_id": "J000025", "message": "非线程安全集合", "evidence": ["x"]},
+            {"rule_id": "J000066", "message": "空catch", "evidence": ["y"]},
+        ]
+        pipeline._delphi_reviewer = cast("Any", _StubReviewer(["false_positive", "violation"]))
+
+        import asyncio
+
+        asyncio.run(pipeline._review_violations_with_delphi(sample_task_info, result))
+
+        assert [v["rule_id"] for v in result.violations] == ["J000066"]
+        assert result.violations[0]["delphi_verdict"] == "violation"
+        review = result.delphi_review
+        assert review is not None
+        assert [v["rule_id"] for v in review["revoked"]] == ["J000025"]
+        assert len(review["items"]) == 2
+
+    def test_delphi_skipped_when_reviewer_unavailable(self, config_manager, sample_task_info):
+        """复审器不可用（未启用/无凭据）时候选原样保留。"""
+        pipeline = AnalysisPipeline(config_manager, self._make_pipeline_config())
+        result = PipelineResult(task_id=12345)
+        result.violations = [{"rule_id": "J000025", "message": "m", "evidence": []}]
+
+        import asyncio
+
+        asyncio.run(pipeline._review_violations_with_delphi(sample_task_info, result))
+
+        assert len(result.violations) == 1
+        assert result.delphi_review is None
+
+    def test_get_delphi_reviewer_respects_config(self, config_manager):
+        """review.enabled=False 时 _get_delphi_reviewer 返回 None。"""
+        pipeline = AnalysisPipeline(config_manager, self._make_pipeline_config())
+        assert pipeline._get_delphi_reviewer() is None
+
+    @staticmethod
+    def _make_pipeline_config() -> PipelineConfig:
+        """独立构造 PipelineConfig（避免与类级 pipeline_config fixture 同名）。"""
+        return PipelineConfig(check_rules=False, generate_report=False)
+
+
+class _StubReviewer:
+    """脚本化复审器：按候选顺序返回预定 verdict。"""
+
+    def __init__(self, verdicts: list[str]):
+        self._verdicts = verdicts
+
+    async def review(self, _fault_info: dict, violations: list[dict]) -> dict:
+        items = [
+            {
+                "rule_id": v.get("rule_id", ""),
+                "message": v.get("message", ""),
+                "final_verdict": self._verdicts[i],
+                "consensus": True,
+                "rounds": 1,
+                "reason": "stub 裁决",
+                "opinions": [],
+            }
+            for i, v in enumerate(violations)
+        ]
+        return {
+            "reviewed_at": "2026-09-02T00:00:00",
+            "method": "stub",
+            "reviewers": ["expert_a", "expert_b"],
+            "max_rounds": 2,
+            "items": items,
+        }

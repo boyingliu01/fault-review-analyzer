@@ -68,7 +68,7 @@ class TestConfigModels:
         config = LLMConfig()
         assert config.provider == "openai"
         assert config.model == "gpt-4"
-        assert config.temperature == 0.7
+        assert config.temperature == 0.2
         assert config.max_tokens == 4096
 
     def test_llm_config_custom(self):

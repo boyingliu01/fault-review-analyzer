@@ -9,12 +9,15 @@ from src.analysis.code_change_analyzer import CodeChangeAnalyzer
 from src.analysis.improvement_recommender import ImprovementRecommender
 from src.analysis.root_cause import ExistingFaultAnalysis, FaultAnalysisInput
 from src.analysis.root_cause import RootCauseAnalyzer as DeepRootCauseAnalyzer
+from src.analysis.root_cause.prompts import ROOT_CAUSE_SYSTEM_PROMPT
 from src.analysis.standards_matcher import StandardsMatcher
 from src.analysis.violation_detector import ViolationDetector
 from src.analyzer.image_evidence import ImageEvidenceExtractor
+from src.analyzer.introduce_diff import fetch_introduce_task_diff
 from src.analyzer.labeling import LabelGenerator
 from src.analyzer.llm_provider import create_llm_provider
 from src.analyzer.reasoning import RootCauseAnalyzer
+from src.analyzer.review import DelphiViolationReviewer, apply_review
 from src.api.client import APIClient
 from src.api.models import TaskInfo
 from src.cache.manager import CacheManager
@@ -37,9 +40,7 @@ class _LLMClientAdapter:
 
     async def generate(self, prompt: str) -> str:
         """Generate using the provider with combined system and user prompt."""
-        return str(
-            await self._provider.generate(system="You are a helpful assistant.", user=prompt)
-        )
+        return str(await self._provider.generate(system=ROOT_CAUSE_SYSTEM_PROMPT, user=prompt))
 
 
 @dataclass
@@ -78,6 +79,7 @@ class PipelineResult:
     code_change_analysis: dict[str, Any] | None = None  # 代码变更分析结果
     standard_matches: list[dict] | None = None  # 规范匹配结果（violated/related）
     improvements: list[dict] | None = None  # 改进建议与行动项
+    delphi_review: dict[str, Any] | None = None  # 违规 Delphi 复审记录（共识裁决审计）
     cluster_id: int | None = None
     report: str = ""
     error: str = ""
@@ -112,6 +114,7 @@ class AnalysisPipeline:
         self._standards_matcher: StandardsMatcher | None = None
         self._report_generator: ReportGenerator | None = None
         self._improvement_recommender: ImprovementRecommender | None = None
+        self._delphi_reviewer: DelphiViolationReviewer | None = None
 
     async def __aenter__(self) -> "AnalysisPipeline":
         return self
@@ -191,7 +194,11 @@ class AnalysisPipeline:
             await self._analyze_with_llm(task_data, preprocessed, result)
             await self._match_standards(task_data, result)
             self._generate_improvements(result)
-            self._check_and_generate_report(task_data, preprocessed, result)
+            self._apply_rule_checks(task_data, result)
+            # Delphi 复审：对全部初筛候选（规则引擎+违规检测器）做多专家共识裁决，
+            # 共识误报撤销、共识成立保留附依据、专家分歧保留并标记待人工
+            await self._review_violations_with_delphi(task_data, result)
+            self._generate_result_report(task_data, preprocessed, result)
 
         except Exception as error:
             logger.bind(
@@ -275,14 +282,26 @@ class AnalysisPipeline:
         """Perform LLM-based analysis if configured."""
         if self._pipeline_config.use_llm:
             task_dict = task_data.model_dump()
+            # 引入单 diff 拉取一次，普通/深度两条根因链路共用
+            # （无引入单号、API 不可用或拉取失败时为空串，不阻断主流程）
+            introduce_diff = await self._fetch_introduce_task_diff(task_dict)
+
             if self._pipeline_config.generate_labels:
                 result.labels = await self._generate_labels(task_dict, preprocessed)
 
             if self._pipeline_config.analyze_root_cause:
-                result.root_causes = await self._analyze_root_cause(task_dict, preprocessed)
+                result.root_causes = await self._analyze_root_cause(
+                    task_dict, preprocessed, introduce_task_diff=introduce_diff
+                )
 
             if self._pipeline_config.analyze_root_cause_deep:
-                result.deep_root_causes = await self._analyze_root_cause_deep(task_dict)
+                # 传入普通根因结论作为深度分析的事实锚点（基于代码 diff，
+                # 防止深度链路仅凭描述文本脑补机制概念）
+                result.deep_root_causes = await self._analyze_root_cause_deep(
+                    task_dict,
+                    prior_root_causes=result.root_causes,
+                    introduce_task_diff=introduce_diff,
+                )
 
     async def _analyze_code_changes(self, task_data: TaskInfo, result: PipelineResult) -> None:
         """分析代码变更（diff分析、模式检测、规范检查、LLM语义分析）。
@@ -304,7 +323,6 @@ class AnalysisPipeline:
 
         # 构建commit字典列表供CodeChangeAnalyzer使用
         commits_data = []
-        all_diff_content = ""
         for commit in development.commits:
             commit_dict = {
                 "commit_id": commit.commit_id,
@@ -317,10 +335,9 @@ class AnalysisPipeline:
                 "timestamp": commit.time.isoformat() if commit.time else "",
             }
             commits_data.append(commit_dict)
-            if commit.diff:
-                # 只保留新增行：删除行/上下文行是历史或被移除代码，
-                # 混入违规检测会把它们误判为本次引入（见 11964851 误报）
-                all_diff_content += extract_added_lines(commit.diff) + "\n"
+        # 只保留新增行：删除行/上下文行是历史或被移除代码，
+        # 混入违规检测会把它们误判为本次引入（见 11964851 误报）
+        all_diff_content = self._collect_diff_content(task_data)
 
         # 使用CodeChangeAnalyzer进行diff分析和模式检测
         analyzer = self._get_code_change_analyzer()
@@ -355,11 +372,20 @@ class AnalysisPipeline:
     def _check_and_generate_report(
         self, task_data: TaskInfo, _preprocessed: Any, result: PipelineResult
     ) -> None:
-        """Check rules and generate report if configured."""
+        """兼容入口：规则检查 + 报告生成（不经 Delphi 复审，供测试/独立调用）。"""
+        self._apply_rule_checks(task_data, result)
+        self._generate_result_report(task_data, _preprocessed, result)
+
+    def _apply_rule_checks(self, task_data: TaskInfo, result: PipelineResult) -> None:
+        """规则引擎检查（security-001 等），候选前置合并到 violations。"""
         if self._pipeline_config.check_rules:
             rule_violations = self._check_rules(task_data.model_dump())
             result.violations = rule_violations + (result.violations or [])
 
+    def _generate_result_report(
+        self, task_data: TaskInfo, _preprocessed: Any, result: PipelineResult
+    ) -> None:
+        """按配置生成报告。"""
         if self._pipeline_config.generate_report:
             result.report = self._generate_report(
                 task_data.model_dump(mode="json"),
@@ -370,6 +396,63 @@ class AnalysisPipeline:
                 code_change_analysis=result.code_change_analysis,
                 standard_matches=result.standard_matches,
             )
+
+    async def _review_violations_with_delphi(
+        self, task_data: TaskInfo, result: PipelineResult
+    ) -> None:
+        """Delphi 复审：多专家共识裁决违规初筛候选。
+
+        共识误报/证据不足 -> 撤销（记入复审审计）；共识成立 -> 保留附专家
+        依据；轮次用尽仍分歧 -> 保留并标记 diverged 待人工裁决。复审失败时
+        保守保留全部候选，不影响主分析流程。
+        """
+        violations = result.violations or []
+        if not violations:
+            return
+        reviewer = self._get_delphi_reviewer()
+        if reviewer is None:
+            return
+
+        fault_info = {
+            "task_id": task_data.task_id,
+            "title": task_data.title or "",
+            "description": task_data.description or "",
+            "code_snippet": self._collect_diff_content(task_data),
+        }
+        review = await reviewer.review(fault_info, violations)
+        kept, revoked = apply_review(violations, review)
+        if revoked:
+            logger.info(
+                "urId={} Delphi 复审撤销 {} 条违规: {}",
+                task_data.task_id,
+                len(revoked),
+                [v.get("rule_id") for v in revoked],
+            )
+        result.violations = kept
+        review["revoked"] = revoked
+        result.delphi_review = review
+
+    def _get_delphi_reviewer(self) -> DelphiViolationReviewer | None:
+        """懒创建 Delphi 复审器（未启用或无 LLM 凭据时返回 None）。"""
+        if self._delphi_reviewer is None:
+            app_config = self._config.get_config()
+            review_config = app_config.review
+            llm_config = app_config.llm
+            if not review_config.enabled or not llm_config.api_key:
+                return None
+            reviewer = DelphiViolationReviewer(llm_config, review_config)
+            self._llm_providers.extend(reviewer.providers)
+            self._delphi_reviewer = reviewer
+        return self._delphi_reviewer
+
+    def _collect_diff_content(self, task_data: TaskInfo) -> str:
+        """收集全部 commit 的新增行内容（与初筛违规检测输入一致）。"""
+        development = task_data.development
+        if development is None:
+            return ""
+        return "\n".join(
+            extract_added_lines(commit.diff) for commit in development.commits if commit.diff
+        )
 
     async def _match_standards(self, task_data: TaskInfo, result: PipelineResult) -> None:
         """将故障分析结论与研发规范库做语义匹配（embedding召回+LLM精排）。
@@ -805,10 +888,20 @@ class AnalysisPipeline:
             for label in result.labels
         ]
 
+    async def _fetch_introduce_task_diff(self, task_data: dict[str, Any]) -> str:
+        """拉取引入缺陷任务单的代码变更 diff（辅助代码走查，失败时降级为空串）。"""
+        try:
+            api = self._get_api_client()
+        except Exception as e:
+            logger.warning("API 客户端不可用，跳过引入单代码变更拉取: {}", str(e)[:80])
+            return ""
+        return await fetch_introduce_task_diff(api, task_data)
+
     async def _analyze_root_cause(
         self,
         task_data: dict[str, Any],
         preprocessed: ProcessedTask,
+        introduce_task_diff: str = "",
     ) -> list[dict]:
         """Analyze root cause for task."""
         if self._root_cause_analyzer is None:
@@ -819,17 +912,18 @@ class AnalysisPipeline:
         if not self._root_cause_analyzer.is_available:
             return []
 
-        result = await self._root_cause_analyzer.analyze(
-            task_data,
-            [{"type": s.type, "content": s.content} for s in preprocessed.segments],
-        )
+        segments = [{"type": s.type, "content": s.content} for s in preprocessed.segments]
+        if introduce_task_diff:
+            # 引入单 diff 作为独立 segment 注入（标签映射见 reasoning.generator）
+            segments.append({"type": "introduce_task_diff", "content": introduce_task_diff})
+
+        result = await self._root_cause_analyzer.analyze(task_data, segments)
 
         return [
             {
                 "cause_type": rc.cause_type,
                 "description": rc.description,
                 "evidence": rc.evidence,
-                "confidence": rc.confidence,
             }
             for rc in result.root_causes
         ]
@@ -855,6 +949,8 @@ class AnalysisPipeline:
     async def _analyze_root_cause_deep(
         self,
         task_data: dict[str, Any],
+        prior_root_causes: list[dict[str, Any]] | None = None,
+        introduce_task_diff: str = "",
     ) -> dict[str, Any]:
         """
         Perform enhanced 5-layer root cause analysis.
@@ -920,6 +1016,8 @@ class AnalysisPipeline:
             or task_data.get("productModuleId"),
             product_version_id=task_data.get("product_version_id")
             or task_data.get("productVersionId"),
+            prior_root_causes=prior_root_causes or [],
+            introduce_task_diff=introduce_task_diff,
         )
 
         # Perform deep root cause analysis
@@ -973,8 +1071,25 @@ class AnalysisPipeline:
         if not detection.is_violation:
             return []
 
-        # 将ViolationDetection转换为统一的violation字典格式
+        # 将ViolationDetection转换为统一的violation字典格式。
+        # 优先用 rule_details（逐规则对齐）：旧实现所有规则共用
+        # violation_types[0] 作为 message，多规则命中时 message 与
+        # rule_id 错位（如 SEC-J00033 显示"非线程安全集合"）。
         violations = []
+        if detection.rule_details:
+            for detail in detection.rule_details:
+                violations.append(
+                    {
+                        "rule_id": detail.get("rule_id", ""),
+                        # 展示用可读名称（中文描述），对齐 RulesEngine 路径
+                        "rule_name": detail.get("description", ""),
+                        "severity": "warning",
+                        "message": detail.get("description", ""),
+                        "evidence": detail.get("evidence", []),
+                    }
+                )
+            return violations
+
         for rule_label in detection.violated_rules:
             # rule_label 格式: "J000066:empty_catch" 或 "empty_catch"
             parts = rule_label.split(":", 1) if ":" in rule_label else ["", rule_label]

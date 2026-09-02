@@ -5,6 +5,7 @@
 
 用法:
   python scripts/run_all_parallel.py all           # 跑全部 194 起（续跑跳过已完成）
+  python scripts/run_all_parallel.py all --force   # 全部强制重跑（忽略既有进度）
   python scripts/run_all_parallel.py <urId> [urId] # 只跑指定单子
 输出: output/progress_<urId>.json（每起增量）+ output/all_analysis_<timestamp>.json
 """
@@ -12,7 +13,6 @@
 from __future__ import annotations
 
 import asyncio
-import glob
 import json
 import sys
 import time
@@ -38,17 +38,17 @@ MAX_CONCURRENCY = 5  # 官方 g-deepseek-v4-flash 并发 5 稳定
 def _load_existing() -> dict[int, dict]:
     """读取已有进度（增量文件 + 批量输出），返回 urId -> 记录。"""
     merged: dict[int, dict] = {}
-    for f in glob.glob(str(OUT_DIR / "progress_*.json")):
+    for f in OUT_DIR.glob("progress_*.json"):
         try:
-            with open(f, encoding="utf-8") as fh:
+            with f.open(encoding="utf-8") as fh:
                 rec = json.load(fh)
             if not rec.get("error") and rec.get("root_causes"):
                 merged[rec["urId"]] = rec
         except Exception:
             continue
-    for f in glob.glob(str(OUT_DIR / "all_analysis_*.json")):
+    for f in OUT_DIR.glob("all_analysis_*.json"):
         try:
-            with open(f, encoding="utf-8") as fh:
+            with f.open(encoding="utf-8") as fh:
                 data = json.load(fh)
             for rec in data.get("results", []):
                 if not rec.get("error") and rec.get("root_causes"):
@@ -61,7 +61,7 @@ def _load_existing() -> dict[int, dict]:
 def _save_progress(rec: dict) -> None:
     """每完成一个单子立即写增量文件，防中断丢进度。"""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    with open(OUT_DIR / f"progress_{rec['urId']}.json", "w", encoding="utf-8") as fh:
+    with (OUT_DIR / f"progress_{rec['urId']}.json").open("w", encoding="utf-8") as fh:
         json.dump(rec, fh, ensure_ascii=False, indent=2)
 
 
@@ -75,8 +75,7 @@ def _to_record(result: PipelineResult) -> dict:
         "title": task_data.get("title", ""),
         "description": task_data.get("description", ""),
         "has_code_change": bool(
-            task_data.get("development")
-            and task_data.get("development", {}).get("commits")
+            task_data.get("development") and task_data.get("development", {}).get("commits")
         ),
         "labels": result.labels or [],
         "root_causes": result.root_causes or [],
@@ -85,13 +84,13 @@ def _to_record(result: PipelineResult) -> dict:
         "improvements": result.improvements or [],
         "standard_matches": result.standard_matches or [],
         "image_evidence": result.image_evidence or "",
+        "delphi_review": result.delphi_review,
     }
 
 
 async def run_all(urids: list[int]) -> list[dict]:
     """并行跑所有 urId，每完成一个增量保存。"""
     config_manager = ConfigManager()
-    config = config_manager.load()
 
     pipeline_config = PipelineConfig(
         use_cache=True,
@@ -135,7 +134,7 @@ def _save_batch(records: list[dict], elapsed: float) -> Path:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_file = OUT_DIR / f"all_analysis_{ts}.json"
-    with open(out_file, "w", encoding="utf-8") as f:
+    with out_file.open("w", encoding="utf-8") as f:
         json.dump({"results": records, "elapsed_sec": elapsed}, f, ensure_ascii=False, indent=2)
     _append_batch_index(records, out_file, ts)
     return out_file
@@ -146,9 +145,7 @@ def _append_batch_index(records: list[dict], source_file: Path, ts: str) -> None
 
     批次记录含：batch_id、name、created_at、source、urids、count。
     """
-    urids = [
-        r["urId"] for r in records if not r.get("error") and r.get("root_causes")
-    ]
+    urids = [r["urId"] for r in records if not r.get("error") and r.get("root_causes")]
     if not urids:
         return
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -181,12 +178,21 @@ def _append_batch_index(records: list[dict], source_file: Path, ts: str) -> None
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] != "all":
-        urids = [int(x) for x in sys.argv[1:]]
+    force_mode = "--force" in sys.argv[1:]
+    args = [a for a in sys.argv[1:] if a != "--force"]
+    if args and args[0] != "all":
+        urids = [int(x) for x in args]
+        existing: dict[int, dict] = {}
+    elif force_mode:
+        # 强制重跑：忽略既有进度，全量重新分析（用于 prompt/模型变更后更新全部结论）
+        data_file = Path(__file__).parent.parent / "data" / "all_urids.json"
+        with data_file.open() as f:
+            urids = [int(u) for u in json.load(f)["urids"]]
         existing = {}
+        print(f"强制重跑模式: 全部 {len(urids)} 起重新分析")
     else:
         data_file = Path(__file__).parent.parent / "data" / "all_urids.json"
-        with open(data_file) as f:
+        with data_file.open() as f:
             all_urids = json.load(f)["urids"]
         existing = _load_existing()
         urids = [u for u in all_urids if u not in existing]
