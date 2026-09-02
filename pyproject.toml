@@ -147,7 +147,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG001", "S101", "PTH123"]
+"tests/*" = ["ARG001", "ARG002", "S101", "PTH123"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

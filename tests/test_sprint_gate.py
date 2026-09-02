@@ -8,6 +8,12 @@ from typing import Any
 import pytest
 
 
+def _clean_git_env() -> dict[str, str]:
+    """剔除父进程 GIT_* 变量（pre-commit 等 git hook 环境会设置 GIT_DIR 等），
+    避免 tmp repo 的 git 子进程操作被重定向到外层仓库。"""
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
 def _run_gate(
     tmp_path: Path,
     merged: Any,
@@ -18,6 +24,8 @@ def _run_gate(
     bash = str(git_bash) if git_bash.exists() else shutil.which("bash")
     if bash is None:
         pytest.skip("bash is required for sprint gate tests")
+
+    env = _clean_git_env()
 
     repo = tmp_path / "repo"
     state_dir = repo / ".sprint-state"
@@ -44,14 +52,18 @@ def _run_gate(
         encoding="utf-8",
     )
 
-    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
-    subprocess.run(["git", "checkout", "-q", "-b", "chore/handoff"], cwd=repo, check=True)
     (repo / ".no-hooks").mkdir()
-    subprocess.run(["git", "config", "core.hooksPath", ".no-hooks"], cwd=repo, check=True)
-    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
-    subprocess.run(["git", "add", "."], cwd=repo, check=True)
-    subprocess.run(["git", "commit", "-q", "-m", "test fixture"], cwd=repo, check=True)
+    setup_commands: list[list[str]] = [
+        ["git", "init", "-q"],
+        ["git", "checkout", "-q", "-b", "chore/handoff"],
+        ["git", "config", "core.hooksPath", ".no-hooks"],
+        ["git", "config", "user.email", "test@example.com"],
+        ["git", "config", "user.name", "Test"],
+        ["git", "add", "."],
+        ["git", "commit", "-q", "-m", "test fixture"],
+    ]
+    for cmd in setup_commands:
+        subprocess.run(cmd, cwd=repo, check=True, env=env)
 
     return subprocess.run(
         [bash, str(gate), "--pre-push"],
@@ -59,6 +71,7 @@ def _run_gate(
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
 
 

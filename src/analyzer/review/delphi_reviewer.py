@@ -20,26 +20,34 @@ InheritableThreadLocal 修复代码被误判违规、多行 SQL 字面量拼接
 
 事实纪律（复盘结论准确性第一）：评审只基于代码证据；证据不足必须
 输出 insufficient_evidence，禁止依据故障描述脑补代码行为。
+
+机制层已泛化至 src.analyzer.review.base（sprint-20260902-77 SLICE-1）：
+providers 构造/多轮循环/共识判定/两级保守兜底均由基类提供，本模块仅保留
+违规域实现（verdict 词表、persona、prompt、材料组装、撤销应用）。
 """
 
 from __future__ import annotations
 
-import asyncio
-import json
-import re
-from dataclasses import dataclass
-from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from loguru import logger
+from src.analyzer.review.base import (
+    DIVERGED,
+    DelphiReviewerBase,
+    build_context_window,
+    normalize_evidence,
+    parse_verdict_json,
+)
 
-from src.analyzer.llm_provider import OpenAILLMProvider
-
-if TYPE_CHECKING:
-    from src.config.models import DelphiReviewConfig, LLMConfig
+__all__ = [
+    "DIVERGED",
+    "DelphiViolationReviewer",
+    "apply_review",
+    "build_context_window",
+    "normalize_evidence",
+    "parse_verdict_json",
+]
 
 VALID_VERDICTS = ("violation", "false_positive", "insufficient_evidence")
-DIVERGED = "diverged"
 
 PERSONA_DESCRIPTIONS: dict[str, str] = {
     "strict_rule_checker": (
@@ -89,99 +97,6 @@ USER_PROMPT_TEMPLATE = """请独立评审以下"疑似规范违规"是否真实�
 3. 返回 JSON：
 {{"verdict": "...", "reason": "...", "key_evidence": "最关键的一行代码或事实"}}"""
 
-ROUND_FEEDBACK_TEMPLATE = """
-
-## 第 {round_no} 轮评审说明
-上一轮各评审专家意见存在分歧。以下是其他专家的匿名反方意见（不代表正确答案，
-仅供参考后独立重判）：
-{other_opinions}
-
-请基于代码证据独立重新评审，可以坚持或修正你的判断。仍按第 1 轮要求返回 JSON。"""
-
-
-@dataclass
-class ExpertOpinion:
-    """单个专家的单轮评审意见。"""
-
-    reviewer: str
-    round_no: int
-    verdict: str
-    reason: str = ""
-    key_evidence: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "reviewer": self.reviewer,
-            "round": self.round_no,
-            "verdict": self.verdict,
-            "reason": self.reason,
-            "key_evidence": self.key_evidence,
-        }
-
-
-def normalize_evidence(evidence: Any) -> list[str]:
-    """evidence 归一化为行列表（兼容 list/str/None）。"""
-    if evidence is None:
-        return []
-    if isinstance(evidence, list):
-        return [str(x) for x in evidence if str(x).strip()]
-    text = str(evidence).strip()
-    return [line for line in text.splitlines() if line.strip()] if text else []
-
-
-def build_context_window(
-    code_snippet: str, evidence_lines: list[str], context_lines: int, fallback_lines: int = 60
-) -> str:
-    """在代码片段中定位 evidence 命中行，取前后 context_lines 行作为评审上下文。
-
-    多条命中行分别开窗（去重合并）；全部未命中时兜底取片段前 fallback_lines 行。
-    """
-    lines = code_snippet.splitlines()
-    targets: list[int] = []
-    for ev in evidence_lines:
-        needle = ev.strip()[:60]
-        if not needle:
-            continue
-        for i, ln in enumerate(lines):
-            if needle in ln and i not in targets:
-                targets.append(i)
-                break
-    if not targets:
-        return "\n".join(f"{i + 1:>4}: {ln}" for i, ln in enumerate(lines[:fallback_lines]))
-    windows: list[str] = []
-    for idx in sorted(targets):
-        lo = max(0, idx - context_lines)
-        hi = min(len(lines), idx + context_lines + 1)
-        window = "\n".join(f"{j + 1:>4}: {lines[j]}" for j in range(lo, hi))
-        windows.append(window)
-    return "\n    ...（多条命中行分别开窗）...\n".join(windows)
-
-
-def parse_verdict_json(response: str) -> dict[str, Any] | None:
-    """解析专家评审响应（支持 markdown code block 与花括号提取）。"""
-    if not response:
-        return None
-    text = response.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
-        text = re.sub(r"```\s*$", "", text).strip()
-    try:
-        data = json.loads(text)
-        if isinstance(data, dict):
-            return data
-    except json.JSONDecodeError:
-        pass
-    # 兜底：提取首个平衡 JSON 对象
-    match = re.search(r"\{[^{}]*\}", text, re.DOTALL)
-    if match:
-        try:
-            data = json.loads(match.group())
-            if isinstance(data, dict):
-                return data
-        except json.JSONDecodeError:
-            return None
-    return None
-
 
 def apply_review(
     violations: list[dict[str, Any]], review_record: dict[str, Any]
@@ -209,144 +124,13 @@ def apply_review(
     return kept, revoked
 
 
-class DelphiViolationReviewer:
-    """多专家匿名多轮共识违规复审器。"""
+class DelphiViolationReviewer(DelphiReviewerBase):
+    """多专家匿名多轮共识违规复审器（机制在基类，此处仅域实现）。"""
 
-    def __init__(self, llm_config: LLMConfig, config: DelphiReviewConfig) -> None:
-        self._config = config
-        self._providers: dict[str, OpenAILLMProvider] = {}
-        for rc in config.reviewers:
-            self._providers[rc.persona] = OpenAILLMProvider(
-                api_key=rc.api_key or llm_config.api_key,
-                model=rc.model or llm_config.model,
-                base_url=rc.base_url or llm_config.base_url,
-                temperature=rc.temperature,
-                max_tokens=llm_config.max_tokens,
-            )
-
-    @property
-    def providers(self) -> list[OpenAILLMProvider]:
-        """评审用 LLM provider（调用方统一管理生命周期）。"""
-        return list(self._providers.values())
-
-    async def review(
-        self, fault_info: dict[str, Any], violations: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        """对全部初筛候选执行 Delphi 复审。
-
-        Returns:
-            复审记录（含 items，与候选按 index 对齐），可直接序列化存档。
-        """
-        items: list[dict[str, Any]] = []
-        for v in violations:
-            try:
-                items.append(await self._review_candidate(fault_info, v))
-            except Exception as e:  # noqa: BLE001 复审失败保守保留候选
-                logger.warning(f"Delphi 复审异常（保守保留候选）: {type(e).__name__} {e}")
-                items.append(self._final_item(v, DIVERGED, False, 0, [], f"review_error: {e}"))
-        return {
-            "reviewed_at": datetime.now().isoformat(timespec="seconds"),
-            "method": "delphi_multi_expert_consensus",
-            "reviewers": list(self._providers.keys()),
-            "max_rounds": self._config.max_rounds,
-            "items": items,
-        }
-
-    async def _review_candidate(
-        self, fault_info: dict[str, Any], violation: dict[str, Any]
-    ) -> dict[str, Any]:
-        material = self._build_material(fault_info, violation)
-        previous: dict[str, ExpertOpinion] = {}
-        rounds: list[dict[str, ExpertOpinion]] = []
-        for round_no in range(1, self._config.max_rounds + 1):
-            round_ops = await self._collect_round(material, round_no, previous)
-            rounds.append(round_ops)
-            verdicts = {op.verdict for op in round_ops.values()}
-            previous = round_ops
-            if len(verdicts) == 1:
-                verdict = verdicts.pop()
-                flat = [op for r in rounds for op in r.values()]
-                reason = next(op.reason for op in round_ops.values() if op.verdict == verdict)
-                return self._final_item(violation, verdict, True, round_no, flat, reason)
-        flat = [op for r in rounds for op in r.values()]
-        verdict_strs = ", ".join(sorted({op.verdict for op in flat}))
-        return self._final_item(
-            violation,
-            DIVERGED,
-            False,
-            len(rounds),
-            flat,
-            f"专家分歧（{verdict_strs}），需人工裁决",
-        )
-
-    async def _collect_round(
-        self,
-        material: dict[str, str],
-        round_no: int,
-        previous: dict[str, ExpertOpinion],
-    ) -> dict[str, ExpertOpinion]:
-        async def ask(persona: str, provider: OpenAILLMProvider) -> ExpertOpinion:
-            user_prompt = material["base_prompt"]
-            if round_no > 1 and previous:
-                others = [op for p, op in previous.items() if p != persona]
-                if others:
-                    feedback = "\n".join(
-                        f"- 专家{chr(65 + i)}（匿名）: {op.verdict} — {op.reason[:150]}"
-                        for i, op in enumerate(others)
-                    )
-                    user_prompt += ROUND_FEEDBACK_TEMPLATE.format(
-                        round_no=round_no, other_opinions=feedback
-                    )
-            response = await provider.generate(SYSTEM_PROMPT, user_prompt)
-            return self._parse_opinion(persona, round_no, response)
-
-        pairs = list(self._providers.items())
-        results = await asyncio.gather(
-            *[ask(persona, provider) for persona, provider in pairs],
-            return_exceptions=True,
-        )
-        ops: dict[str, ExpertOpinion] = {}
-        for (persona, _), res in zip(pairs, results, strict=True):
-            if isinstance(res, BaseException):
-                logger.warning(f"评审专家 {persona} 调用失败: {res}")
-                ops[persona] = ExpertOpinion(
-                    reviewer=persona,
-                    round_no=round_no,
-                    verdict="insufficient_evidence",
-                    reason=f"reviewer_error: {res}",
-                )
-            else:
-                ops[persona] = res
-        return ops
-
-    def _parse_opinion(self, persona: str, round_no: int, response: str) -> ExpertOpinion:
-        data = parse_verdict_json(response)
-        if data is None:
-            # 无法解析 -> 证据不足（保守，不放大违规）
-            logger.warning(f"评审专家 {persona} 输出无法解析，按证据不足处理")
-            return ExpertOpinion(
-                reviewer=persona,
-                round_no=round_no,
-                verdict="insufficient_evidence",
-                reason=f"unparseable_response: {response[:120]}",
-            )
-        verdict = str(data.get("verdict", "")).strip()
-        if verdict not in VALID_VERDICTS:
-            # 非法 verdict -> 证据不足（保守，不放大违规）
-            logger.warning(f"评审专家 {persona} 输出非法 verdict: {verdict!r}，按证据不足处理")
-            return ExpertOpinion(
-                reviewer=persona,
-                round_no=round_no,
-                verdict="insufficient_evidence",
-                reason=f"invalid_verdict: {response[:120]}",
-            )
-        return ExpertOpinion(
-            reviewer=persona,
-            round_no=round_no,
-            verdict=verdict,
-            reason=str(data.get("reason", "")),
-            key_evidence=str(data.get("key_evidence", "")),
-        )
+    VALID_VERDICTS = VALID_VERDICTS
+    opinion_failure_verdict = "insufficient_evidence"  # INV-1：失败不放大违规
+    candidate_failure_verdict = DIVERGED  # INV-2：候选级异常保守保留
+    system_prompt = SYSTEM_PROMPT
 
     def _build_material(
         self, fault_info: dict[str, Any], violation: dict[str, Any]
@@ -365,21 +149,5 @@ class DelphiViolationReviewer:
         )
         return {"base_prompt": base_prompt}
 
-    def _final_item(
-        self,
-        violation: dict[str, Any],
-        verdict: str,
-        consensus: bool,
-        rounds: int,
-        opinions: list[ExpertOpinion],
-        reason: str,
-    ) -> dict[str, Any]:
-        return {
-            "rule_id": violation.get("rule_id", ""),
-            "message": violation.get("message", ""),
-            "final_verdict": verdict,
-            "consensus": consensus,
-            "rounds": rounds,
-            "reason": reason,
-            "opinions": [op.to_dict() for op in opinions],
-        }
+    def _item_identity(self, violation: dict[str, Any]) -> dict[str, Any]:
+        return {"rule_id": violation.get("rule_id", ""), "message": violation.get("message", "")}

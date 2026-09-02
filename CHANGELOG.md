@@ -8,6 +8,8 @@
 
 ### Added
 
+- **refactor(analyzer)**: Delphi 复审机制泛化为通用基类（`src/analyzer/review/base.py` `DelphiReviewerBase`）——providers 构造/多轮循环/匿名反方意见注入/全票共识判定/两级保守兜底不变量（专家级失败→`opinion_failure_verdict` 域钩子、候选级异常→`candidate_failure_verdict` 保守保留）与 verdict JSON 解析、上下文开窗工具下沉基类；`DelphiViolationReviewer` 改为继承实现（仅保留违规域 verdict 词表/persona/prompt/材料组装/撤销应用），行为零漂移（全量 1551 passed 含既有 19 违规复审测试与 6 项新基类不变量测试），为结论域 Delphi 复审（复盘结论 confirmed/refuted 复核）提供机制复用。顺带修复 `tests/test_sprint_gate.py` 在 git hook 环境下的环境污染：pre-commit 实跑注入的 GIT_DIR/GIT_INDEX_FILE 使 tmp repo 的 git 子进程操作被重定向到外层仓库（12 项门禁行为断言误判），子进程环境剔除 GIT_* 变量修复。
+
 - **feat(analyzer)**: Delphi 多专家违规复审引擎固化——初筛（RulesEngine + ViolationDetector）全部违规候选经多专家匿名多轮共识复审（`src/analyzer/review/delphi_reviewer.py`）：strict_rule_checker（逐字对照条款要件）与 runtime_behavior_analyst（分析真实运行行为）独立会话评审，未达共识时注入匿名反方意见进入下一轮；共识误报/证据不足撤销（宁缺毋滥）、共识违规保留附依据、轮尽分歧 diverged 保留标记待人工 + 人工终裁可叠加。配置 `AppConfig.review`（config.yaml review 段），pipeline 在初筛后自动接入，Streamlit UI 与 Markdown 报告渲染复审记录，`scripts/run_delphi_review.py` 批量复审存档。实战：5 单 6 条候选经真实 LLM 复审全部共识撤销（保留集清零），测试 +22（全量 1554 passed / 覆盖率 85.19%）。
 
 - **feat(analysis)**: 根因链路事实纪律强化与引入单号代码变更接入——根因分析 prompt 增加事实纪律七条款（区分修复变更与引入变更、禁止臆测未读代码、结论必须逐条对应证据原文）；引入单号（introduceTaskNo）代码变更接入根因两条链路（新增 `src/analyzer/introduce_diff.py`、`src/analyzer/requirement_context.py` 与配套测试）；LLM 空响应自动重试（本地模型约 20% 空响应概率）；缓存过期清理与 CLI 缓存路径支撑。
