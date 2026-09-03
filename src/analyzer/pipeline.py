@@ -405,6 +405,7 @@ class AnalysisPipeline:
                 violations=result.violations,
                 code_change_analysis=result.code_change_analysis,
                 standard_matches=result.standard_matches,
+                conclusion_review=result.conclusion_review,
             )
 
     async def _review_violations_with_delphi(
@@ -1252,6 +1253,7 @@ class AnalysisPipeline:
         violations: list[dict] | None = None,
         code_change_analysis: dict[str, Any] | None = None,
         standard_matches: list[dict] | None = None,
+        conclusion_review: dict[str, Any] | None = None,
     ) -> str:
         """Generate report for task."""
         if self._report_generator is None:
@@ -1281,4 +1283,5 @@ class AnalysisPipeline:
             violations=violations,
             code_change_analysis=code_change_analysis,
             standard_matches=standard_matches,
+            conclusion_review=conclusion_review,
         )

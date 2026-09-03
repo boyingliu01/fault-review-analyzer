@@ -425,10 +425,27 @@ class FaultAnalysisUI:
         st.markdown(f"### {detail.get('title', '')}")
         st.markdown(f"**urId**: [{selected_urid}]({build_detail_url(selected_urid)})")
 
-        # 根因
+        # 根因（含结论域复审状态：pending_rebuild 顶部提示 + 未复审标记 + 条目裁决标注）
         st.markdown("#### 根因分析")
+        conclusion_review = detail.get("conclusion_review") or {}
+        if not isinstance(conclusion_review, dict):
+            conclusion_review = {}
+        if conclusion_review.get("conclusion_status") == "pending_rebuild":
+            st.warning("⚠️ 本单复盘结论已全部被结论域复审撤销，标记待人工重建（不自动重算）")
+        elif not conclusion_review:
+            st.caption("结论未经结论域 Delphi 复审（未启用或复审前数据）")
         for rc in detail.get("root_causes", []):
-            st.markdown(f"- **[{rc.get('cause_type', '')}]** {rc.get('description', '')}")
+            verdict = rc.get("conclusion_verdict", "")
+            if verdict == "diverged" and conclusion_review.get("reviewer_error"):
+                suffix = " — 复审失败待人工"
+            else:
+                suffix = {
+                    "confirmed": " — 复审确认",
+                    "diverged": " — 专家分歧，待人工裁决",
+                    "refuted": " — 复审撤销",
+                    "insufficient_evidence": " — 复审撤销（证据不足）",
+                }.get(verdict, "")
+            st.markdown(f"- **[{rc.get('cause_type', '')}]** {rc.get('description', '')}{suffix}")
             if rc.get("evidence"):
                 st.caption("证据: " + "; ".join(str(e)[:100] for e in rc["evidence"][:3]))
 
@@ -505,6 +522,41 @@ class FaultAnalysisUI:
                     st.caption(f"人工核查: {manual.get('reviewer', '')}")
                     for m in manual.get("items", []) or []:
                         st.caption(f"　· [{m.get('rule_id', '')}] {m.get('reason', '')}")
+
+        # 结论域复审记录（多专家匿名共识裁决复盘结论）
+        if conclusion_review.get("items") or conclusion_review.get("revoked"):
+            with st.expander("🧠 结论域 Delphi 复审（多专家共识）", expanded=False):
+                st.caption(
+                    f"复审时间: {conclusion_review.get('reviewed_at', '')} ｜ 方法: "
+                    f"{conclusion_review.get('method', '')}"
+                )
+                if conclusion_review.get("reviewer_error"):
+                    st.warning("复审专家全部调用失败，结论未经真实复核（保守保留），待人工甄别")
+                if conclusion_review.get("conclusion_status") == "pending_rebuild":
+                    st.warning("本单复盘结论已全部撤销，标记待人工重建（不自动重算）")
+                RC_VERDICT_CN = {
+                    "confirmed": "复审确认",
+                    "refuted": "复审撤销（反证成立）",
+                    "insufficient_evidence": "复审撤销（证据不足）",
+                    "diverged": "专家分歧（待人工裁决）",
+                }
+                for item in conclusion_review.get("items", []) or []:
+                    verdict = item.get("final_verdict", "")
+                    st.markdown(
+                        f"- **[{item.get('cause_type', '')}]** → "
+                        f"**{RC_VERDICT_CN.get(verdict, verdict)}**"
+                        f"（共识: {'是' if item.get('consensus') else '否'}，"
+                        f"{item.get('rounds', '')}轮）"
+                    )
+                    if item.get("reason"):
+                        st.caption(f"裁决理由: {item['reason']}")
+                for item in conclusion_review.get("revoked", []) or []:
+                    st.markdown(
+                        f"- ~~**[{item.get('cause_type', '')}]** "
+                        f"{str(item.get('description', ''))[:80]}~~ 已撤销"
+                    )
+                    if item.get("conclusion_reason"):
+                        st.caption(f"撤销理由: {item['conclusion_reason']}")
 
         # 改进建议
         st.markdown("#### 改进建议")

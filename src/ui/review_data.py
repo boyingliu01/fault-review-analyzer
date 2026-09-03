@@ -49,6 +49,9 @@ def primary_cause(rec: dict[str, Any]) -> str:
     """获取首要根因类型。"""
     rcs = rec.get("root_causes", [])
     if not rcs:
+        # 结论域全撤单：区分"复审撤销待重建"与"本来无结论"（防统计口径混淆）
+        if (rec.get("conclusion_review") or {}).get("conclusion_status") == "pending_rebuild":
+            return "复审撤销待重建"
         return "无根因"
     return str(rcs[0].get("cause_type", "未知"))
 
@@ -65,11 +68,16 @@ def _read_all_analysis_batches() -> list[dict[str, Any]]:
                 data = json.load(fh)
         except Exception:
             continue
-        urids = [
-            r.get("urId")
-            for r in data.get("results", [])
-            if r.get("urId") and not r.get("error") and r.get("root_causes")
-        ]
+
+        def _keep_in_batch(r: dict[str, Any]) -> bool:
+            if not r.get("urId") or r.get("error"):
+                return False
+            if r.get("root_causes"):
+                return True
+            # pending_rebuild 空结论单保留进批次（结论域复审不丢单）
+            return (r.get("conclusion_review") or {}).get("conclusion_status") == "pending_rebuild"
+
+        urids = [r.get("urId") for r in data.get("results", []) if _keep_in_batch(r)]
         if not urids:
             continue
         # 从文件名提取时间戳：all_analysis_YYYYMMDD_HHMMSS.json

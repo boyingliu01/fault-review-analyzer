@@ -110,6 +110,46 @@ class TestDetailLink:
         assert url == "https://dev.iwhalecloud.com/portal/zcm-devspace/spa/task/pc/1001"
 
 
+class TestConclusionReviewRender:
+    """结论域复审渲染冒烟（SLICE-4）：pending_rebuild/reviewer_error 单据不炸。
+
+    结论域复审记录进入 progress 后，详情页真实渲染不得抛异常
+    （expander/顶部提示/未复审标记均为渲染分支，由报告层文本断言
+    与本冒烟共同锁定）。
+    """
+
+    @pytest.fixture
+    def app_with_review(self, tmp_path: Path, monkeypatch):
+        """数据源含 1 单 pending_rebuild + 1 单 diverged+reviewer_error。"""
+        (tmp_path / "progress_2001.json").write_text(
+            '{"urId": 2001, "title": "全撤单", "root_causes": [], "violations": [], '
+            '"improvements": [], "conclusion_review": {"reviewed_at": "t", '
+            '"method": "delphi_multi_expert_consensus", "conclusion_status": "pending_rebuild", '
+            '"revoked": [{"cause_type": "设计缺陷", "conclusion_verdict": "refuted"}]}}',
+            encoding="utf-8",
+        )
+        (tmp_path / "progress_2002.json").write_text(
+            '{"urId": 2002, "title": "分歧单", "root_causes": [{"cause_type": "设计缺陷", '
+            '"description": "d", "evidence": [], "conclusion_verdict": "diverged"}], '
+            '"violations": [], "improvements": [], "conclusion_review": {"reviewed_at": "t", '
+            '"method": "m", "revoked": [], "reviewer_error": true}}',
+            encoding="utf-8",
+        )
+        (tmp_path / "all_analysis_20260902_000000.json").write_text(
+            '{"results": [{"urId": 2001, "root_causes": []}, '
+            '{"urId": 2002, "root_causes": [{"cause_type": "设计缺陷"}]}]}',
+            encoding="utf-8",
+        )
+        monkeypatch.setattr("src.ui.review_data._OUT_DIR", tmp_path)
+        return AppTest.from_file(str(APP_PATH), default_timeout=10)
+
+    # @test REQ-6
+    def test_renders_review_records_without_exception(self, app_with_review):
+        """含结论域复审记录的数据全页渲染不抛异常。"""
+        app_with_review.run()
+        assert not app_with_review.exception
+
+
 class TestViolationSelectionLink:
     """验证规范违规分布选中行 → 条款提取（REQ-4 违规联动）。"""
 

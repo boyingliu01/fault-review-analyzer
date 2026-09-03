@@ -197,8 +197,30 @@ DEFAULT_TEMPLATE = """# 故障复盘分析报告
 {% for evidence in cause.evidence %}
 - {{ evidence }}
 {% endfor %}
+{% if cause.conclusion_verdict %}
+  - 结论域复审: {{ '复审确认' if cause.conclusion_verdict == 'confirmed' else ('专家分歧，待人工裁决' if cause.conclusion_verdict == 'diverged' else '复审撤销') }}{% if cause.conclusion_reason %} — {{ cause.conclusion_reason | truncate(200) }}{% endif %}
+{% endif %}
 
 {% endfor %}
+{% endif %}
+
+{% if conclusion_review %}
+## 结论域复审
+
+多专家匿名共识裁决复盘结论（Delphi）：
+
+{% if conclusion_review.conclusion_status == 'pending_rebuild' %}
+> ⚠️ 本单复盘结论已全部被复审撤销，标记**待人工重建**（不自动重算）。
+{% endif %}
+{% if conclusion_review.reviewer_error %}
+> ⚠️ 复审专家全部调用失败，结论未经真实复核（保守保留），**复审失败待人工甄别**。
+{% endif %}
+{% for item in conclusion_review.revoked or [] %}
+- **[{{ item.cause_type }}] {{ item.description | truncate(120) }}** — 复审撤销{% if item.conclusion_reason %} — {{ item.conclusion_reason | truncate(200) }}{% endif %}
+{% endfor %}
+{% if not conclusion_review.revoked %}
+- 无撤销项
+{% endif %}
 {% endif %}
 
 {% if suggestions %}
@@ -324,6 +346,7 @@ class ReportGenerator:
         violations: list[dict] | None = None,
         code_change_analysis: dict[str, Any] | None = None,
         standard_matches: list[dict] | None = None,
+        conclusion_review: dict[str, Any] | None = None,
     ) -> str:
         """Generate a single task analysis report."""
         if format == ReportFormat.MARKDOWN:
@@ -358,6 +381,7 @@ class ReportGenerator:
                 violations=violations,
                 code_change_analysis=code_change_analysis,
                 standard_matches=standard_matches,
+                conclusion_review=conclusion_review,
             )
         elif format == ReportFormat.HTML:
             return self._generate_single_html(task_data, segments, labels, root_causes, suggestions)
@@ -931,6 +955,7 @@ class ReportGenerator:
         violations: list[dict] | None = None,
         code_change_analysis: dict[str, Any] | None = None,
         standard_matches: list[dict] | None = None,
+        conclusion_review: dict[str, Any] | None = None,
     ) -> str:
         """Render single task report with default template."""
         template = Template(
@@ -948,6 +973,7 @@ class ReportGenerator:
                 violations=violations or [],
                 code_change_analysis=code_change_analysis,
                 standard_matches=standard_matches or [],
+                conclusion_review=conclusion_review,
                 metadata={
                     "generated_at": self._get_timestamp(),
                 },

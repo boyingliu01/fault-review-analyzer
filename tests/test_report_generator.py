@@ -259,3 +259,74 @@ class TestReportGenerator:
         assert "批量故障分析报告" in report
         assert "100" in report
         assert "建议1" in report
+
+
+class TestConclusionReviewRender:
+    """结论域 Delphi 复审报告渲染（sprint-20260902-77 SLICE-4）。
+
+    撤销项不在 root_causes 中（已被移出主列表），必须在复审块中可见，
+    与 confirmed/diverged 根因条目标记形成完整审计视图。
+    """
+
+    _RC = {
+        "cause_type": "设计缺陷",
+        "description": "查询未做分页导致全量加载超时",
+        "evidence": ["return orderMapper.queryAll();"],
+    }
+
+    def _generate(self, root_causes=None, conclusion_review=None):
+        generator = ReportGenerator()
+        task_data = {"task_id": 1, "title": "订单导出失败", "summary": "总结"}
+        return generator.generate_single(
+            task_data, root_causes=root_causes, conclusion_review=conclusion_review
+        )
+
+    def test_no_review_renders_no_block(self):
+        """未复审（conclusion_review=None）不渲染结论域复审块。"""
+        report = self._generate(root_causes=[dict(self._RC)])
+        assert "结论域复审" not in report
+
+    def test_confirmed_verdict_annotated(self):
+        """confirmed 根因条目附复审确认标记。"""
+        rc = {**self._RC, "conclusion_verdict": "confirmed"}
+        report = self._generate(root_causes=[rc])
+        assert "复审确认" in report
+
+    def test_diverged_verdict_distinct_from_confirmed(self):
+        """diverged 根因条目标注专家分歧待人工（与 confirmed 视觉区分）。"""
+        rc = {**self._RC, "conclusion_verdict": "diverged"}
+        report = self._generate(root_causes=[rc])
+        assert "专家分歧" in report
+        assert "待人工" in report
+        assert "复审确认" not in report
+
+    def test_revoked_items_listed_in_review_block(self):
+        """撤销项在结论域复审块中列出（撤销审计不静默消失）。"""
+        review = {
+            "reviewed_at": "2026-09-02T00:00:00",
+            "method": "delphi_multi_expert_consensus",
+            "revoked": [
+                {**self._RC, "conclusion_verdict": "refuted", "conclusion_reason": "反证不足"}
+            ],
+        }
+        report = self._generate(root_causes=[], conclusion_review=review)
+        assert "结论域复审" in report
+        assert "设计缺陷" in report
+        assert "反证不足" in report
+
+    def test_pending_rebuild_status_highlighted(self):
+        """全单撤销 → pending_rebuild 待人工重建提示。"""
+        review = {
+            "reviewed_at": "t",
+            "method": "m",
+            "revoked": [{**self._RC, "conclusion_verdict": "refuted"}],
+            "conclusion_status": "pending_rebuild",
+        }
+        report = self._generate(root_causes=[], conclusion_review=review)
+        assert "待人工重建" in report
+
+    def test_reviewer_error_annotated(self):
+        """全专家失败 → 复审失败待人工标注。"""
+        review = {"reviewed_at": "t", "method": "m", "revoked": [], "reviewer_error": True}
+        report = self._generate(root_causes=[dict(self._RC)], conclusion_review=review)
+        assert "复审失败" in report

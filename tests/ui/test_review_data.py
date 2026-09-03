@@ -53,6 +53,56 @@ def sample_recs() -> dict[int, dict]:
     }
 
 
+class TestPendingRebuildPreservation:
+    """结论域复审聚合层防静默消失（sprint-20260902-77 SLICE-4）。
+
+    全单撤销 -> pending_rebuild（root_causes 为空），批次推断不得把这类
+    单据静默剔除，统计口径须区分"复审撤销待重建"与"本来无结论"。
+    """
+
+    def _write_analysis(self, tmp_path: Path, results: list[dict]) -> None:
+        (tmp_path / "all_analysis_20260902_000000.json").write_text(
+            json.dumps({"results": results}, ensure_ascii=False), encoding="utf-8"
+        )
+
+    # @test REQ-6
+    def test_batch_inference_keeps_pending_rebuild(self, tmp_path: Path, monkeypatch):
+        """批次推断对 pending_rebuild 空结论单显式保留（不丢单）。"""
+        self._write_analysis(
+            tmp_path,
+            [
+                {
+                    "urId": 2001,
+                    "title": "全撤单",
+                    "root_causes": [],
+                    "conclusion_review": {"conclusion_status": "pending_rebuild", "revoked": [{}]},
+                }
+            ],
+        )
+        monkeypatch.setattr(review_data, "_OUT_DIR", tmp_path)
+        batches = review_data.load_batches()
+        assert [u for b in batches for u in b["urids"]] == [2001]
+
+    # @test REQ-6
+    def test_batch_inference_still_drops_plain_empty(self, tmp_path: Path, monkeypatch):
+        """普通空结论单（无复审记录）仍不入批次（维持原行为）。"""
+        self._write_analysis(tmp_path, [{"urId": 2002, "title": "空单", "root_causes": []}])
+        monkeypatch.setattr(review_data, "_OUT_DIR", tmp_path)
+        batches = review_data.load_batches()
+        assert all(2002 not in b["urids"] for b in batches)
+
+    # @test REQ-6
+    def test_primary_cause_pending_rebuild_label(self):
+        """pending_rebuild 单首要根因标注复审撤销待重建（区别于无根因）。"""
+        rec = {"root_causes": [], "conclusion_review": {"conclusion_status": "pending_rebuild"}}
+        assert review_data.primary_cause(rec) == "复审撤销待重建"
+
+    # @test REQ-6
+    def test_primary_cause_plain_empty_unchanged(self):
+        """无复审记录的空结论单保持原"无根因"口径。"""
+        assert review_data.primary_cause({"root_causes": []}) == "无根因"
+
+
 class TestLoadBatches:
     """批次加载与推断测试。"""
 
