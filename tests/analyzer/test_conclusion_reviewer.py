@@ -14,7 +14,12 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.analyzer.review.base import DIVERGED
-from src.analyzer.review.conclusion_reviewer import ConclusionReviewer
+from src.analyzer.review.conclusion_reviewer import (
+    _FACT_AUDIT_INSTRUCTIONS,
+    _FIX_VS_INTRO_INSTRUCTIONS,
+    CONCLUSION_SYSTEM_PROMPT,
+    ConclusionReviewer,
+)
 from src.config.models import ConclusionReviewConfig, LLMConfig
 
 FAULT: dict[str, str] = {
@@ -264,3 +269,75 @@ class TestBasePersonaFallback:
             reviewer._providers[persona] = provider
         await reviewer.review({}, [{}])
         assert seen_prompts and all(p == "共享材料" for p in seen_prompts)
+
+
+class TestMaterialWithImageEvidence:
+    """R2 返工：截图证据（image_evidence）进材料与反证锚定面。
+
+    撤销理由「截图无法核实/截图未提供」类 11 次命中：progress 的截图 OCR
+    未进材料，专家无从核对。图片证据客观存在、属故障单自身信息（用户裁定：
+    引入单信息只是辅助证据，按故障单自身信息复盘），故截图 OCR 进材料与
+    反证锚定面；标题/描述仍不在锚定面（描述本身即脑补高危源）。
+    """
+
+    SCREENSHOT_LINE = "截图1: 页面报错弹窗显示 connect timeout"
+    FAULT_WITH_IMAGE: dict[str, str] = {
+        **FAULT,
+        "image_evidence": SCREENSHOT_LINE,
+    }
+
+    def test_material_contains_image_section(self):
+        reviewer = _make_reviewer({})
+        material = reviewer._build_material(self.FAULT_WITH_IMAGE, dict(CANDIDATE))
+        assert self.SCREENSHOT_LINE in material["base_prompt"]
+        # 双视角指令共享材料，截图段同步在场
+        assert self.SCREENSHOT_LINE in material["base_prompt_fact_evidence_auditor"]
+        assert self.SCREENSHOT_LINE in material["base_prompt_fix_vs_intro_discriminator"]
+
+    def test_image_evidence_in_refuted_anchor(self):
+        # INV-3 锚定面扩展：截图 OCR 原文可作反证锚点
+        reviewer = _make_reviewer({})
+        material = reviewer._build_material(self.FAULT_WITH_IMAGE, dict(CANDIDATE))
+        assert self.SCREENSHOT_LINE in material["evidence_raw"]
+
+    def test_no_image_evidence_omits_section(self):
+        # 截图缺失属常态：不渲染空段，避免诱导「截图未提供」类裁决
+        reviewer = _make_reviewer({})
+        material = reviewer._build_material(FAULT, dict(CANDIDATE))
+        assert "## 图片/截图证据" not in material["base_prompt"]
+
+    @pytest.mark.asyncio
+    async def test_refuted_on_screenshot_content_kept(self):
+        # 专家引用截图 OCR 内容作反证 → 锚定面命中，refuted 不被门槛误降级
+        verdict = (
+            '{"verdict": "refuted", "reason": "截图显示连接超时而非权限问题", '
+            '"key_evidence": "页面报错弹窗显示 connect timeout"}'
+        )
+        reviewer = _make_reviewer(
+            {"fact_evidence_auditor": verdict, "fix_vs_intro_discriminator": verdict}
+        )
+        record = await reviewer.review(dict(self.FAULT_WITH_IMAGE), [dict(CANDIDATE)])
+        assert record["items"][0]["final_verdict"] == "refuted"
+
+
+class TestRulingBaselinePrompt:
+    """R2 返工：裁决纪律写入 prompt（用户裁定口径）。
+
+    故障单上的引入单号非必填，引入单信息对复盘只是辅助信息；找不到引入单
+    信息时按故障单本身能提供的信息复盘，而不是跳过。此前 prompt 缺此条款，
+    专家以「未提供修复前代码/无代码 diff/截图未提供」为由大量误撤
+    （219 条撤销中 148 条属裁决基准错位）。
+    """
+
+    def test_system_prompt_contains_ruling_baseline(self):
+        text = CONCLUSION_SYSTEM_PROMPT
+        assert "引入单号非必填" in text
+        assert "辅助" in text
+        assert "不得仅以" in text
+        assert "confirmed" in text
+
+    def test_persona_instructions_carry_ruling_baseline(self):
+        for text in (_FACT_AUDIT_INSTRUCTIONS, _FIX_VS_INTRO_INSTRUCTIONS):
+            assert "辅助" in text
+            assert "不得仅以" in text
+            assert "confirmed" in text

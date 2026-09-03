@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from scripts.rerun_conclusions import run_conclusion_review
+from scripts.rerun_conclusions import build_fault_info, run_conclusion_review
 
 ROOT = Path(__file__).parent.parent.parent
 
@@ -204,7 +204,10 @@ class TestWalkthroughRework:
     """code-walkthrough 返工锁定（C1 diff 拼接 / M1 urId 容错 / M2 失败标注 / M3 失败重试）。"""
 
     def test_build_fault_info_joins_added_lines(self):
-        """C1：extract_added_lines 返回 str，须整段拼接而非逐字符迭代。"""
+        """C1：extract_added_lines 返回 str，须整段拼接而非逐字符迭代。
+
+        R2 返工后 code_snippet 同时含删除行（修复前代码），新增段在前。
+        """
         from scripts.rerun_conclusions import build_fault_info
 
         task = {
@@ -226,6 +229,7 @@ class TestWalkthroughRework:
         assert info["code_snippet"].splitlines() == [
             "return orderMapper.queryAll();",
             "// added",
+            "removed",
         ]
 
     @pytest.mark.asyncio
@@ -270,3 +274,79 @@ class TestWalkthroughRework:
         stats = await run_conclusion_review(tmp_path, reviewer, task_loader=_loader_ok)
         assert stats["completed"] == [1001]
         reviewer.review.assert_awaited_once()
+
+
+class TestBuildFaultInfoMaterials:
+    """材料补全（R2 返工）：code_snippet 含删除行（修复前代码）+ image_evidence 透传。
+
+    219 条撤销理由中 77 条「缺修复前代码」、11 次命中「图片证据未入材料」：
+    build_fault_info 此前只提取 + 行，progress 的 image_evidence（截图 OCR）
+    未进材料——专家「看不到」而非结论「没证据」，属裁决基准错位误撤。
+    用户裁定：引入单号非必填，引入单信息只是辅助证据；找不到引入单信息时
+    按故障单本身能提供的信息复盘，而不是跳过。
+    """
+
+    def _task_data(self) -> dict[str, Any]:
+        return {
+            "task_id": 11757372,
+            "title": "订单导出失败",
+            "description": "导出任务超时",
+            "development": {
+                "commits": [
+                    {
+                        "diff": (
+                            "diff --git a/src/App.java b/src/App.java\n"
+                            "index 3f2a1b..9c8d7e 100644\n"
+                            "--- a/src/App.java\n"
+                            "+++ b/src/App.java\n"
+                            "@@ -10,7 +10,7 @@\n"
+                            " context line\n"
+                            "-oldPassword = 'Removed123';\n"
+                            "+newPassword = 'Added999';\n"
+                        )
+                    }
+                ]
+            },
+        }
+
+    def test_code_snippet_contains_removed_lines(self):
+        """code_snippet 应包含修复前代码（diff 删除行）。"""
+        info = build_fault_info(self._task_data())
+        assert "oldPassword = 'Removed123';" in info["code_snippet"]
+
+    def test_code_snippet_contains_added_lines(self):
+        """新增行保留（原有契约不回退）。"""
+        info = build_fault_info(self._task_data())
+        assert "newPassword = 'Added999';" in info["code_snippet"]
+
+    def test_code_snippet_excludes_context_and_meta(self):
+        """上下文行与元数据行不进材料。"""
+        info = build_fault_info(self._task_data())
+        assert "context line" not in info["code_snippet"]
+        assert "diff --git" not in info["code_snippet"]
+
+    def test_image_evidence_passthrough(self):
+        """image_evidence（截图 OCR）透传进 fault_info。"""
+        info = build_fault_info(self._task_data(), image_evidence="截图1: 报错弹窗显示连接超时")
+        assert info["image_evidence"] == "截图1: 报错弹窗显示连接超时"
+
+    def test_image_evidence_default_empty(self):
+        """未提供截图时缺省为空串（辅助信息缺失属常态，不阻断复盘）。"""
+        info = build_fault_info(self._task_data())
+        assert info["image_evidence"] == ""
+
+    def test_no_commits(self):
+        """无 commit 数据不崩溃，diff 段为空。"""
+        info = build_fault_info({"task_id": 1, "development": None})
+        assert info["code_snippet"] == ""
+
+    @pytest.mark.asyncio
+    async def test_reviewer_receives_image_evidence(self, tmp_path: Path):
+        """调用点把 rec['image_evidence']（截图 OCR）透传给复审器。"""
+        rec = _rec()
+        rec["image_evidence"] = "截图1: 报错弹窗显示连接超时"
+        _write_progress(tmp_path, 1001, rec)
+        reviewer = _reviewer(_review_record(["confirmed"]))
+        await run_conclusion_review(tmp_path, reviewer, task_loader=_loader_ok)
+        fault_info = reviewer.review.await_args.args[0]
+        assert fault_info["image_evidence"] == "截图1: 报错弹窗显示连接超时"

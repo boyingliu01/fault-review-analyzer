@@ -5,7 +5,12 @@
 的成因之一）。
 """
 
-from src.utils.diff_utils import extract_added_lines, is_test_file, iter_added_lines_by_file
+from src.utils.diff_utils import (
+    extract_added_lines,
+    extract_removed_lines,
+    is_test_file,
+    iter_added_lines_by_file,
+)
 
 UNIFIED_DIFF = (
     "diff --git a/src/App.java b/src/App.java\n"
@@ -76,6 +81,73 @@ class TestExtractAddedLines:
         )
         result = extract_added_lines(diff)
         assert result == "value = 1"
+
+
+class TestExtractRemovedLines:
+    """结论域复审材料补全：提取删除行（- 行，即修复前代码）。
+
+    219 条撤销理由中 77 条「缺修复前代码」：build_fault_info 此前只喂
+    + 行，专家看不到修复前代码，以「未提供修复前代码」为由撤销结论。
+    引入单号非必填，引入单信息只是辅助证据；删除行提取让故障单自身
+    携带的修复前代码进入材料（用户裁定：缺失辅助信息不构成撤销理由）。
+    """
+
+    def test_unified_diff_keeps_removed_only(self):
+        """unified diff 只保留删除行（- 行）"""
+        result = extract_removed_lines(UNIFIED_DIFF)
+        lines = result.splitlines()
+        assert "oldPassword = 'Removed123';" in lines
+
+    def test_unified_diff_drops_added_and_context(self):
+        """unified diff 过滤新增行、上下文行与元数据行"""
+        result = extract_removed_lines(UNIFIED_DIFF)
+        assert "newPassword = 'Added999';" not in result
+        assert 'System.out.println("added debug");' not in result
+        assert "context line stays" not in result
+        assert "another context" not in result
+        assert "diff --git" not in result
+        assert "@@" not in result
+        # "--- a/..." 以 - 开头但属文件元数据行，不是删除行
+        assert "--- a/src/App.java" not in result
+        assert "index 3f2a1b" not in result
+
+    def test_removed_minus_prefix_stripped(self):
+        """删除行的 - 前缀应被去除"""
+        result = extract_removed_lines(UNIFIED_DIFF)
+        assert "-oldPassword" not in result
+
+    def test_multi_deletions_preserved_in_order(self):
+        """连续多行删除应全部保留且保序"""
+        diff = (
+            "diff --git a/src/App.java b/src/App.java\n"
+            "--- a/src/App.java\n"
+            "+++ b/src/App.java\n"
+            "@@ -10,3 +10,3 @@ public class App {\n"
+            "-old line one\n"
+            "-old line two\n"
+            "+new line\n"
+            " context stays\n"
+        )
+        assert extract_removed_lines(diff).splitlines() == ["old line one", "old line two"]
+
+    def test_bare_code_passthrough(self):
+        """裸代码片段（非 unified diff）原样返回，不做过滤"""
+        code = "password = 'PlainText1';\nkey = 'x';"
+        assert extract_removed_lines(code) == code
+
+    def test_commit_message_passthrough(self):
+        """commit message 等普通文本原样返回"""
+        msg = "fix: resolve null pointer issue"
+        assert extract_removed_lines(msg) == msg
+
+    def test_empty_input(self):
+        assert extract_removed_lines("") == ""
+
+    def test_no_newline_marker_skipped(self):
+        """\\ No newline at end of file 标记行应被跳过"""
+        diff = UNIFIED_DIFF + "\\ No newline at end of file\n"
+        result = extract_removed_lines(diff)
+        assert "No newline" not in result
 
 
 MULTI_FILE_DIFF = (

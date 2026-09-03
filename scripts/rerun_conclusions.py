@@ -41,7 +41,7 @@ from src.analyzer.review import (
 )
 from src.config.manager import ConfigManager
 from src.config.models import ConclusionReviewConfig
-from src.utils.diff_utils import extract_added_lines
+from src.utils.diff_utils import extract_added_lines, extract_removed_lines
 
 ROOT = Path(__file__).parent.parent
 OUT_DIR = ROOT / "output"
@@ -96,22 +96,31 @@ def _fetch_api_loader(api_config: Any) -> TaskLoader:
     return loader
 
 
-def build_fault_info(task_data: dict[str, Any]) -> dict[str, Any]:
-    """构建复审上下文（与 pipeline 违规域 fault_info 同构）。
+def build_fault_info(task_data: dict[str, Any], image_evidence: str = "") -> dict[str, Any]:
+    """构建复审上下文（与 pipeline 违规域 fault_info 同构 + 结论域扩展）。
 
-    extract_added_lines 返回整段 str（新增行以 \n 连接），各 commit 的
-    新增段整段拼接——不可逐行迭代（str 迭代产生单字符，上下文全毁）。
+    - code_snippet 同时含新增行（修复后）与删除行（修复前代码）：引入单号
+      非必填，修复前代码的缺失属常态，删除行让故障单自身携带的前置状态进
+      材料（各 commit 内新增段在前、删除段随后）
+    - image_evidence 为故障单截图 OCR（progress 顶层字段），辅助证据透传
+
+    extract_added_lines/extract_removed_lines 返回整段 str（行以 \n 连接），
+    各 commit 的片段整段拼接——不可逐行迭代（str 迭代产生单字符，上下文全毁）。
     """
-    diff_parts = [
-        extract_added_lines(commit["diff"])
-        for commit in (task_data.get("development") or {}).get("commits", [])
-        if commit.get("diff")
-    ]
+    parts: list[str] = []
+    for commit in (task_data.get("development") or {}).get("commits", []):
+        diff = commit.get("diff")
+        if not diff:
+            continue
+        added = extract_added_lines(diff)
+        removed = extract_removed_lines(diff)
+        parts.extend(part for part in (added, removed) if part)
     return {
         "task_id": task_data.get("task_id", 0),
         "title": task_data.get("title", "") or "",
         "description": (task_data.get("description", "") or "")[:500],
-        "code_snippet": "\n".join(part for part in diff_parts if part),
+        "code_snippet": "\n".join(parts),
+        "image_evidence": image_evidence or "",
     }
 
 
@@ -179,7 +188,9 @@ async def run_conclusion_review(
 
             shutil.copyfile(fp, backup_dir / fp.name)
 
-            review = await reviewer.review(build_fault_info(task_data), rec["root_causes"])
+            # 截图 OCR（image_evidence）为故障单自身信息，透传给复审器
+            fault_info = build_fault_info(task_data, rec.get("image_evidence", "") or "")
+            review = await reviewer.review(fault_info, rec["root_causes"])
             kept, revoked = apply_conclusion_review(rec["root_causes"], review)
             review["revoked"] = revoked
             if not kept:
