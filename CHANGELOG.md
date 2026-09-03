@@ -6,7 +6,13 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-03
+
 ### Added
+
+- **feat(analyzer)**: 重复单识别与结论复用引擎（`src/analyzer/duplicate/`）——三层识别优先级：第〇层 issue no 相同（`issue_map.load_issue_map` 读泄漏缺陷复盘 Excel 的 urId→Issue No 映射，组内已有复审结论的主单存在即直接整体复用其结论与复审状态，不比对内容）、第一层平台显式 relationship（跳过标题门槛但仍过内容候选一致性）、第二层内容相似度（desc≥0.90 或 diff≥0.80 强一致自动复用；过 max(title,desc)≥0.75 候选门槛未达强一致 → borderline 出清单供人工确认）；主从裁决（已有复审结论优先→createdDate 更早→task_id 更小）；`reuser.apply_reused_conclusion` 深拷贝复用 root_causes/conclusion_review/deep_root_causes 并写 `reused_from` 审计（master_urId/source/三项相似度），从单自身字段零污染；pipeline 灰度挂接（`PipelineConfig.reuse_related_conclusion` 默认关闭 + `related_conclusion_provider`/`issue_no_provider` 注入，命中复用跳过根因 LLM 与结论域复审）。测试 +45（全量 1669 passed）。
+
+- **feat(scripts)**: `scripts/align_duplicate_conclusions.py` 存量重复单结论一致性校正——对 `output/progress_*.json` 执行三层识别，strong 裁决的从单整体复用主单结论与复审状态（写回前备份 `duplicate_align_backup_<ts>/`、tmp+replace 原子写、主单无结论跳过、borderline 对出 `duplicate_borderline_<ts>.md` 清单）；幂等续跑：从单已含 reused_from 跳过、主从反转对（复用写回令从单继承复审状态后重跑主从重裁反转）同样跳过防审计链成环；支持 `--out-dir/--cache-db/--issue-map/--dry-run`。存量实跑：60 对复用写回、1 对 borderline 待人工确认。测试 +7（全量 1676 passed）。
 
 - **fix(analyzer/scripts)**: 结论域复审 code-walkthrough 返工（1 critical + 3 major + 3 minor）——C1 `build_fault_info` 逐字符迭代 `extract_added_lines` 返回的 str（code_snippet 变单字符乱码 → 181 单批量重审将因无代码上下文批量误撤结论），改为整段拼接；M1 非数字 urId 抛 ValueError 未捕获中止整批，改为容错入失败清单；M2 全专家失败可观测标注盲区（unparseable_response/invalid_verdict/review_error 前缀不识别），新增基类 `FAILURE_REASON_PREFIXES` 常量供 pipeline 与批量脚本统一判定；M3 幂等续跑把全专家失败单据永久固化（重跑不自动重试），失败单不再写入跳过条件（续跑自动重试，正常单据仍跳过）；m1 progress 写回改原子（tmp + replace，中断不留半截 JSON）；m3 config.yaml 继承注释与实际语义对齐（凭据/网关继承主 llm，模型名为内置默认）；s1 反证门槛比较改 casefold（专家引用大小写变体不触发误降级）；s2 null description 不再把 "None" 字面量送进专家材料/审计。已知限制：HTML 报告暂不渲染 conclusion_review（违规域 delphi_review 同此既有模式）。测试 +7（全量 1606 passed）。
 
@@ -25,6 +31,8 @@
 - **feat(analysis)**: 根因链路事实纪律强化与引入单号代码变更接入——根因分析 prompt 增加事实纪律七条款（区分修复变更与引入变更、禁止臆测未读代码、结论必须逐条对应证据原文）；引入单号（introduceTaskNo）代码变更接入根因两条链路（新增 `src/analyzer/introduce_diff.py`、`src/analyzer/requirement_context.py` 与配套测试）；LLM 空响应自动重试（本地模型约 20% 空响应概率）；缓存过期清理与 CLI 缓存路径支撑。
 
 ### Fixed
+
+- **fix(duplicate)**: 内容层相似度剥离单据模板噪音，消除同项目单据误配对——同项目所有故障单共享的图片 markdown 占位符（`${tenantCosEndpoint}` 链接）、描述固定段落标题（重现步骤/测试结果/期望结果）与标题尾部产品版本号全角括号段（`ZSmart_*_R9.0_Singtel-xxxx`）把字符相似度撑过候选门槛（11832053~11796991 业务内容零匹配却达 t=0.67/d=0.75 误报回归）；新增 `_normalize` 清洗（图片 markdown/段落模板标题/版本号括号段正则剥离），title/desc 参与相似度前先剥离、desc 清洗后再切片。验证：误报对清洗后不再配对，5 对 content 来源存量复用复核全部为真重复（含"拷贝自缺陷"标注与同一 INC 单号）保持 strong，align 重跑 60 对幂等 skip、borderline 归零。测试 +3（全量 1679 passed）。
 
 - **chore(reports)**: 基于修复后数据重跑《复盘分析报告.xlsx》《复盘分析汇总.md》《复盘综合分析报告.md》，规范违规统计（18 条/12 起检出）、产品线维度（数渠 89/BSS 83/电商 9）、改进建议去重（381 条/单内零重复）与 progress 数据三方完全同步。
 - **fix(analysis)**: 改进措施重复罗列修复——`ImprovementRecommender.recommend_measures()` 按 `(category, priority)` 选模板，不同根因文本（如"边界条件未处理"/"异常处理不当"）命中同一模板时产生完全相同的措施条目（181 单中 93 单单内重复，最多同一条措施重复 3 遍）。新增 `_merge_duplicate_measures()`：同类别同优先级合并为一条，`root_cause` 顿号连接保留全部根因、`rule_ids` 去重合并、`expected_impact` 保留最高频根因占比；新增 `scripts/rerun_improvements.py` 从 progress 的 root_causes/violations 离线重算（备份至 `improvements_dedupe_backup_*`，不重跑 LLM）。重算后措施 488→381 条，单内重复归零，两份报告同步重跑。
