@@ -47,6 +47,11 @@ review:
   reviewers:
     - persona: "strict_rule_checker"      # 逐字对照条款构成要件
     - persona: "runtime_behavior_analyst" # 分析真实运行行为（线程/数据流）
+  conclusion_review:
+    # 结论域复审（复盘结论 confirmed/refuted 复核）——独立灰度开关，
+    # 默认关闭；批量重审走 scripts/rerun_conclusions.py 编程传参启用
+    # （reviewers 未配置时继承上方违规域双专家的模型与凭据）
+    enabled: false
 
 output:
   format: "markdown"

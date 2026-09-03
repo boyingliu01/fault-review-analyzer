@@ -154,6 +154,11 @@ known-first-party = ["src"]
 
 [tool.mypy]
 python_version = "3.12"
+# scripts/ 目录无 __init__.py：直接扫描会解析为顶层模块（rerun_conclusions），
+# 而 tests/scripts 测试以包形式导入（scripts.rerun_conclusions），两个模块名
+# 指向同一文件导致 "Source file found twice" 崩溃。显式包基让 mypy 统一按
+# 文件系统路径从 rootdir 推断全限定名（scripts.* 为 namespace 包），消除撞名
+explicit_package_bases = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
