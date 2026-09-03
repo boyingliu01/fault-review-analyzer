@@ -49,8 +49,9 @@ review:
     - persona: "runtime_behavior_analyst" # 分析真实运行行为（线程/数据流）
   conclusion_review:
     # 结论域复审（复盘结论 confirmed/refuted 复核）——独立灰度开关，
-    # 默认关闭；批量重审走 scripts/rerun_conclusions.py 编程传参启用
-    # （reviewers 未配置时继承上方违规域双专家的模型与凭据）
+    # 默认关闭；批量重审走 scripts/rerun_conclusions.py 编程传参启用。
+    # 未配置 reviewers 时 base_url/api_key 继承主 llm 段凭据；模型名为
+    # 内置默认（g-deepseek-v4-flash/g-qwen3.8-flash），生产建议显式配置
     enabled: false
 
 output:

@@ -45,6 +45,17 @@ class DelphiReviewSettings(Protocol):
 
 DIVERGED = "diverged"
 
+# 专家意见兜底 reason 前缀（全部代表"该意见非真实复核产物"）：
+# reviewer_error=LLM 调用异常、unparseable_response=输出解析失败、
+# invalid_verdict=非法 verdict、review_error=候选级异常。
+# 消费端（pipeline/批量脚本）据此识别"全专家失败"单据做可观测标注
+FAILURE_REASON_PREFIXES = (
+    "reviewer_error",
+    "unparseable_response",
+    "invalid_verdict",
+    "review_error",
+)
+
 ROUND_FEEDBACK_TEMPLATE = """
 
 ## 第 {round_no} 轮评审说明

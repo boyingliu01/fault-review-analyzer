@@ -138,7 +138,7 @@ class ConclusionReviewer(DelphiReviewerBase):
         evidence_raw = "\n".join([*evidence_lines, context])
         material_common = _CONCLUSION_MATERIAL_TEMPLATE.format(
             cause_type=candidate.get("cause_type", ""),
-            description=candidate.get("description", ""),
+            description=candidate.get("description") or "",
             evidence="\n".join(f"- {ln}" for ln in evidence_lines) or "-（无）",
             context=context,
             title=fault_info.get("title", ""),
@@ -162,12 +162,13 @@ class ConclusionReviewer(DelphiReviewerBase):
         if verdict != "refuted":
             return verdict
         needle = key_evidence.strip()[:60]
-        if needle and needle in material.get("evidence_raw", ""):
+        # casefold 比较：专家引用反证时的大小写变体不应触发门槛误降级
+        if needle and needle.casefold() in material.get("evidence_raw", "").casefold():
             return verdict
         return "insufficient_evidence"
 
     def _item_identity(self, candidate: dict[str, Any]) -> dict[str, Any]:
         return {
             "cause_type": candidate.get("cause_type", ""),
-            "description": candidate.get("description", ""),
+            "description": candidate.get("description") or "",
         }

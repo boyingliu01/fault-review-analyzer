@@ -18,6 +18,7 @@ from src.analyzer.labeling import LabelGenerator
 from src.analyzer.llm_provider import create_llm_provider
 from src.analyzer.reasoning import RootCauseAnalyzer
 from src.analyzer.review import (
+    FAILURE_REASON_PREFIXES,
     ConclusionReviewer,
     DelphiViolationReviewer,
     apply_conclusion_review,
@@ -497,7 +498,7 @@ class AnalysisPipeline:
             review["deep_impact"] = f"本单 {len(revoked)} 条复盘结论被撤销，深度结论可能受影响"
         opinions = [op for item in review.get("items", []) for op in item.get("opinions", [])]
         if opinions and all(
-            str(op.get("reason", "")).startswith("reviewer_error") for op in opinions
+            str(op.get("reason", "")).startswith(FAILURE_REASON_PREFIXES) for op in opinions
         ):
             # 全专家连续失败：结论未被真实复核（均为兜底 diverged），标注供人工甄别
             review["reviewer_error"] = True

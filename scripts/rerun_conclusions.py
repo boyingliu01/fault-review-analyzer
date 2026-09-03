@@ -34,7 +34,11 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.analyzer.review import ConclusionReviewer, apply_conclusion_review
+from src.analyzer.review import (
+    FAILURE_REASON_PREFIXES,
+    ConclusionReviewer,
+    apply_conclusion_review,
+)
 from src.config.manager import ConfigManager
 from src.config.models import ConclusionReviewConfig
 from src.utils.diff_utils import extract_added_lines
@@ -93,24 +97,30 @@ def _fetch_api_loader(api_config: Any) -> TaskLoader:
 
 
 def build_fault_info(task_data: dict[str, Any]) -> dict[str, Any]:
-    """构建复审上下文（与 pipeline 违规域 fault_info 同构）。"""
+    """构建复审上下文（与 pipeline 违规域 fault_info 同构）。
+
+    extract_added_lines 返回整段 str（新增行以 \n 连接），各 commit 的
+    新增段整段拼接——不可逐行迭代（str 迭代产生单字符，上下文全毁）。
+    """
+    diff_parts = [
+        extract_added_lines(commit["diff"])
+        for commit in (task_data.get("development") or {}).get("commits", [])
+        if commit.get("diff")
+    ]
     return {
         "task_id": task_data.get("task_id", 0),
         "title": task_data.get("title", "") or "",
         "description": (task_data.get("description", "") or "")[:500],
-        "code_snippet": "\n".join(
-            line
-            for commit in (task_data.get("development") or {}).get("commits", [])
-            if commit.get("diff")
-            for line in extract_added_lines(commit["diff"])
-        ),
+        "code_snippet": "\n".join(part for part in diff_parts if part),
     }
 
 
 def _mark_reviewer_error(review: dict[str, Any]) -> None:
-    """全专家连续失败（opinions 全为 reviewer_error 前缀兜底）→ 可观测标注。"""
+    """全专家连续失败（opinions 全为兜底前缀 reason）→ 可观测标注。"""
     opinions = [op for item in review.get("items", []) for op in item.get("opinions", [])]
-    if opinions and all(str(op.get("reason", "")).startswith("reviewer_error") for op in opinions):
+    if opinions and all(
+        str(op.get("reason", "")).startswith(FAILURE_REASON_PREFIXES) for op in opinions
+    ):
         review["reviewer_error"] = True
 
 
@@ -142,11 +152,17 @@ async def run_conclusion_review(
             print(f"[{fp.name}] 缺 urId，记入失败清单")
             stats["failed"].append(-1)
             continue
-        urid = int(raw_urid)
+        try:
+            urid = int(raw_urid)
+        except (TypeError, ValueError):
+            print(f"[{fp.name}] urId 非数字: {raw_urid!r}，记入失败清单")
+            stats["failed"].append(-1)
+            continue
 
-        # 幂等续跑：已复审且非强制 → 跳过（中断重跑不重复消费 LLM）
+        # 幂等续跑：已复审且非强制 → 跳过（中断重跑不重复消费 LLM）；
+        # 全专家失败单据（reviewer_error）不固化，续跑自动重试
         old_review = rec.get("conclusion_review") or {}
-        if old_review.get("reviewed_at") and not force:
+        if old_review.get("reviewed_at") and not old_review.get("reviewer_error") and not force:
             stats["skipped"].append(urid)
             continue
         # 空结论单无复审候选（pending_rebuild 待人工重建后再审）
@@ -176,7 +192,9 @@ async def run_conclusion_review(
             # 字段保护：仅触 root_causes / conclusion_review 两个键
             rec["root_causes"] = kept
             rec["conclusion_review"] = review
-            fp.write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp = fp.with_suffix(".json.tmp")  # 原子写：中断不留半截 JSON
+            tmp.write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.replace(fp)
             stats["completed"].append(urid)
             print(
                 f"[{urid}] 完成: 保留 {len(kept)} 条，撤销 {len(revoked)} 条"

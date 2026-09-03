@@ -198,3 +198,75 @@ class TestExplicitConfig:
         text = (ROOT / "config" / "config.yaml").read_text(encoding="utf-8")
         assert "conclusion_review:" in text
         assert "enabled: false" in text.split("conclusion_review:", 1)[1].split("\n\n", 1)[0]
+
+
+class TestWalkthroughRework:
+    """code-walkthrough 返工锁定（C1 diff 拼接 / M1 urId 容错 / M2 失败标注 / M3 失败重试）。"""
+
+    def test_build_fault_info_joins_added_lines(self):
+        """C1：extract_added_lines 返回 str，须整段拼接而非逐字符迭代。"""
+        from scripts.rerun_conclusions import build_fault_info
+
+        task = {
+            "task_id": 1,
+            "title": "订单导出失败",
+            "description": None,
+            "development": {
+                "commits": [
+                    {
+                        "diff": (
+                            "--- a/A.java\n+++ b/A.java\n@@ -1,2 +1,3 @@\n"
+                            " context\n-removed\n+return orderMapper.queryAll();\n+// added"
+                        )
+                    }
+                ]
+            },
+        }
+        info = build_fault_info(task)
+        assert info["code_snippet"].splitlines() == [
+            "return orderMapper.queryAll();",
+            "// added",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_failed_list_on_non_numeric_urid(self, tmp_path: Path):
+        """M1：非数字 urId 不崩溃，记入失败清单继续批量。"""
+        (tmp_path / "progress_bad.json").write_text(
+            json.dumps({"urId": "abc", "root_causes": []}), encoding="utf-8"
+        )
+        reviewer = _reviewer(_review_record(["confirmed"]))
+        stats = await run_conclusion_review(tmp_path, reviewer, task_loader=_loader_ok)
+        assert stats["failed"] == [-1]
+        reviewer.review.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_reviewer_error_prefixes_extended(self, tmp_path: Path):
+        """M2：全专家失败标注覆盖全部兜底前缀（含解析失败/非法 verdict）。"""
+        from src.analyzer.review.base import FAILURE_REASON_PREFIXES
+
+        assert FAILURE_REASON_PREFIXES == (
+            "reviewer_error",
+            "unparseable_response",
+            "invalid_verdict",
+            "review_error",
+        )
+        fp = _write_progress(tmp_path, 1001, _rec())
+        record = _review_record(["diverged"])
+        for item in record["items"]:
+            for op in item["opinions"]:
+                op["reason"] = "unparseable_response: not json"
+        reviewer = _reviewer(record)
+        await run_conclusion_review(tmp_path, reviewer, task_loader=_loader_ok)
+        after = json.loads(fp.read_text(encoding="utf-8"))
+        assert after["conclusion_review"]["reviewer_error"] is True
+
+    @pytest.mark.asyncio
+    async def test_retries_reviewer_error_on_rerun(self, tmp_path: Path):
+        """M3：全专家失败单据不固化为已复审，续跑自动重试。"""
+        rec = _rec(with_review=True)
+        rec["conclusion_review"]["reviewer_error"] = True
+        _write_progress(tmp_path, 1001, rec)
+        reviewer = _reviewer(_review_record(["confirmed"]))
+        stats = await run_conclusion_review(tmp_path, reviewer, task_loader=_loader_ok)
+        assert stats["completed"] == [1001]
+        reviewer.review.assert_awaited_once()

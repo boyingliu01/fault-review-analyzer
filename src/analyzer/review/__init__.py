@@ -5,7 +5,7 @@
 - 结论域（conclusion_reviewer）：复盘根因结论的复核（confirmed/refuted/…）
 """
 
-from src.analyzer.review.base import DelphiReviewerBase
+from src.analyzer.review.base import FAILURE_REASON_PREFIXES, DelphiReviewerBase
 from src.analyzer.review.conclusion_reviewer import (
     ConclusionReviewer,
     apply_conclusion_review,
@@ -19,6 +19,7 @@ from src.analyzer.review.delphi_reviewer import (
 )
 
 __all__ = [
+    "FAILURE_REASON_PREFIXES",
     "ConclusionReviewer",
     "DelphiReviewerBase",
     "DelphiViolationReviewer",
