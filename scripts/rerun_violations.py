@@ -137,7 +137,8 @@ def main() -> None:
     for fp in progress_files:
         rec = json.loads(fp.read_text(encoding="utf-8"))
         urid = rec.get("urId")
-        if not urid or rec.get("error") or not rec.get("root_causes"):
+        # 结论空单/pending_rebuild 的单据照常重算 violations（结论域与违规域互不影响）
+        if not urid or rec.get("error"):
             continue
         shutil.copyfile(fp, backup_dir / fp.name)
 

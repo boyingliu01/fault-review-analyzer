@@ -17,7 +17,12 @@ from src.analyzer.introduce_diff import fetch_introduce_task_diff
 from src.analyzer.labeling import LabelGenerator
 from src.analyzer.llm_provider import create_llm_provider
 from src.analyzer.reasoning import RootCauseAnalyzer
-from src.analyzer.review import DelphiViolationReviewer, apply_review
+from src.analyzer.review import (
+    ConclusionReviewer,
+    DelphiViolationReviewer,
+    apply_conclusion_review,
+    apply_review,
+)
 from src.api.client import APIClient
 from src.api.models import TaskInfo
 from src.cache.manager import CacheManager
@@ -80,6 +85,7 @@ class PipelineResult:
     standard_matches: list[dict] | None = None  # 规范匹配结果（violated/related）
     improvements: list[dict] | None = None  # 改进建议与行动项
     delphi_review: dict[str, Any] | None = None  # 违规 Delphi 复审记录（共识裁决审计）
+    conclusion_review: dict[str, Any] | None = None  # 结论域 Delphi 复审记录（复盘结论裁决审计）
     cluster_id: int | None = None
     report: str = ""
     error: str = ""
@@ -115,6 +121,7 @@ class AnalysisPipeline:
         self._report_generator: ReportGenerator | None = None
         self._improvement_recommender: ImprovementRecommender | None = None
         self._delphi_reviewer: DelphiViolationReviewer | None = None
+        self._conclusion_reviewer: ConclusionReviewer | None = None
 
     async def __aenter__(self) -> "AnalysisPipeline":
         return self
@@ -192,6 +199,9 @@ class AnalysisPipeline:
             await self._analyze_code_changes(task_data, result)
 
             await self._analyze_with_llm(task_data, preprocessed, result)
+            # 结论域 Delphi 复审：紧跟根因生成、先于规范匹配——被撤销的复盘
+            # 结论不再传导至规范匹配与改进建议（两者读 result.root_causes）
+            await self._review_conclusions_with_delphi(task_data, result)
             await self._match_standards(task_data, result)
             self._generate_improvements(result)
             self._apply_rule_checks(task_data, result)
@@ -444,6 +454,66 @@ class AnalysisPipeline:
             self._llm_providers.extend(reviewer.providers)
             self._delphi_reviewer = reviewer
         return self._delphi_reviewer
+
+    async def _review_conclusions_with_delphi(
+        self, task_data: TaskInfo, result: PipelineResult
+    ) -> None:
+        """结论域 Delphi 复审：多专家共识裁决复盘结论。
+
+        refuted/证据不足 -> 移出主列表（记入 revoked 审计，全撤时标记
+        pending_rebuild 待人工重建）；diverged/复审失败 -> 保守保留附
+        conclusion_verdict 待人工标记。存在撤销且已有深度结论时附
+        deep_impact 标注；全专家连续失败时附 reviewer_error 可观测标注。
+        """
+        conclusions = result.root_causes or []
+        if not conclusions:
+            return
+        reviewer = self._get_conclusion_reviewer()
+        if reviewer is None:
+            return
+
+        fault_info = {
+            "task_id": task_data.task_id,
+            "title": task_data.title or "",
+            "description": task_data.description or "",
+            "code_snippet": self._collect_diff_content(task_data),
+        }
+        review = await reviewer.review(fault_info, conclusions)
+        kept, revoked = apply_conclusion_review(conclusions, review)
+        if revoked:
+            logger.info(
+                "urId={} 结论域 Delphi 复审撤销 {} 条复盘结论: {}",
+                task_data.task_id,
+                len(revoked),
+                [c.get("cause_type") for c in revoked],
+            )
+        result.root_causes = kept
+        review["revoked"] = revoked
+        if not kept:
+            # 全单撤销：结论待人工重建（不自动重算，见 sprint 决策记录）
+            review["conclusion_status"] = "pending_rebuild"
+        if revoked and result.deep_root_causes:
+            review["deep_impact"] = f"本单 {len(revoked)} 条复盘结论被撤销，深度结论可能受影响"
+        opinions = [op for item in review.get("items", []) for op in item.get("opinions", [])]
+        if opinions and all(
+            str(op.get("reason", "")).startswith("reviewer_error") for op in opinions
+        ):
+            # 全专家连续失败：结论未被真实复核（均为兜底 diverged），标注供人工甄别
+            review["reviewer_error"] = True
+        result.conclusion_review = review
+
+    def _get_conclusion_reviewer(self) -> ConclusionReviewer | None:
+        """懒创建结论域复审器（未启用或无 LLM 凭据时返回 None）。"""
+        if self._conclusion_reviewer is None:
+            app_config = self._config.get_config()
+            conclusion_config = app_config.review.conclusion_review
+            llm_config = app_config.llm
+            if not conclusion_config.enabled or not llm_config.api_key:
+                return None
+            reviewer = ConclusionReviewer(llm_config, conclusion_config)
+            self._llm_providers.extend(reviewer.providers)
+            self._conclusion_reviewer = reviewer
+        return self._conclusion_reviewer
 
     def _collect_diff_content(self, task_data: TaskInfo) -> str:
         """收集全部 commit 的新增行内容（与初筛违规检测输入一致）。"""

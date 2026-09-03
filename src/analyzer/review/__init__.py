@@ -6,7 +6,10 @@
 """
 
 from src.analyzer.review.base import DelphiReviewerBase
-from src.analyzer.review.conclusion_reviewer import ConclusionReviewer
+from src.analyzer.review.conclusion_reviewer import (
+    ConclusionReviewer,
+    apply_conclusion_review,
+)
 from src.analyzer.review.delphi_reviewer import (
     DelphiViolationReviewer,
     apply_review,
@@ -19,6 +22,7 @@ __all__ = [
     "ConclusionReviewer",
     "DelphiReviewerBase",
     "DelphiViolationReviewer",
+    "apply_conclusion_review",
     "apply_review",
     "build_context_window",
     "normalize_evidence",

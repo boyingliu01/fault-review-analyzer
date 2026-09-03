@@ -35,7 +35,36 @@ from src.analyzer.review.base import (
     normalize_evidence,
 )
 
-__all__ = ["ConclusionReviewer"]
+__all__ = ["ConclusionReviewer", "apply_conclusion_review"]
+
+
+def apply_conclusion_review(
+    conclusions: list[dict[str, Any]], review_record: dict[str, Any]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """把结论域 Delphi 裁决应用到结论列表。
+
+    返回 (保留列表, 撤销列表)。confirmed/diverged 保留（diverged 附
+    conclusion_verdict 待人工标记）；refuted/insufficient_evidence 撤销
+    （撤销项附裁决信息供审计与结论重建时针对性注入）。items 与结论按
+    index 对齐；缺 item 时兜底 diverged（保守保留）。
+    """
+    items = review_record.get("items", [])
+    kept: list[dict[str, Any]] = []
+    revoked: list[dict[str, Any]] = []
+    for i, rc in enumerate(conclusions):
+        item = items[i] if i < len(items) else None
+        verdict = (item or {}).get("final_verdict", DIVERGED)
+        tagged = {
+            **rc,
+            "conclusion_verdict": verdict,
+            "conclusion_reason": (item or {}).get("reason", ""),
+        }
+        if verdict in ("refuted", "insufficient_evidence"):
+            revoked.append(tagged)
+        else:
+            kept.append(tagged)
+    return kept, revoked
+
 
 CONCLUSION_SYSTEM_PROMPT = (
     "你是故障复盘结论评审专家，只做一件事：基于证据原文核对给定的复盘根因结论"
