@@ -34,7 +34,6 @@ paths = [
     '''docs/.*''',
     '''CLAUDE\.md$''',
     '''\.gitleaks\.toml$''',
-    '''replacements\.txt$''',
     '''\.mypy_cache/.*''',
     '''\.pytest_cache/.*''',
     '''\.tox/.*''',

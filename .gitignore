@@ -53,6 +53,8 @@ config.yaml
 .quality-history.jsonl
 commit-msg.txt
 issue-body.md
+# 历史 key 替换清单（曾记录真实凭据明文，永久不入库）
+replacements.txt
 scripts/temp/
 # Qoder 平台生成物（repo wiki 等）
 .qoder/
