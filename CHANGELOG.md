@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **fix(deps)**: 锁定 `openai>=1.0.0,<2.25`，阻断 3.x 迁移到 httpx2 引发的 CI 类型漂移——openai 3.7.0 把 HTTP 依赖从 httpx 改为 httpx2，`AsyncOpenAI(http_client=httpx.AsyncClient)` 在 CI（mypy 严格检查）下报 `expected "httpx2._client.AsyncClient | None"` 类型不匹配；上界与本地已验证版本（2.24.0，httpx 0.28.1）对齐。
+
 ## [0.3.0] - 2026-09-03
 
 ### Added
