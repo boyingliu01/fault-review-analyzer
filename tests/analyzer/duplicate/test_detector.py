@@ -22,6 +22,7 @@ from src.analyzer.duplicate.detector import (
     DuplicateDetector,
     RelatedPair,
     TaskCandidate,
+    _normalize,
     candidate_from_task,
 )
 
@@ -29,6 +30,14 @@ SIM_A = "abcdef"
 SIM_B = "abcxyz"  # sim(SIM_A, SIM_B) = 0.667
 SIM_C = "abcdxy"  # sim(SIM_A, SIM_C) = 0.667，∈ [0.60, 0.75) 候选门槛临界样本
 DISSIM = "xyzuvw"  # sim(SIM_A, DISSIM) = 0.0
+
+# 故障单描述固定模板：重现步骤 + 图片占位符 + 测试/期望结果段
+# （${{tenantCosEndpoint}} 双花括号转义，format 后还原 ${tenantCosEndpoint}）
+_TEMPLATE_DESC = (
+    "### 重现步骤：\n{}\n"
+    "![image.png](${{tenantCosEndpoint}}/cos-devspace/task/default_add/{}/image.png)\n"
+    "### 测试结果：\n\n### 期望结果：\n"
+)
 
 
 def cand(
@@ -207,6 +216,66 @@ class TestContentMatching:
         pairs = det.find_all_pairs(group)
         assert len(pairs) == 1
         assert (pairs[0].master_id, pairs[0].slave_id) == (100, 200)
+
+
+class TestTextNormalization:
+    """模板噪音清洗：相似度必须反映业务内容而非单据模板。
+
+    回归 11832053~11796991 误报：图片占位符 + 段落模板 + 版本号后缀
+    把字符相似度撑到 0.75 踩线，实际业务内容零匹配。
+    """
+
+    def test_normalize_strips_template_noise(self):
+        # 图片 markdown（含占位符变量与外链）整体剥离
+        assert (
+            _normalize("![image.png](${tenantCosEndpoint}/cos-devspace/task/x/image.png)")
+            == ""
+        )
+        assert _normalize("![](https://static.dingtalk.com/a.png)") == ""
+        # 描述段落固定标题剥离
+        assert _normalize("### 重现步骤：\nA\n### 测试结果：\n### 期望结果：\n") == "\nA\n\n\n"
+        # 标题版本号全角括号段剥离（半角括号业务内容保留）
+        assert _normalize("订单取消（ZSmart_DRM_Product_R9.0_Singtel-0313）") == "订单取消"
+        assert _normalize("cpu过高(拆单给 apig)") == "cpu过高(拆单给 apig)"
+        assert _normalize("业务描述保持不变") == "业务描述保持不变"
+
+    def test_template_noise_does_not_pair(self):
+        """模板贡献的相似度不构成配对（业务内容不同的两单）。"""
+        det = DuplicateDetector()
+        a = cand(
+            1,
+            title="GOMO-订单取消场景（ZSmart_DRM_Product_R9.0_Singtel-0313）",
+            desc=_TEMPLATE_DESC.format("渠道订单取消后库存未释放", "uid-a"),
+            diffs=("diff-a",),
+        )
+        b = cand(
+            2,
+            title="GOMO-支付pin码偶现（ZSmart_DRM_Product_R9.0_Singtel-0122）",
+            desc=_TEMPLATE_DESC.format("支付密码弹窗异常", "uid-b"),
+            diffs=("diff-b",),
+        )
+        assert det._match(a, b) is None
+
+    def test_business_duplicate_with_template_still_strong(self):
+        """真重复（desc 实质相同）清洗后仍 strong，不受清洗影响。"""
+        det = DuplicateDetector()
+        a = cand(
+            1,
+            title="Singtel邮箱登录白屏（ZSmart_ceeSDK_R9.0）",
+            desc=_TEMPLATE_DESC.format("号码被拆机后下拉刷新白屏", "uid-a"),
+            diffs=("d",),
+        )
+        b = cand(
+            2,
+            title="Singtel邮箱登录白屏（ZSmart_ceeSDK_R9.0）",
+            desc=_TEMPLATE_DESC.format("号码被拆机后下拉刷新白屏", "uid-b"),
+            diffs=("d",),
+        )
+        m = det._match(a, b)
+        assert m is not None
+        assert m.verdict == "strong"
+        assert m.source == "content"
+        assert m.desc_sim >= STRONG_DESC_SIM
 
 
 class TestExplicitRelationLayer:

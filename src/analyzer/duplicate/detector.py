@@ -17,6 +17,7 @@ task_id 更小（结论确定性优先，其余保证可复现）。
 from __future__ import annotations
 
 import difflib
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -29,8 +30,23 @@ PAIR_SIM_THRESHOLD = 0.75  # 内容层候选判定：max(title, desc)
 STRONG_DESC_SIM = 0.90  # 强一致：desc
 STRONG_DIFF_SIM = 0.80  # 强一致：diff 佐证（须双方均有 diff）
 
-# description 参与相似度计算的截断长度（与调研口径一致）
+# description 参与相似度计算的截断长度（清洗后再切片）
 _DESC_SLICE = 800
+
+# 单据模板噪音：图片 markdown（截图无业务文字）、描述固定段落标题、
+# 标题尾部产品版本号全角括号段（如 （ZSmart_DRM_Product_R9.0_Singtel-0313））。
+# 同项目所有单据共享这些片段，会把字符相似度撑过候选门槛（回归
+# 11832053~11796991 误报），剥离后相似度反映业务内容。
+_IMG_MARKDOWN_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+_SECTION_HEADING_RE = re.compile(r"###\s*(?:重现步骤|测试结果|期望结果)[：:]?")
+_TITLE_VERSION_RE = re.compile(r"（ZSmart[^）]*）")
+
+
+def _normalize(text: str) -> str:
+    """剥离单据模板噪音，使相似度计算只看业务内容。"""
+    text = _IMG_MARKDOWN_RE.sub("", text)
+    text = _SECTION_HEADING_RE.sub("", text)
+    return _TITLE_VERSION_RE.sub("", text)
 
 
 @dataclass(frozen=True)
@@ -210,10 +226,12 @@ class DuplicateDetector:
                 source="issue_no",
             )
         explicit = str(b.task_id) in a.related_task_nos or str(a.task_id) in b.related_task_nos
-        t_sim = _similarity(a.title, b.title)
+        t_sim = _similarity(_normalize(a.title), _normalize(b.title))
         if not explicit and t_sim < TITLE_SIM_THRESHOLD:
             return None
-        d_sim = _similarity(a.description[:_DESC_SLICE], b.description[:_DESC_SLICE])
+        d_sim = _similarity(
+            _normalize(a.description)[:_DESC_SLICE], _normalize(b.description)[:_DESC_SLICE]
+        )
         if max(t_sim, d_sim) < PAIR_SIM_THRESHOLD:
             return None
         # diff 强佐证须双方均有 diff：单边无 diff（如样例对 B 单）不构成佐证
