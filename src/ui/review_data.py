@@ -237,6 +237,41 @@ def build_summary_df(recs: dict[int, dict[str, Any]]) -> pd.DataFrame:
     return df
 
 
+def build_improvement_summary_df(recs: dict[int, dict[str, Any]]) -> pd.DataFrame:
+    """构建改进措施分布统计（按措施文本聚合，单内去重，帕累托降序 + 累计占比）。
+
+    统计口径：计数为"覆盖缺陷数"——同一缺陷单内出现多条相同措施文本只计
+    一次，衡量该措施覆盖多少起缺陷；占比与累计占比以覆盖计数总和为分母
+    （帕累托标准口径，累计线终点为 100%）。
+    """
+    if not recs:
+        return pd.DataFrame(
+            {col: pd.Series(dtype="int64") for col in ["改进措施", "覆盖缺陷数", "占比(%)"]}
+            | {"累计占比(%)": pd.Series(dtype="float64")}
+        )
+    measure_counter: Counter[str] = Counter()
+    for rec in recs.values():
+        seen: set[str] = set()
+        for imp in rec.get("improvements", []) or []:
+            m = str(imp.get("measure", "")).strip() or "未填写"
+            if m not in seen:
+                seen.add(m)
+                measure_counter[m] += 1
+    if not measure_counter:
+        return pd.DataFrame(
+            {col: pd.Series(dtype="int64") for col in ["改进措施", "覆盖缺陷数", "占比(%)"]}
+            | {"累计占比(%)": pd.Series(dtype="float64")}
+        )
+    total_covered = sum(measure_counter.values())
+    items: list[tuple[str, int, float]] = [
+        (m, cnt, round(cnt / total_covered * 100, 1)) for m, cnt in measure_counter.items()
+    ]
+    items.sort(key=lambda x: x[1], reverse=True)
+    df = pd.DataFrame([{"改进措施": m, "覆盖缺陷数": n, "占比(%)": p} for m, n, p in items])
+    df["累计占比(%)"] = (df["覆盖缺陷数"].cumsum() / df["覆盖缺陷数"].sum() * 100).round(1)
+    return df
+
+
 def build_violation_df(recs: dict[int, dict[str, Any]]) -> pd.DataFrame:
     """构建规范违规分布（含条款内容，按 rule_id 聚合，rule_name 取首次值）。"""
     rule_counter: Counter[str] = Counter()

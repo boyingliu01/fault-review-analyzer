@@ -267,6 +267,63 @@ class TestParetoSummary:
         assert df.empty
 
 
+class TestImprovementSummary:
+    """改进措施帕累托统计（单内去重覆盖口径）。"""
+
+    def test_aggregates_by_measure_sorted_desc(self):
+        """按措施文本聚合，覆盖缺陷数降序。"""
+        recs = {
+            1: {"improvements": [{"measure": "加强审查"}]},
+            2: {"improvements": [{"measure": "加强审查"}]},
+            3: {"improvements": [{"measure": "重新设计"}]},
+        }
+        df = review_data.build_improvement_summary_df(recs)
+        assert df.iloc[0]["改进措施"] == "加强审查"
+        assert df.iloc[0]["覆盖缺陷数"] == 2
+        counts = df["覆盖缺陷数"].tolist()
+        assert counts == sorted(counts, reverse=True)
+
+    def test_dedup_within_single_fault(self):
+        """同一单内重复措施只计一次（覆盖缺陷数口径）。"""
+        recs = {
+            1: {"improvements": [{"measure": "加强审查"}, {"measure": "加强审查"}]},
+        }
+        df = review_data.build_improvement_summary_df(recs)
+        assert df.iloc[0]["覆盖缺陷数"] == 1
+
+    def test_multiple_measures_same_fault_each_counted(self):
+        """同一单多条不同措施各计一次覆盖。"""
+        recs = {
+            1: {"improvements": [{"measure": "加强审查"}, {"measure": "重新设计"}]},
+        }
+        df = review_data.build_improvement_summary_df(recs)
+        assert set(df["覆盖缺陷数"]) == {1}
+        assert len(df) == 2
+
+    def test_cumulative_reaches_100(self):
+        """累计占比单调不减且终点为 100%（帕累托标准口径）。"""
+        recs = {
+            1: {"improvements": [{"measure": "加强审查"}]},
+            2: {"improvements": [{"measure": "加强审查"}]},
+            3: {"improvements": [{"measure": "重新设计"}]},
+        }
+        df = review_data.build_improvement_summary_df(recs)
+        cum = df["累计占比(%)"].tolist()
+        assert all(cum[i] <= cum[i + 1] for i in range(len(cum) - 1))
+        assert cum[-1] == pytest.approx(100.0, abs=1.0)
+
+    def test_empty_measures_returns_empty_df(self):
+        """单据存在但无措施时返回空 DataFrame（列结构完整）。"""
+        df = review_data.build_improvement_summary_df({1001: {"improvements": []}})
+        assert df.empty
+        assert list(df.columns) == ["改进措施", "覆盖缺陷数", "占比(%)", "累计占比(%)"]
+
+    def test_empty_recs_returns_empty_df(self):
+        """空记录时返回空 DataFrame。"""
+        df = review_data.build_improvement_summary_df({})
+        assert df.empty
+
+
 class TestViolationContent:
     """规范条款内容测试。"""
 

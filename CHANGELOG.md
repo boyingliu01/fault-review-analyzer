@@ -6,7 +6,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- **feat(ui)**: 改进措施帕累托图与按措施筛选缺陷明细——Streamlit 复盘页新增"🎯 改进措施帕累托"区块（`review_data.build_improvement_summary_df` 按措施文本聚合、单内去重的"覆盖缺陷数"口径、帕累托降序 + 累计占比线终点 100%）；点选柱体联动明细表（`_improvement_selected_measure` 提取、curve_number==0 过滤累计线误触），明细筛选区扩为 5 列并新增"按改进措施筛选"控件（摘要列 `regex=False` contains 匹配，措施文本完整包含于摘要无截断误漏）；`_pareto_selected_cause` 同步加固为 `getattr` 容错（事件对象缺 selection 属性不再抛 AttributeError）。真实数据验证：181 单 6 类措施，前两项（强化代码审查 40.8% / 需求评审机制 40.4%）累计覆盖 81.2%。测试 +13（UI 全量 50 passed，全量 1617 passed）。
+
 ### Fixed
+
+- **chore(security)**: 移除历史凭据替换清单 `replacements.txt` 出库——该文件记录了 3 个真实 API key 明文（研发云 token/LLM key/智谱 key，格式 literal==>REDACTED，自 0606906 起被 git 跟踪），且被 gitleaks allowlist 掩盖告警；`git rm` + `.gitignore` 永久排除 + 移除 allowlist 条目恢复扫描覆盖。全历史审计（169 提交，含 allowlist 盲区补扫）：3 个 key 仅存在于该清单文件本身，其余文件已被早前 filter-repo 历史重写清除；gitleaks 全部 123 命中逐条甄别均为误报（commit SHA/hash 字段命中 `[a-f0-9]{32}` 宽规则、security-001 回归测试伪造样本、文档 curl 占位符）。**凭据处置提醒：3 个 key 视同已泄漏，应立即轮换/吊销**。
 
 - **fix(deps)**: 锁定 `openai>=1.0.0,<2.25`，阻断 3.x 迁移到 httpx2 引发的 CI 类型漂移——openai 3.7.0 把 HTTP 依赖从 httpx 改为 httpx2，`AsyncOpenAI(http_client=httpx.AsyncClient)` 在 CI（mypy 严格检查）下报 `expected "httpx2._client.AsyncClient | None"` 类型不匹配；上界与本地已验证版本（2.24.0，httpx 0.28.1）对齐。
 

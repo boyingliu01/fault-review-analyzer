@@ -69,6 +69,16 @@ class TestAppRender:
         app.run()
         assert not app.exception
 
+    # @test REQ-7
+    def test_app_renders_improvement_pareto(self, app):
+        """渲染改进措施帕累托图与措施筛选控件，不抛异常。"""
+        app.run()
+        assert not app.exception
+        subheaders = [sh.value for sh in app.subheader]
+        assert any("改进措施帕累托" in s for s in subheaders)
+        labels = [sb.label for sb in app.selectbox]
+        assert "按改进措施筛选" in labels
+
     # @test REQ-3
     def test_app_renders_violation_content(self, app):
         """规范违规分布含条款内容，不抛异常。"""
@@ -221,3 +231,84 @@ class TestViolationSelectionLink:
 
         event = self._fake_event([99])
         assert FaultAnalysisUI._violation_selected_rule(event, self._violation_df()) is None
+
+
+class TestImprovementSelectionLink:
+    """验证改进措施帕累托选中点 → 措施文本提取（改进联动）。"""
+
+    @staticmethod
+    def _fake_pareto_event(x_value):
+        """模拟 plotly_chart 选择事件（selection 提供 dict 式 get）。"""
+        from types import SimpleNamespace
+
+        class _Selection:
+            def __init__(self, x_value) -> None:
+                self._x = x_value
+
+            def get(self, key: str, default=None):
+                if key == "points" and self._x is not None:
+                    return [{"curve_number": 0, "x": self._x}]
+                return default
+
+        return SimpleNamespace(selection=_Selection(x_value))
+
+    def test_extract_selected_measure(self):
+        """选中改进措施帕累托柱点 → 提取措施文本。"""
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        event = self._fake_pareto_event("加强审查")
+        assert FaultAnalysisUI._improvement_selected_measure(event) == "加强审查"
+
+    def test_none_event_returns_none(self):
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        assert FaultAnalysisUI._improvement_selected_measure(None) is None
+
+    def test_none_selection_returns_none(self):
+        """selection 为 None 时返回 None（初始渲染未选中）。"""
+        from types import SimpleNamespace
+
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        event = SimpleNamespace(selection=None)
+        assert FaultAnalysisUI._improvement_selected_measure(event) is None
+
+    def test_missing_selection_returns_none(self):
+        """事件无 selection 属性时返回 None。"""
+        from types import SimpleNamespace
+
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        event = SimpleNamespace()
+        assert FaultAnalysisUI._improvement_selected_measure(event) is None
+
+    def test_bar_points_filtered_by_curve_number(self):
+        """只认柱状 trace（curve_number==0），忽略累计占比线（curve 1）。"""
+        from types import SimpleNamespace
+
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        class _Selection:
+            def get(self, key: str, default=None):
+                if key == "points":
+                    return [
+                        {"curve_number": 1, "x": 66.7},
+                        {"curve_number": 0, "x": "加强审查"},
+                    ]
+                return default
+
+        event = SimpleNamespace(selection=_Selection())
+        assert FaultAnalysisUI._improvement_selected_measure(event) == "加强审查"
+
+    def test_empty_points_returns_none(self):
+        """取消选中（points 为空）返回 None。"""
+        from types import SimpleNamespace
+
+        from src.ui.streamlit_app import FaultAnalysisUI
+
+        class _Selection:
+            def get(self, key: str, default=None):
+                return [] if key == "points" else default
+
+        event = SimpleNamespace(selection=_Selection())
+        assert FaultAnalysisUI._improvement_selected_measure(event) is None

@@ -22,6 +22,7 @@ from src.ui.review_data import (
     add_annotation,
     build_detail_df,
     build_detail_url,
+    build_improvement_summary_df,
     build_summary_df,
     build_violation_df,
     get_detail_by_urid,
@@ -166,6 +167,12 @@ class FaultAnalysisUI:
             st.subheader("📊 根因帕累托图")
             pareto_event = self._render_pareto_chart(summary_df)
 
+            # 改进措施帕累托图
+            st.markdown("---")
+            st.subheader("🎯 改进措施帕累托")
+            imp_summary_df = build_improvement_summary_df(batch_recs)
+            imp_event = self._render_improvement_pareto_chart(imp_summary_df)
+
             # 规范违规分布
             st.markdown("---")
             st.subheader("🚨 规范违规分布")
@@ -175,7 +182,12 @@ class FaultAnalysisUI:
             st.markdown("---")
             st.subheader("📑 缺陷明细")
             filtered, selection = self._render_detail_table(
-                detail_df, pareto_event, violation_event, violation_df
+                detail_df,
+                pareto_event,
+                violation_event,
+                violation_df,
+                imp_event,
+                imp_summary_df,
             )
 
             # 单起详情（联动）
@@ -261,6 +273,48 @@ class FaultAnalysisUI:
             key="pareto_chart",
         )
 
+    @staticmethod
+    def _render_improvement_pareto_chart(imp_summary_df: pd.DataFrame) -> object:
+        """渲染改进措施帕累托图（措施降序柱状 + 累计占比线），返回选择事件。"""
+        if imp_summary_df.empty:
+            st.info("暂无改进措施数据")
+            return None
+
+        fig = go.Figure()
+        # 柱状图（降序，覆盖缺陷数口径）
+        fig.add_trace(
+            go.Bar(
+                x=imp_summary_df["改进措施"],
+                y=imp_summary_df["覆盖缺陷数"],
+                name="覆盖缺陷数",
+                marker_color="#59A14F",
+            )
+        )
+        # 累计占比线（副 y 轴）
+        fig.add_trace(
+            go.Scatter(
+                x=imp_summary_df["改进措施"],
+                y=imp_summary_df["累计占比(%)"],
+                name="累计占比(%)",
+                yaxis="y2",
+                mode="lines+markers",
+                line={"color": "#E45756", "width": 2},
+            )
+        )
+        fig.update_layout(
+            yaxis={"title": "覆盖缺陷数"},
+            yaxis2={"title": "累计占比(%)", "overlaying": "y", "side": "right", "range": [0, 100]},
+            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02},
+            height=400,
+        )
+        return st.plotly_chart(
+            fig,
+            width="stretch",
+            on_select="rerun",
+            selection_mode=("points",),
+            key="improvement_pareto_chart",
+        )
+
     # ------------------------------------------------------------------
     # 规范违规分布
     # ------------------------------------------------------------------
@@ -289,14 +343,19 @@ class FaultAnalysisUI:
         pareto_event: object,
         violation_event: object = None,
         violation_df: pd.DataFrame | None = None,
+        imp_event: object = None,
+        imp_summary_df: pd.DataFrame | None = None,
     ) -> tuple[pd.DataFrame, object]:
         """渲染缺陷明细表（含筛选 + 联动 + 研发云链接），返回过滤后表和选择事件。
 
-        联动来源：帕累托图选中根因 → 根因筛选；规范违规分布选中条款 →
-        规范条款筛选（再次点击违规分布同一行取消选择即恢复"全部"）。
+        联动来源：帕累托图选中根因 → 根因筛选；改进措施帕累托选中措施 →
+        改进措施筛选；规范违规分布选中条款 → 规范条款筛选（再次点击取消
+        选择即恢复"全部"）。
         """
         # 从帕累托图联动获取选中根因
         selected_cause = self._pareto_selected_cause(pareto_event)
+        # 从改进措施帕累托联动获取选中措施
+        selected_measure = self._improvement_selected_measure(imp_event)
         # 从规范违规分布联动获取选中条款
         selected_rule = self._violation_selected_rule(violation_event, violation_df)
         if selected_rule:
@@ -305,7 +364,7 @@ class FaultAnalysisUI:
             )
 
         # 筛选控件
-        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+        filter_col1, filter_col2, filter_col3, filter_col4, filter_col5 = st.columns(5)
         with filter_col1:
             cause_options = ["全部"] + sorted(detail_df["首要根因"].unique().tolist())
             default_cause = selected_cause if selected_cause in cause_options else "全部"
@@ -316,6 +375,19 @@ class FaultAnalysisUI:
                 key="cause_filter",
             )
         with filter_col2:
+            measure_options = (
+                ["全部"] + imp_summary_df["改进措施"].tolist()
+                if imp_summary_df is not None and not imp_summary_df.empty
+                else ["全部"]
+            )
+            default_measure = selected_measure if selected_measure in measure_options else "全部"
+            measure_sel = st.selectbox(
+                "按改进措施筛选",
+                measure_options,
+                index=measure_options.index(default_measure),
+                key="measure_filter",
+            )
+        with filter_col3:
             rule_options = ["全部"] + sorted(
                 detail_df["规范违规"].str.split("; ").explode().unique().tolist()
                 if not detail_df.empty
@@ -328,10 +400,10 @@ class FaultAnalysisUI:
                 index=rule_options.index(default_rule),
                 key="rule_filter",
             )
-        with filter_col3:
+        with filter_col4:
             code_options = ["全部", "是", "否"]
             code_sel = st.selectbox("按代码变更筛选", code_options, key="code_filter")
-        with filter_col4:
+        with filter_col5:
             only_violation = st.checkbox("仅看有违规的", key="only_violation")
             hide_no_cause = st.checkbox("隐藏无根因", key="hide_no_cause")
 
@@ -339,6 +411,9 @@ class FaultAnalysisUI:
         mask = pd.Series(True, index=detail_df.index)
         if cause_sel != "全部":
             mask &= detail_df["首要根因"] == cause_sel
+        if measure_sel != "全部":
+            # 措施文本在摘要列以 [priority]measure 形式完整出现，regex=False 防误解释
+            mask &= detail_df["改进建议摘要"].str.contains(measure_sel, na=False, regex=False)
         if rule_sel != "全部":
             mask &= detail_df["规范违规"].str.contains(rule_sel, na=False)
         if code_sel != "全部":
@@ -377,9 +452,21 @@ class FaultAnalysisUI:
     @staticmethod
     def _pareto_selected_cause(pareto_event: Any) -> str | None:
         """从帕累托图选择事件提取选中的根因类型（curve_number==0 过滤）。"""
-        if not pareto_event or not pareto_event.selection:
+        selection = getattr(pareto_event, "selection", None) if pareto_event else None
+        if not selection:
             return None
-        selection = pareto_event.selection
+        points = selection.get("points", []) if hasattr(selection, "get") else []
+        bar_points = [p for p in points if p.get("curve_number", 0) == 0]
+        if bar_points:
+            return str(bar_points[0].get("x"))
+        return None
+
+    @staticmethod
+    def _improvement_selected_measure(imp_event: Any) -> str | None:
+        """从改进措施帕累托选择事件提取选中的措施文本（curve_number==0 过滤）。"""
+        selection = getattr(imp_event, "selection", None) if imp_event else None
+        if not selection:
+            return None
         points = selection.get("points", []) if hasattr(selection, "get") else []
         bar_points = [p for p in points if p.get("curve_number", 0) == 0]
         if bar_points:
