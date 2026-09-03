@@ -32,9 +32,7 @@ class _LLMClientAdapter:
 
     async def generate(self, prompt: str) -> str:
         """Generate using the provider with combined system and user prompt."""
-        return str(
-            await self._provider.generate(system=ROOT_CAUSE_SYSTEM_PROMPT, user=prompt)
-        )
+        return str(await self._provider.generate(system=ROOT_CAUSE_SYSTEM_PROMPT, user=prompt))
 
 
 class AnalyzeHandler:

@@ -17,17 +17,11 @@ class TestParseIntroduceTaskNo:
         self.client = APIClient(base_url="https://api.example.com", api_key="k")
 
     def test_extracts_string_no(self):
-        assert (
-            self.client._parse_introduce_task_no({"introduceTaskNo": "11758001"})
-            == "11758001"
-        )
+        assert self.client._parse_introduce_task_no({"introduceTaskNo": "11758001"}) == "11758001"
 
     def test_extracts_numeric_no_as_string(self):
         """API 返回数字单号时归一化为字符串"""
-        assert (
-            self.client._parse_introduce_task_no({"introduceTaskNo": 11758001})
-            == "11758001"
-        )
+        assert self.client._parse_introduce_task_no({"introduceTaskNo": 11758001}) == "11758001"
 
     def test_missing_field_returns_none(self):
         """详情接口响应未回显 introduceTaskNo → None（不中断解析）"""

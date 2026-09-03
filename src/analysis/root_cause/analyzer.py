@@ -124,15 +124,9 @@ class RootCauseAnalyzer:
             task_src=fault_input.task_src,
             created_date=fault_input.created_date,
             finish_date=fault_input.finish_date,
-            prior_root_causes=self._render_prior_root_causes(
-                fault_input.prior_root_causes
-            ),
-            introduce_task_diff=self._render_introduce_task_diff(
-                fault_input.introduce_task_diff
-            ),
-            requirement_context=self._render_requirement_context(
-                fault_input.requirement_context
-            ),
+            prior_root_causes=self._render_prior_root_causes(fault_input.prior_root_causes),
+            introduce_task_diff=self._render_introduce_task_diff(fault_input.introduce_task_diff),
+            requirement_context=self._render_requirement_context(fault_input.requirement_context),
             dev_catalog=existing_analysis.dev_catalog,
             dev_catalog_detail=existing_analysis.dev_catalog_detail,
             dev_reason=existing_analysis.dev_reason,

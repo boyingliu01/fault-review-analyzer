@@ -114,51 +114,144 @@ def load_product_line_map() -> dict[int, str]:
 # ZSmart 模块标识 → 产品线（强信号，优先级最高）
 _MODULE_LINE = {
     # 渠道触点与营销互动侧
-    "ZSmart_MobileSC": LINE_CHANNEL,   # 移动端前端框架(RN)
-    "ZSmart_WebSC": LINE_CHANNEL,      # Web端前端框架
-    "ZSmart_ceeAPP": LINE_CHANNEL,     # 客户互动APP
-    "ZSmart_GCP": LINE_CHANNEL,        # 营销云(短链/UTM/创意投放)
-    "ZSmart_MCCM": LINE_CHANNEL,       # 营销活动管理(Campaign Canvas)
-    "ZSmart_eShopF": LINE_CHANNEL,     # 电商前端
-    "ZSmart_ceePlat": LINE_CHANNEL,    # CEE 客户互动平台(App Push/邮件等触达)
-    "ZSmart_ceeSDK": LINE_CHANNEL,     # CEE SDK
+    "ZSmart_MobileSC": LINE_CHANNEL,  # 移动端前端框架(RN)
+    "ZSmart_WebSC": LINE_CHANNEL,  # Web端前端框架
+    "ZSmart_ceeAPP": LINE_CHANNEL,  # 客户互动APP
+    "ZSmart_GCP": LINE_CHANNEL,  # 营销云(短链/UTM/创意投放)
+    "ZSmart_MCCM": LINE_CHANNEL,  # 营销活动管理(Campaign Canvas)
+    "ZSmart_eShopF": LINE_CHANNEL,  # 电商前端
+    "ZSmart_ceePlat": LINE_CHANNEL,  # CEE 客户互动平台(App Push/邮件等触达)
+    "ZSmart_ceeSDK": LINE_CHANNEL,  # CEE SDK
     # BSS 业务支撑侧
-    "ZSmart_COC": LINE_BSS,            # 订单中心
-    "ZSmart_DRM": LINE_BSS,            # 用户域(号码/订阅/开户)
-    "ZSmart_CUSTC": LINE_BSS,          # 客户中心(360视图/KYC)
-    "ZSmart_SIC": LINE_BSS,            # 卡与库存(physical SIM/eSIM流转)
+    "ZSmart_COC": LINE_BSS,  # 订单中心
+    "ZSmart_DRM": LINE_BSS,  # 用户域(号码/订阅/开户)
+    "ZSmart_CUSTC": LINE_BSS,  # 客户中心(360视图/KYC)
+    "ZSmart_SIC": LINE_BSS,  # 卡与库存(physical SIM/eSIM流转)
 }
 
 # 标题业务关键词 → 产品线（弱信号，用于无模块标识的单子）
 _KW_CHANNEL = [
     # 营销互动/触点
-    "Campaign", "campaign", "GCP短链", "gcp 短链", "UTM", "utm", "App Push", "apppush",
-    "站内信", "banner", "启动页", "DEEPLINK", "deeplink", "深链",
-    "live person", "创意中", "creative", "html builder", "Template manage",
-    "template 使用", "广告相关", "page builder", "积分配置", "promotionActionList",
-    "promo逻辑", "promo code", "Wrong display of promo",
+    "Campaign",
+    "campaign",
+    "GCP短链",
+    "gcp 短链",
+    "UTM",
+    "utm",
+    "App Push",
+    "apppush",
+    "站内信",
+    "banner",
+    "启动页",
+    "DEEPLINK",
+    "deeplink",
+    "深链",
+    "live person",
+    "创意中",
+    "creative",
+    "html builder",
+    "Template manage",
+    "template 使用",
+    "广告相关",
+    "page builder",
+    "积分配置",
+    "promotionActionList",
+    "promo逻辑",
+    "promo code",
+    "Wrong display of promo",
     # 渠道 App/Web 前端
-    "PenTest", "Sensitiv", "Enumerat", "CX APP", "BX APP", "GOMO BB", "EDGE BROWSER",
-    "客户侧", "Redemption Management", "eload Transfer 可以重复选择Account",
-    "键盘重复输入", "下拉刷新", "白屏", "loading时不能返回",
+    "PenTest",
+    "Sensitiv",
+    "Enumerat",
+    "CX APP",
+    "BX APP",
+    "GOMO BB",
+    "EDGE BROWSER",
+    "客户侧",
+    "Redemption Management",
+    "eload Transfer 可以重复选择Account",
+    "键盘重复输入",
+    "下拉刷新",
+    "白屏",
+    "loading时不能返回",
 ]
 _KW_BSS = [
-    "port in", "Port In", "portin", "BXportin", "port out", "mnp", "MNP",
-    "COC ", "话单", "waiver", "Waiver", "Waiv", "eKYC", "ekyc", "KYC",
-    "GLC", "SIC", "OTP", "esim", "Esim", "ESIM", "MSISDN", "Reserve密码",
-    "订单中心", "Retailer", "Distributor", "零售", "物流", "发货",
-    "payment", "Payment", "支付提醒", "pin码", "subscriber-management",
-    "Order Query", "order query", "Order Didnt Go Through", "order cancelled",
-    "Order cancelled", "Delivery", "SIM_CARD_LOST", "Line Pause", "SMS Delivery",
-    "renew offer", "AutoReactive", "RE-REG", "过户", "复机", "heya", "在途单",
-    "IDD", "账本", "CRM_SUBSCRIBER", "NLT is down", "StandardAddress",
-    "创建客户", "Invalid cust name", "customer info", "app config",
-    "POP Station", "Postal Code", "Distributor rep trf", "wallet being deducted",
-    "promo issue", "POP Station Postal",
+    "port in",
+    "Port In",
+    "portin",
+    "BXportin",
+    "port out",
+    "mnp",
+    "MNP",
+    "COC ",
+    "话单",
+    "waiver",
+    "Waiver",
+    "Waiv",
+    "eKYC",
+    "ekyc",
+    "KYC",
+    "GLC",
+    "SIC",
+    "OTP",
+    "esim",
+    "Esim",
+    "ESIM",
+    "MSISDN",
+    "Reserve密码",
+    "订单中心",
+    "Retailer",
+    "Distributor",
+    "零售",
+    "物流",
+    "发货",
+    "payment",
+    "Payment",
+    "支付提醒",
+    "pin码",
+    "subscriber-management",
+    "Order Query",
+    "order query",
+    "Order Didnt Go Through",
+    "order cancelled",
+    "Order cancelled",
+    "Delivery",
+    "SIM_CARD_LOST",
+    "Line Pause",
+    "SMS Delivery",
+    "renew offer",
+    "AutoReactive",
+    "RE-REG",
+    "过户",
+    "复机",
+    "heya",
+    "在途单",
+    "IDD",
+    "账本",
+    "CRM_SUBSCRIBER",
+    "NLT is down",
+    "StandardAddress",
+    "创建客户",
+    "Invalid cust name",
+    "customer info",
+    "app config",
+    "POP Station",
+    "Postal Code",
+    "Distributor rep trf",
+    "wallet being deducted",
+    "promo issue",
+    "POP Station Postal",
 ]
 _KW_PLATFORM = [
-    "aws资源", "Azure-Database", "cpu_percent", "cpu过高", "dabasease",
-    "配置读取失败", "指标上报SQL", "exception management", "运维能力提升",
+    "aws资源",
+    "Azure-Database",
+    "cpu_percent",
+    "cpu过高",
+    "dabasease",
+    "配置读取失败",
+    "指标上报SQL",
+    "exception management",
+    "运维能力提升",
 ]
 
 _FALLBACK_ORDER = [(_KW_CHANNEL, LINE_CHANNEL), (_KW_BSS, LINE_BSS), (_KW_PLATFORM, LINE_PLATFORM)]
@@ -333,7 +426,6 @@ async def _llm_common_themes(
     """
     items_txt_parts: list[str] = []
     for layer in _LAYER_ORDER:
-
         items = stats["layer_items"].get(layer, [])
         if not items:
             continue
@@ -347,7 +439,9 @@ async def _llm_common_themes(
                 uniq.append(it[:120])
             if len(uniq) >= 25:
                 break
-        items_txt_parts.append(f"【{layer}】({len(items)} 条)\n" + "\n".join(f"- {x}" for x in uniq))
+        items_txt_parts.append(
+            f"【{layer}】({len(items)} 条)\n" + "\n".join(f"- {x}" for x in uniq)
+        )
     if not items_txt_parts:
         return []
 
@@ -361,7 +455,9 @@ async def _llm_common_themes(
         template = _LLM_THEMES_PROMPT_LINE if line else _LLM_THEMES_PROMPT_ALL
         response = await provider.generate(
             system="你只输出合法 JSON。",
-            user=template.format(line=line or "", total=stats["total"], items="\n\n".join(items_txt_parts)),
+            user=template.format(
+                line=line or "", total=stats["total"], items="\n\n".join(items_txt_parts)
+            ),
         )
         await provider.close()
         t = response.strip()
@@ -388,7 +484,9 @@ def render_md(
 
     add("# 泄漏缺陷复盘 · 综合分析报告")
     add("")
-    add(f"**分析范围**: {n} 起研发泄漏缺陷（全量）　|　**分析时间**: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    add(
+        f"**分析范围**: {n} 起研发泄漏缺陷（全量）　|　**分析时间**: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    )
     add("**分析方法**: AI 复盘流水线 — 根因聚类 + 规范匹配 + 截图证据视觉识别 + 五层深度根因追问")
     add(
         f"**数据口径**: 证据来源含故障描述({stats['img_ev_used']} 起附有截图内容识别)、代码变更 diff({stats['with_code']} 起)、"
@@ -397,18 +495,18 @@ def render_md(
     add("")
 
     # 一、执行摘要
-    deep_top3 = ", ".join(f"{c}({v}起/{round(v/n*100)}%)" for c, v in stats["deep_cats"][:2])
+    deep_top3 = ", ".join(f"{c}({v}起/{round(v / n * 100)}%)" for c, v in stats["deep_cats"][:2])
     add("## 一、执行摘要")
     add("")
-    add(
-        f"- 本次复盘覆盖 {n} 起泄漏缺陷。按问题性质划分，{deep_top3} 为最主要的两大类问题。"
-    )
+    add(f"- 本次复盘覆盖 {n} 起泄漏缺陷。按问题性质划分，{deep_top3} 为最主要的两大类问题。")
     mode_names = "、".join(c for c, _ in stats["primary_top"][:3])
     add(f"- 缺陷模式集中在 {mode_names}，呈典型帕累托分布（详见第三节）。")
     rule_names = "、".join(r for r, _ in stats["viols"][:3])
     add(f"- 规范符合性方面，高频违规条款为 {rule_names}（详见表）。")
-    add("- 全部缺陷已逐单完成五层深度根因追问，共提炼出分层面根因 "
-        f"{sum(len(v) for v in stats['layer_items'].values())} 条，共性模式见第五节。")
+    add(
+        "- 全部缺陷已逐单完成五层深度根因追问，共提炼出分层面根因 "
+        f"{sum(len(v) for v in stats['layer_items'].values())} 条，共性模式见第五节。"
+    )
     add("")
 
     # 二、问题全景
@@ -418,10 +516,12 @@ def render_md(
     add("|---------|------|------|------|")
     for cat, cnt in stats["deep_cats"]:
         desc = _PROBLEM_CAT_DESC.get(cat, "")
-        add(f"| {cat} | {cnt} | {round(cnt/n*100, 1)}% | {desc} |")
+        add(f"| {cat} | {cnt} | {round(cnt / n * 100, 1)}% | {desc} |")
     covered_deep = sum(v for _, v in stats["deep_cats"])
     if covered_deep < n:
-        add(f"| 未完成深度分析 | {n - covered_deep} | {round((n-covered_deep)/n*100,1)}% | 历史数据 | ")
+        add(
+            f"| 未完成深度分析 | {n - covered_deep} | {round((n - covered_deep) / n * 100, 1)}% | 历史数据 | "
+        )
     add("")
 
     # 三、缺陷模式帕累托
@@ -434,11 +534,11 @@ def render_md(
     for i, (cause, cnt) in enumerate(stats["primary_top"][:15], 1):
         cum += cnt
         add(
-            f"| {i} | {cause} | {cnt} | {round(cnt/total_primary*100,1)}% | {round(cum/total_primary*100,1)}% |"
+            f"| {i} | {cause} | {cnt} | {round(cnt / total_primary * 100, 1)}% | {round(cum / total_primary * 100, 1)}% |"
         )
     rest = len(stats["primary_top"]) - 15
     if rest > 0:
-        add(f"| … | 其余 {rest} 种模式 | {total_primary-cum} | | |")
+        add(f"| … | 其余 {rest} 种模式 | {total_primary - cum} | | |")
     add("")
 
     # 四、五层根因透视 + 共性主题
@@ -515,7 +615,7 @@ def render_md(
         s = line_stats_map[line]
         m = s["total"]
         cells = [str(s["deep_cats_count"].get(c, 0)) for c in cat_cols]
-        add(f"| {line} | {m} | {round(m/n*100,1)}% | " + " | ".join(cells) + " |")
+        add(f"| {line} | {m} | {round(m / n * 100, 1)}% | " + " | ".join(cells) + " |")
     add("")
 
     for line in ordered_lines:
@@ -539,7 +639,9 @@ def render_md(
         if lt and use_llm:
             add("")
             for t in lt:
-                add(f"- 🎯 **{t.get('name','')}** ({t.get('layer','—')} / {t.get('estimate','—')})：{t.get('description','')}")
+                add(
+                    f"- 🎯 **{t.get('name', '')}** ({t.get('layer', '—')} / {t.get('estimate', '—')})：{t.get('description', '')}"
+                )
         elif not use_llm or not lt:
             ex_items = [it for layer in _LAYER_ORDER for it in s["layer_items"].get(layer, [])][:2]
             if ex_items:
@@ -590,11 +692,15 @@ def render_md(
             "本次全部建议均落在高优先级区间，落地节奏可结合团队资源自行排期。"
         )
     add("")
-    add("> 具体行动项请结合《复盘分析报告.xlsx》缺陷明细 sheet 中每起缺陷的 improvements 字段追踪落实。")
+    add(
+        "> 具体行动项请结合《复盘分析报告.xlsx》缺陷明细 sheet 中每起缺陷的 improvements 字段追踪落实。"
+    )
     add("")
 
     add("---")
-    add("*本报告由 fault-review-analyzer 自动生成；结论由 AI 分析产出并引用截图/代码证据，重大决策前建议人工复核关键单据。*")
+    add(
+        "*本报告由 fault-review-analyzer 自动生成；结论由 AI 分析产出并引用截图/代码证据，重大决策前建议人工复核关键单据。*"
+    )
     return "\n".join(lines)
 
 

@@ -227,10 +227,7 @@ class TestTextNormalization:
 
     def test_normalize_strips_template_noise(self):
         # 图片 markdown（含占位符变量与外链）整体剥离
-        assert (
-            _normalize("![image.png](${tenantCosEndpoint}/cos-devspace/task/x/image.png)")
-            == ""
-        )
+        assert _normalize("![image.png](${tenantCosEndpoint}/cos-devspace/task/x/image.png)") == ""
         assert _normalize("![](https://static.dingtalk.com/a.png)") == ""
         # 描述段落固定标题剥离
         assert _normalize("### 重现步骤：\nA\n### 测试结果：\n### 期望结果：\n") == "\nA\n\n\n"

@@ -82,7 +82,9 @@ class TestFetchIntroduceTaskDiff:
     async def test_diff_truncated_to_limit(self):
         """超长 diff 截断到 MAX_INTRODUCE_DIFF_CHARS"""
         api = AsyncMock()
-        api.get_commits = AsyncMock(return_value=[_make_commit("x" * (MAX_INTRODUCE_DIFF_CHARS + 100))])
+        api.get_commits = AsyncMock(
+            return_value=[_make_commit("x" * (MAX_INTRODUCE_DIFF_CHARS + 100))]
+        )
         result = await fetch_introduce_task_diff(api, {"introduce_task_no": "11758001"})
         assert len(result) == MAX_INTRODUCE_DIFF_CHARS
 

@@ -59,9 +59,7 @@ def load_task_from_cache(task_id: int) -> dict[str, Any] | None:
         return None
     conn = sqlite3.connect(db_path)
     try:
-        row = conn.execute(
-            "SELECT data FROM cache WHERE task_id = ?", (task_id,)
-        ).fetchone()
+        row = conn.execute("SELECT data FROM cache WHERE task_id = ?", (task_id,)).fetchone()
     finally:
         conn.close()
     if row is None:
@@ -95,8 +93,7 @@ def scan_suspicious(deep: dict[str, Any]) -> list[str]:
     hits: list[str] = []
     for item in deep.get("deep_root_causes", []):
         text = " | ".join(
-            str(item.get(key, ""))
-            for key in ("root_cause", "why_reason", "evidence")
+            str(item.get(key, "")) for key in ("root_cause", "why_reason", "evidence")
         )
         for word in SUSPICIOUS_WORDS:
             if word in text:
@@ -126,13 +123,10 @@ async def run(urids: list[int]) -> None:
     provider = create_llm_provider(config.llm)
     if provider is None:
         raise RuntimeError("LLM provider 创建失败：未配置 llm.api_key")
-    logger.info(
-        f"LLM: model={config.llm.model} temperature={config.llm.temperature}"
-    )
+    logger.info(f"LLM: model={config.llm.model} temperature={config.llm.temperature}")
     if config.llm.temperature > MAX_TEMPERATURE:
         raise RuntimeError(
-            f"温度 {config.llm.temperature} 高于 {MAX_TEMPERATURE}，"
-            "违反事实纪律要求，中止重跑"
+            f"温度 {config.llm.temperature} 高于 {MAX_TEMPERATURE}，违反事实纪律要求，中止重跑"
         )
 
     async with APIClient(
@@ -165,9 +159,7 @@ async def _rerun_one(handler: AnalyzeHandler, urid: int) -> None:
         # 与 pipeline 运行时传 result.root_causes 的行为一致
         prior_root_causes = old_rec.get("root_causes") or []
 
-    new_deep = await handler.analyze_root_cause_deep(
-        task_data, prior_root_causes=prior_root_causes
-    )
+    new_deep = await handler.analyze_root_cause_deep(task_data, prior_root_causes=prior_root_causes)
     if not new_deep:
         # 准确性优先：LLM 失败时绝不覆盖旧数据
         logger.error(f"urId={urid} 深度分析返回空结果，保留旧数据")

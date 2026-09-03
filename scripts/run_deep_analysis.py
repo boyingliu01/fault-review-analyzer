@@ -106,9 +106,7 @@ async def run_deep(urids: list[int]) -> dict[str, Any]:
                 layers = len(deep.get("deep_root_causes", []))
                 rec["deep_root_causes"] = deep
                 rec["deep_analyzed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                fp.write_text(
-                    json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8"
-                )
+                fp.write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
                 stats["ok"] += 1
                 logger.info(
                     "urId={} ✓ 深度完成 分类={} 层数={}",
@@ -138,7 +136,9 @@ async def main() -> None:
     start = time.time()
     out = await run_deep(urids)
     s, errs = out["stats"], out["errors"]
-    print(f"\n完成 {s['done']} 起: 成功 {s['ok']}, 空 {s['empty']}, 错误 {s['error']}，耗时 {time.time()-start:.0f}s")
+    print(
+        f"\n完成 {s['done']} 起: 成功 {s['ok']}, 空 {s['empty']}, 错误 {s['error']}，耗时 {time.time() - start:.0f}s"
+    )
     if errs:
         print("问题清单:")
         for e in errs[:30]:

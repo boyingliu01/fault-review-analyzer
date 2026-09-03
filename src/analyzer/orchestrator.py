@@ -82,9 +82,7 @@ class PipelineOrchestrator:
 
                 # 引入单 diff 拉取一次，普通/深度两条根因链路共用
                 # （无引入单号或拉取失败时为空串，不阻断主流程）
-                introduce_diff = await self._analyze_handler.fetch_introduce_task_diff(
-                    task_dict
-                )
+                introduce_diff = await self._analyze_handler.fetch_introduce_task_diff(task_dict)
 
                 if config.analyze_root_cause:
                     result.root_causes = await self._analyze_handler.analyze_root_cause(

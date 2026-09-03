@@ -58,9 +58,7 @@ def _load_cache_task(cache_db: Path) -> CacheLoader:
             return None
         conn = sqlite3.connect(cache_db)
         try:
-            row = conn.execute(
-                "SELECT data FROM cache WHERE task_id = ?", (task_id,)
-            ).fetchone()
+            row = conn.execute("SELECT data FROM cache WHERE task_id = ?", (task_id,)).fetchone()
         finally:
             conn.close()
         return json.loads(row[0]) if row else None

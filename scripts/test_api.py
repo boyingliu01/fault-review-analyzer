@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 """手动调试脚本：测试故障平台 API 连通性 - 直接运行 python scripts/test_api.py"""
+
 import asyncio
 import sys
 from pathlib import Path
@@ -9,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.api.client import APIClient
 
 
-async def test_api():
+async def test_api() -> None:
     client = APIClient(
         base_url="https://dev.iwhalecloud.com",
         api_key="Bearer REDACTED_API_KEY",

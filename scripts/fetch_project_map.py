@@ -29,7 +29,7 @@ FIELDS = ["projectId", "zmpProjectId", "productModuleId", "productVersionId"]
 
 
 async def fetch_one(
-    client, headers: dict[str, str], urid: int, sem: asyncio.Semaphore
+    client: Any, headers: dict[str, str], urid: int, sem: asyncio.Semaphore
 ) -> dict[str, Any] | None:
     async with sem:
         for _ in range(3):
@@ -90,9 +90,7 @@ async def main(force: bool) -> None:
             BATCH = 40
             for i in range(0, len(todo), BATCH):
                 chunk = todo[i : i + BATCH]
-                results = await asyncio.gather(
-                    *[fetch_one(client, headers, u, sem) for u in chunk]
-                )
+                results = await asyncio.gather(*[fetch_one(client, headers, u, sem) for u in chunk])
                 for u, entry in zip(chunk, results, strict=True):
                     if entry:
                         existing[str(u)] = entry

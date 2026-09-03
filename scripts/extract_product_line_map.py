@@ -25,9 +25,7 @@ import openpyxl  # type: ignore[import-untyped]
 
 ROOT = Path(__file__).parent.parent
 OUT_DIR = ROOT / "output"
-DEFAULT_SRC = Path(
-    r"E:\work\产品研发管理部\005-专项改进推进\2026.08 新电故障复盘\泄漏缺陷复盘"
-)
+DEFAULT_SRC = Path(r"E:\work\产品研发管理部\005-专项改进推进\2026.08 新电故障复盘\泄漏缺陷复盘")
 DEFECT_SHEET_PREFIX = "defect"
 
 

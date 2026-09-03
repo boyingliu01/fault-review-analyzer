@@ -5,6 +5,7 @@
   - output/复盘分析报告.xlsx   (多 sheet)
   - output/复盘分析汇总.md     (管理层摘要)
 """
+
 import json
 import sys
 from collections import Counter, defaultdict
@@ -30,7 +31,7 @@ def primary_cause(rec: dict) -> str:
     rcs = rec.get("root_causes", [])
     if not rcs:
         return "无根因"
-    return rcs[0].get("cause_type", "未知")
+    return str(rcs[0].get("cause_type", "未知"))
 
 
 def build_detail_df(recs: dict) -> pd.DataFrame:
@@ -41,14 +42,12 @@ def build_detail_df(recs: dict) -> pd.DataFrame:
         rcs = rec.get("root_causes", [])
         primary = rcs[0].get("cause_type", "") if rcs else ""
         root_summary = "; ".join(
-            f"{rc.get('cause_type','')}:{rc.get('description','')[:50]}"
-            for rc in rcs[:2]
+            f"{rc.get('cause_type', '')}:{rc.get('description', '')[:50]}" for rc in rcs[:2]
         )
         # 改进建议
         imps = rec.get("improvements", [])
         imp_summary = "; ".join(
-            f"[{imp.get('priority','')}]{imp.get('measure','')[:40]}"
-            for imp in imps[:3]
+            f"[{imp.get('priority', '')}]{imp.get('measure', '')[:40]}" for imp in imps[:3]
         )
         # 规范违规
         viols = rec.get("violations", [])
@@ -59,23 +58,25 @@ def build_detail_df(recs: dict) -> pd.DataFrame:
             f"[{rc.get('layer', '')}] {rc.get('root_cause', '')[:40]}"
             for rc in deep.get("deep_root_causes", [])[:2]
         )
-        rows.append({
-            "urId": u,
-            "标题": rec.get("title", ""),
-            "首要根因": primary,
-            "根因数": len(rcs),
-            "根因摘要": root_summary,
-            "问题分类(deep)": deep.get("problem_category", ""),
-            "初步归因(deep)": str(deep.get("initial_cause", ""))[:80],
-            "深层根因摘要(deep)": deep_summary,
-            "Checklist建议数(deep)": len(deep.get("checklist_recommendations", [])),
-            "规范违规": viol_ids,
-            "违规数": len(viols),
-            "改进建议数": len(imps),
-            "改进建议摘要": imp_summary,
-            "有代码变更": "是" if rec.get("has_code_change") else "否",
-            "耗时(秒)": round(rec.get("processing_time", 0), 1),
-        })
+        rows.append(
+            {
+                "urId": u,
+                "标题": rec.get("title", ""),
+                "首要根因": primary,
+                "根因数": len(rcs),
+                "根因摘要": root_summary,
+                "问题分类(deep)": deep.get("problem_category", ""),
+                "初步归因(deep)": str(deep.get("initial_cause", ""))[:80],
+                "深层根因摘要(deep)": deep_summary,
+                "Checklist建议数(deep)": len(deep.get("checklist_recommendations", [])),
+                "规范违规": viol_ids,
+                "违规数": len(viols),
+                "改进建议数": len(imps),
+                "改进建议摘要": imp_summary,
+                "有代码变更": "是" if rec.get("has_code_change") else "否",
+                "耗时(秒)": round(rec.get("processing_time", 0), 1),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -88,26 +89,28 @@ def build_group_df(recs: dict) -> pd.DataFrame:
     rows = []
     for cause, members in sorted(groups.items(), key=lambda x: -len(x[1])):
         # 组内规范违规
-        rules = Counter()
+        rules: Counter[str] = Counter()
         for u in members:
             for v in recs[u].get("violations", []):
                 rules[v.get("rule_id", "")] += 1
         # 组内代码变更率
         code_count = sum(1 for u in members if recs[u].get("has_code_change"))
-        rows.append({
-            "缺陷模式": cause,
-            "涉及缺陷数": len(members),
-            "占比(%)": round(len(members) / len(recs) * 100, 1),
-            "代码变更缺陷数": code_count,
-            "主要规范违规": "; ".join(f"{r}({c})" for r, c in rules.most_common(5)),
-            "缺陷单号": ", ".join(str(m) for m in members[:10]),
-        })
+        rows.append(
+            {
+                "缺陷模式": cause,
+                "涉及缺陷数": len(members),
+                "占比(%)": round(len(members) / len(recs) * 100, 1),
+                "代码变更缺陷数": code_count,
+                "主要规范违规": "; ".join(f"{r}({c})" for r, c in rules.most_common(5)),
+                "缺陷单号": ", ".join(str(m) for m in members[:10]),
+            }
+        )
     return pd.DataFrame(rows)
 
 
 def build_violation_df(recs: dict) -> pd.DataFrame:
     """规范违规分布表。"""
-    rules = Counter()
+    rules: Counter[str] = Counter()
     for rec in recs.values():
         for v in rec.get("violations", []):
             rules[v.get("rule_id", "")] += 1
@@ -140,12 +143,18 @@ def build_summary_md(recs: dict, group_df: pd.DataFrame, viol_df: pd.DataFrame) 
             f"| {row['缺陷模式']} | {row['涉及缺陷数']} | {row['占比(%)']}% | {row['主要规范违规']} |"
         )
 
-    lines += ["", "## 三、规范违规 Top 分布", "", "| 规范条款 | 违规次数 |", "|---------|---------|"]
+    lines += [
+        "",
+        "## 三、规范违规 Top 分布",
+        "",
+        "| 规范条款 | 违规次数 |",
+        "|---------|---------|",
+    ]
     for _, row in viol_df.head(10).iterrows():
         lines.append(f"| {row['规范条款']} | {row['违规次数']} |")
 
     # 改进建议分布
-    imp_cat = Counter()
+    imp_cat: Counter[str] = Counter()
     for rec in recs.values():
         for imp in rec.get("improvements", []):
             imp_cat[imp.get("category", "未知")] += 1
@@ -162,7 +171,7 @@ def build_summary_md(recs: dict, group_df: pd.DataFrame, viol_df: pd.DataFrame) 
         lines.append("")
 
     # 深度分析问题分类分布
-    deep_cat = Counter()
+    deep_cat: Counter[str] = Counter()
     deep_covered = 0
     for rec in recs.values():
         d = rec.get("deep_root_causes")
@@ -185,7 +194,7 @@ def build_summary_md(recs: dict, group_df: pd.DataFrame, viol_df: pd.DataFrame) 
     return "\n".join(lines)
 
 
-def main():
+def main() -> None:
     recs = load_all_records()
     print(f"加载 {len(recs)} 起分析结果")
 

@@ -210,9 +210,7 @@ class TestRootCauseAnalyzer:
         assert "需求-测试传导链例行检查" in prompt
         assert "requirementCheck" in prompt
 
-    def test_build_prompt_renders_requirement_context(
-        self, mock_llm_client, existing_analysis
-    ):
+    def test_build_prompt_renders_requirement_context(self, mock_llm_client, existing_analysis):
         """Test that requirement_context (evidence + gaps) is rendered into prompt."""
         fault_input = FaultAnalysisInput(
             task_no="11757372",
@@ -240,9 +238,7 @@ class TestRootCauseAnalyzer:
         assert "研发云未录入引入单/父需求关联" in prompt
 
     @pytest.mark.asyncio
-    async def test_analyze_parses_requirement_check(
-        self, fault_input, existing_analysis
-    ):
+    async def test_analyze_parses_requirement_check(self, fault_input, existing_analysis):
         """Test that requirementCheck in LLM response maps to requirement_check."""
         client = MockLLMClient(
             response="{"

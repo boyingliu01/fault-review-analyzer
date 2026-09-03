@@ -88,7 +88,13 @@ def download_images(
             if dest.exists() and dest.stat().st_size > 0:
                 print(f"[{urid}] = 已存在 {dest.name}，跳过")
                 results[urid].append(
-                    {"url": url, "path": str(dest), "status": 200, "size": dest.stat().st_size, "cached": True}
+                    {
+                        "url": url,
+                        "path": str(dest),
+                        "status": 200,
+                        "size": dest.stat().st_size,
+                        "cached": True,
+                    }
                 )
                 continue
             tasks.append((urid, url, dest.name, dest))
@@ -128,7 +134,9 @@ def download_images(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="解析并下载 ${tenantCosEndpoint} 占位符图片")
-    parser.add_argument("--urid", nargs="*", type=int, help="指定 urId；缺省处理所有含占位符图片的单子")
+    parser.add_argument(
+        "--urid", nargs="*", type=int, help="指定 urId；缺省处理所有含占位符图片的单子"
+    )
     parser.add_argument("--out-dir", default=str(_OUT_DIR / "cos_images"), help="图片下载目录")
     args = parser.parse_args()
 

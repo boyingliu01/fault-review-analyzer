@@ -215,9 +215,7 @@ class TestMergeDuplicateMeasures:
         """同类别同优先级的重复措施合并为一条，root_cause 顿号连接"""
         recommender = ImprovementRecommender()
 
-        measures = recommender.recommend_measures(
-            ["边界条件未处理", "异常处理不当"]
-        )
+        measures = recommender.recommend_measures(["边界条件未处理", "异常处理不当"])
 
         assert len(measures) == 1
         assert measures[0].category == "代码类"
@@ -241,8 +239,14 @@ class TestMergeDuplicateMeasures:
 
         # 4/6=66.7% -> high, 1/6=16.7% -> medium（同属代码类）
         measures = recommender.recommend_measures(
-            ["边界条件未处理", "边界条件未处理", "边界条件未处理",
-             "边界条件未处理", "异常处理不当", "设计缺陷"]
+            [
+                "边界条件未处理",
+                "边界条件未处理",
+                "边界条件未处理",
+                "边界条件未处理",
+                "异常处理不当",
+                "设计缺陷",
+            ]
         )
 
         assert len(measures) == 3
@@ -256,9 +260,7 @@ class TestMergeDuplicateMeasures:
         """不同类别不合并"""
         recommender = ImprovementRecommender()
 
-        measures = recommender.recommend_measures(
-            ["设计遗漏", "边界条件未处理"]
-        )
+        measures = recommender.recommend_measures(["设计遗漏", "边界条件未处理"])
 
         assert len(measures) == 2
         assert {m.category for m in measures} == {"需求类", "代码类"}
@@ -282,9 +284,7 @@ class TestMergeDuplicateMeasures:
         """端到端：真实样例（11757373）合并后 measure 文本无重复"""
         recommender = ImprovementRecommender()
 
-        measures = recommender.recommend_measures(
-            ["设计遗漏", "边界条件未处理", "异常处理不当"]
-        )
+        measures = recommender.recommend_measures(["设计遗漏", "边界条件未处理", "异常处理不当"])
 
         measure_texts = [m.measure for m in measures]
         assert len(measure_texts) == len(set(measure_texts))
@@ -295,8 +295,13 @@ class TestMergeDuplicateMeasures:
 
         # "需求分析不充分"占3条, "违反Java异常处理规范"占2条
         measures = recommender.recommend_measures(
-            ["违反Java异常处理规范", "违反Java异常处理规范",
-             "需求分析不充分", "需求分析不充分", "需求分析不充分"],
+            [
+                "违反Java异常处理规范",
+                "违反Java异常处理规范",
+                "需求分析不充分",
+                "需求分析不充分",
+                "需求分析不充分",
+            ],
             violation_causes=["违反Java异常处理规范"],
         )
 

@@ -484,9 +484,7 @@ class APIClient:
         Returns:
             含 apiTask/parentTask/relatedTaskList 的响应 dict。
         """
-        return await self._request(
-            "GET", f"{self.api_path_prefix}/{task_no}/relationship"
-        )
+        return await self._request("GET", f"{self.api_path_prefix}/{task_no}/relationship")
 
     async def get_related_test_case_ids(self, internal_task_id: int) -> list[int]:
         """获取任务关联的测试用例 ID 列表（含子单）。
@@ -500,10 +498,7 @@ class APIClient:
         Returns:
             测试用例 ID 列表；无关联或结构异常时为空列表。
         """
-        endpoint = (
-            f"{self.devspace_api_prefix}/rpc/task/{internal_task_id}"
-            "/list/related/test-case"
-        )
+        endpoint = f"{self.devspace_api_prefix}/rpc/task/{internal_task_id}/list/related/test-case"
         response = await self._request("GET", endpoint)
         data = response.get("data")
         ids = data.get("testCaseIdList") if isinstance(data, dict) else None
@@ -522,10 +517,7 @@ class APIClient:
         Returns:
             引入的缺陷列表；未录入引入关系或结构异常时为空列表。
         """
-        endpoint = (
-            f"{self.devspace_api_prefix}/user-story/{internal_task_id}"
-            "/list-introduce-bug"
-        )
+        endpoint = f"{self.devspace_api_prefix}/user-story/{internal_task_id}/list-introduce-bug"
         response = await self._request("GET", endpoint)
         data = response.get("data")
         return data if isinstance(data, list) else []

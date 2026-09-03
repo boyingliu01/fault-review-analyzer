@@ -167,9 +167,7 @@ class TestPriorRootCausesInjection:
     def _make_analyzer(self) -> RootCauseAnalyzer:
         return RootCauseAnalyzer(llm_client=object())
 
-    def _make_fault_input(
-        self, prior: list[dict[str, Any]] | None = None
-    ) -> FaultAnalysisInput:
+    def _make_fault_input(self, prior: list[dict[str, Any]] | None = None) -> FaultAnalysisInput:
         return FaultAnalysisInput(
             task_no="11955497",
             title="SMS发送utm短链",
@@ -190,9 +188,7 @@ class TestPriorRootCausesInjection:
                 "evidence": ["代码变更新增 copyDistinctMacroList 方法对宏列表去重"],
             }
         ]
-        prompt = analyzer._build_prompt(
-            self._make_fault_input(prior), ExistingFaultAnalysis()
-        )
+        prompt = analyzer._build_prompt(self._make_fault_input(prior), ExistingFaultAnalysis())
         assert "本单已确认的根因结论" in prompt
         assert "未对宏列表去重" in prompt
         assert "copyDistinctMacroList" in prompt
@@ -201,9 +197,7 @@ class TestPriorRootCausesInjection:
     def test_build_prompt_without_prior_marks_absence(self):
         """无普通结论时，prompt 必须显式标注缺失并提示严守证据边界"""
         analyzer = self._make_analyzer()
-        prompt = analyzer._build_prompt(
-            self._make_fault_input(None), ExistingFaultAnalysis()
-        )
+        prompt = analyzer._build_prompt(self._make_fault_input(None), ExistingFaultAnalysis())
         assert "本单已确认的根因结论" in prompt
         assert "证据不足的层面如实降级" in prompt
 
@@ -222,9 +216,7 @@ class TestIntroduceTaskDiffInjection:
     def _make_analyzer(self) -> RootCauseAnalyzer:
         return RootCauseAnalyzer(llm_client=object())
 
-    def _make_fault_input(
-        self, introduce_task_diff: str = ""
-    ) -> FaultAnalysisInput:
+    def _make_fault_input(self, introduce_task_diff: str = "") -> FaultAnalysisInput:
         return FaultAnalysisInput(
             task_no="11757372",
             title="GOMO-BXportin 号码为gomo的号码接口报错",
@@ -238,19 +230,15 @@ class TestIntroduceTaskDiffInjection:
     def test_build_prompt_contains_introduce_diff(self):
         """有引入单 diff 时，prompt 必须包含其内容"""
         analyzer = self._make_analyzer()
-        diff = "- if (operator.equals(\"SINGTEL\")) { return cocManager.qryNbrOperator(accNbr); }"
-        prompt = analyzer._build_prompt(
-            self._make_fault_input(diff), ExistingFaultAnalysis()
-        )
+        diff = '- if (operator.equals("SINGTEL")) { return cocManager.qryNbrOperator(accNbr); }'
+        prompt = analyzer._build_prompt(self._make_fault_input(diff), ExistingFaultAnalysis())
         assert "引入缺陷任务单的代码变更" in prompt
         assert "qryNbrOperator" in prompt
 
     def test_build_prompt_without_introduce_diff_marks_absence(self):
         """无引入单 diff 时，prompt 必须显式标注缺失并给出替代证据指引"""
         analyzer = self._make_analyzer()
-        prompt = analyzer._build_prompt(
-            self._make_fault_input(""), ExistingFaultAnalysis()
-        )
+        prompt = analyzer._build_prompt(self._make_fault_input(""), ExistingFaultAnalysis())
         assert "未填写引入单号" in prompt
         assert "旧代码与描述证据为准" in prompt
 

@@ -9,6 +9,7 @@ violations 离线重算 improvements 并就地更新（与 pipeline._generate_im
 用法:
     python scripts/rerun_improvements.py
 """
+
 import json
 import shutil
 import sys
@@ -102,9 +103,7 @@ def main() -> None:
             shutil.copyfile(fp, backup_dir / fp.name)
             rec["improvements"] = new_imps
             rec["improvements_deduped_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            fp.write_text(
-                json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
+            fp.write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
 
         count_dist[len(new_imps)] = count_dist.get(len(new_imps), 0) + 1
 

@@ -105,7 +105,7 @@ def _load_image_evidence(urid: int) -> str:
         return ""
     parts: list[str] = []
     for img in data.get("image_evidence", []):
-        parts.append(f"[图片 {img.get('image','')}] {img.get('content','')}")
+        parts.append(f"[图片 {img.get('image', '')}] {img.get('content', '')}")
     rc = data.get("real_root_cause", "")
     if rc:
         parts.append(f"[综合判断] {rc}")
@@ -190,13 +190,9 @@ async def reanalyze_one(urid: int, provider: OpenAILLMProvider) -> dict[str, Any
     # 保留重分析前的原始分析结果，低质量重分析可随时恢复
     backup_dir = OUT_DIR / "reanalysis_backup"
     backup_dir.mkdir(parents=True, exist_ok=True)
-    backup = backup_dir / (
-        f"progress_{urid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    )
+    backup = backup_dir / (f"progress_{urid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
     shutil.copyfile(progress_file, backup)
-    progress_file.write_text(
-        json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    progress_file.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
     print(
         f"[{urid}] ✓ 已更新: 根因{len(merged.get('root_causes', []))} "
         f"改进{len(merged.get('improvements', []))} 标签{len(merged.get('labels', []))}"
@@ -245,10 +241,14 @@ async def main() -> None:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         out_file = OUT_DIR / f"reanalysis_{ts}.json"
         out_file.write_text(
-            json.dumps({"results": updated, "elapsed_sec": time.time() - start}, ensure_ascii=False, indent=2),
+            json.dumps(
+                {"results": updated, "elapsed_sec": time.time() - start},
+                ensure_ascii=False,
+                indent=2,
+            ),
             encoding="utf-8",
         )
-        print(f"\n完成 {len(updated)} 起，耗时 {time.time()-start:.0f}s，汇总: {out_file}")
+        print(f"\n完成 {len(updated)} 起，耗时 {time.time() - start:.0f}s，汇总: {out_file}")
 
 
 if __name__ == "__main__":

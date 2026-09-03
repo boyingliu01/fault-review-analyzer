@@ -80,9 +80,7 @@ async def fetch_requirement_context(
         if raw_intro:
             ctx.source = "introduce_task"
             ctx.requirement_no = str(raw_intro)
-            ctx.data_gaps.append(
-                "故障单无父需求单，仅按引入单号溯源（引入关系未经验证）"
-            )
+            ctx.data_gaps.append("故障单无父需求单，仅按引入单号溯源（引入关系未经验证）")
         else:
             ctx.source = "none"
             ctx.data_gaps.append(
@@ -100,13 +98,9 @@ async def fetch_requirement_context(
         try:
             req_task = await api_client.get_task(ctx.requirement_no)
             ctx.requirement_title = ctx.requirement_title or req_task.title
-            ctx.requirement_desc = (req_task.description or "").strip()[
-                :MAX_REQUIREMENT_DESC_CHARS
-            ]
+            ctx.requirement_desc = (req_task.description or "").strip()[:MAX_REQUIREMENT_DESC_CHARS]
         except Exception as e:  # noqa: BLE001
-            logger.warning(
-                "拉取需求单 {} 详情失败(降级忽略): {}", ctx.requirement_no, str(e)[:80]
-            )
+            logger.warning("拉取需求单 {} 详情失败(降级忽略): {}", ctx.requirement_no, str(e)[:80])
             ctx.data_gaps.append("需求/任务单详情拉取失败，需求描述证据缺失")
 
     if not ctx.requirement_desc and not any("详情" in g for g in ctx.data_gaps):

@@ -30,9 +30,7 @@ from src.analyzer.image_evidence import ImageEvidenceExtractor, extract_image_re
 OUT_DIR = Path(__file__).parent.parent / "output"
 
 
-async def generate_one(
-    ext: ImageEvidenceExtractor, urid: int, sem: asyncio.Semaphore
-) -> bool:
+async def generate_one(ext: ImageEvidenceExtractor, urid: int, sem: asyncio.Semaphore) -> bool:
     """生成单个单子的图片证据缓存。已存在缓存则跳过。"""
     fp = OUT_DIR / f"progress_{urid}.json"
     if not fp.exists():
@@ -92,9 +90,7 @@ async def main() -> None:
     done = 0
     for i in range(0, len(urids), BATCH):
         chunk = urids[i : i + BATCH]
-        results = await asyncio.gather(
-            *[generate_one(ext, u, sem) for u in chunk]
-        )
+        results = await asyncio.gather(*[generate_one(ext, u, sem) for u in chunk])
         done += sum(1 for r in results if r)
         logger.info("进度 {}/{}", min(i + BATCH, len(urids)), len(urids))
 

@@ -108,9 +108,7 @@ def extract_records(data: bytes) -> list[tuple[int, list[Any]]]:
         ncells = int.from_bytes(page[hdr + 3 : hdr + 5], "big")
         ptr_start = hdr + 8
         for i in range(ncells):
-            cell_off = int.from_bytes(
-                page[ptr_start + 2 * i : ptr_start + 2 * i + 2], "big"
-            )
+            cell_off = int.from_bytes(page[ptr_start + 2 * i : ptr_start + 2 * i + 2], "big")
             if cell_off < ptr_start + 2 * ncells or cell_off >= PAGE_SIZE:
                 continue
             try:
@@ -125,9 +123,7 @@ def extract_records(data: bytes) -> list[tuple[int, list[Any]]]:
                     if local > max_local:
                         local = min_local
                     buf = bytearray(page[off : off + local])
-                    next_pg = int.from_bytes(
-                        page[off + local : off + local + 4], "big"
-                    )
+                    next_pg = int.from_bytes(page[off + local : off + local + 4], "big")
                     remaining = payload_len - local
                     seen: set[int] = set()
                     while next_pg and remaining > 0 and next_pg not in seen:
@@ -183,8 +179,12 @@ def write_back(tasks: dict[int, str]) -> None:
             conn.execute(
                 "INSERT OR REPLACE INTO cache (task_id, data, created_at, expires_at) "
                 "VALUES (?, ?, ?, ?)",
-                (task_id, text, now.strftime("%Y-%m-%d %H:%M:%S"),
-                 expires.strftime("%Y-%m-%d %H:%M:%S")),
+                (
+                    task_id,
+                    text,
+                    now.strftime("%Y-%m-%d %H:%M:%S"),
+                    expires.strftime("%Y-%m-%d %H:%M:%S"),
+                ),
             )
         conn.commit()
         count = conn.execute("SELECT COUNT(*) FROM cache").fetchone()[0]

@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 """手动调试脚本：测试智谱 LLM API 连通性 - 在外网终端执行 python scripts/test_llm.py"""
+
 import asyncio
 import sys
 from pathlib import Path
@@ -10,7 +11,7 @@ from src.analyzer.llm_provider import OpenAILLMProvider
 from src.config.manager import ConfigManager
 
 
-async def test_llm():
+async def test_llm() -> None:
     print("=" * 60)
     print("测试LLM API (智谱)")
     print("=" * 60)

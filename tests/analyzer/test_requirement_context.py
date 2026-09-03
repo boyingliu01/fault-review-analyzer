@@ -78,9 +78,7 @@ class TestFetchRequirementContext:
         api.get_task_relationship.return_value = {"data": {"parentTask": None}}
         api.get_task.return_value = _FakeTask(title="整改任务", description="接口整改描述")
 
-        ctx = await fetch_requirement_context(
-            api, {**TASK_DATA, "introduce_task_no": "11543234"}
-        )
+        ctx = await fetch_requirement_context(api, {**TASK_DATA, "introduce_task_no": "11543234"})
 
         assert ctx.source == "introduce_task"
         assert ctx.requirement_no == "11543234"
