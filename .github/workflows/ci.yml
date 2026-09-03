@@ -27,6 +27,14 @@ jobs:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
 
+    - name: Free disk space
+      # 依赖含 torch/cuda 全家桶（约 10GB+），runner 预装组件不清理会
+      # 在 Install dependencies 阶段 OOM（[Errno 28] No space left on device）
+      run: |
+        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/powershell /usr/share/swift
+        sudo apt-get clean
+        df -h /
+
     - name: Install dependencies
       run: |
         pip install -e ".[dev]"
