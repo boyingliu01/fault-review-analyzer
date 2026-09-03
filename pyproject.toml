@@ -124,6 +124,37 @@ exclude = [
     "tests/__snapshots__",
     ".qoder",
     ".sprint-state",
+    # 根目录一次性调研/演示脚本与 playwright 配置：历史产物，从未被
+    # `ruff check src/ tests/` 覆盖。显式逐文件排除（ruff 的 exclude glob
+    # 无根目录锚定语义，"/*.py" 会误伤 src/tests，禁止使用）。
+    # scripts/ 运维脚本（rerun_*.py 等）保持清洁并持续纳管。
+    "debug_recommendations.py",
+    "demo_phase1_mock.py",
+    "demo_phase2_mock.py",
+    "example_feedback.py",
+    "example_observability.py",
+    "fetch_batch_live.py",
+    "fetch_final.py",
+    "fetch_final_v2.py",
+    "fetch_fixed.py",
+    "fetch_more_tasks.py",
+    "fetch_with_requests.py",
+    "parse_swagger.py",
+    "phase2_real_analysis.py",
+    "playwright.config.py",
+    "run_cli.py",
+    "run_explainability_test.py",
+    "validate_and_fix.py",
+    "validate_api_fields.py",
+    # scripts/ 下早期一次性分析/验证脚本（非运维脚本）
+    "scripts/run_sample_analysis.py",
+    "scripts/parse_standards.py",
+    "scripts/analyze_faults.py",
+    "scripts/run_sample_parallel.py",
+    "scripts/analyze_faults_v2.py",
+    "scripts/apply_violation_review.py",
+    "scripts/inspect_swagger.py",
+    "scripts/run_single_verify.py",
 ]
 
 [tool.ruff.lint]
@@ -192,3 +223,6 @@ ignore_missing_imports = true
 module = ["tests.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
+# 测试用 AsyncMock/MagicMock 替换 pipeline 私有方法（mock 注入惯用法），
+# mypy 的 method-assign 对此误报，测试域内豁免
+disable_error_code = ["method-assign"]

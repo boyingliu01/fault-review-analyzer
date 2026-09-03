@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,8 @@ from src.analysis.root_cause import RootCauseAnalyzer as DeepRootCauseAnalyzer
 from src.analysis.root_cause.prompts import ROOT_CAUSE_SYSTEM_PROMPT
 from src.analysis.standards_matcher import StandardsMatcher
 from src.analysis.violation_detector import ViolationDetector
+from src.analyzer.duplicate.detector import DuplicateDetector, candidate_from_task
+from src.analyzer.duplicate.reuser import apply_reused_conclusion
 from src.analyzer.image_evidence import ImageEvidenceExtractor
 from src.analyzer.introduce_diff import fetch_introduce_task_diff
 from src.analyzer.labeling import LabelGenerator
@@ -64,6 +67,15 @@ class PipelineConfig:
     report_format: ReportFormat = ReportFormat.MARKDOWN
     output_path: Path = field(default_factory=lambda: Path("./output"))
     max_concurrency: int = 10
+    # 重复单结论复用（编程传参灰度，默认关闭，与结论域复审 INV-4 同策略）：
+    # reuse_related_conclusion 开启后，复盘前先识别关联主单（issue no /
+    # 显式关系 / 内容相似度三层），命中 strong 即直接取主单结论与复审状态
+    reuse_related_conclusion: bool = False
+    # progress 记录 getter：task_id -> 该单已有结论记录（无则 None），
+    # 供识别引擎判定主单是否已复盘并提供复用来源
+    related_conclusion_provider: Callable[[int], dict[str, Any] | None] | None = None
+    # issue no 映射 getter：task_id -> 原始 issue no（泄漏缺陷映射表，无则 None）
+    issue_no_provider: Callable[[int], str | None] | None = None
 
     def __post_init__(self) -> None:
         if self.max_concurrency < 1:
@@ -300,6 +312,11 @@ class AnalysisPipeline:
             if self._pipeline_config.generate_labels:
                 result.labels = await self._generate_labels(task_dict, preprocessed)
 
+            # 重复单结论复用：识别命中即跳过根因 LLM 链路（结论与复审状态
+            # 整体取自主单，保证重复单复盘结论一致）
+            if await self._try_reuse_related_conclusion(task_dict, result):
+                return
+
             if self._pipeline_config.analyze_root_cause:
                 result.root_causes = await self._analyze_root_cause(
                     task_dict, preprocessed, introduce_task_diff=introduce_diff
@@ -313,6 +330,76 @@ class AnalysisPipeline:
                     prior_root_causes=result.root_causes,
                     introduce_task_diff=introduce_diff,
                 )
+
+    def _get_cache_tasks(self) -> list[dict[str, Any]]:
+        """读取缓存任务清单供重复单识别（无缓存或读取失败时空列表降级）。"""
+        if self._cache_manager is None:
+            return []
+        try:
+            return list(self._cache_manager.get_all_tasks() or [])
+        except Exception as e:
+            logger.warning("读取缓存任务清单失败，重复单识别跳过: {}", str(e)[:100])
+            return []
+
+    async def _try_reuse_related_conclusion(
+        self, task_dict: dict[str, Any], result: PipelineResult
+    ) -> bool:
+        """重复单结论复用：识别关联主单，命中 strong 即直接取其复盘结论。
+
+        三层识别优先级见 DuplicateDetector：issue no 相同（确定性，不比对
+        内容）、显式 relationship、内容相似度。主单须已有复盘结论方可作为
+        复用来源；borderline 仅记录不自动复用（由批量校正脚本出清单人工
+        确认）。未命中返回 False，流程照常走根因 LLM。
+        """
+        if not self._pipeline_config.reuse_related_conclusion:
+            return False
+        concl_provider = self._pipeline_config.related_conclusion_provider
+        issue_provider = self._pipeline_config.issue_no_provider
+
+        def _record(tid: int) -> dict[str, Any] | None:
+            if concl_provider is None:
+                return None
+            try:
+                return concl_provider(tid)
+            except Exception as e:
+                logger.warning("urId={} 关联结论查询失败: {}", tid, str(e)[:100])
+                return None
+
+        def _issue_no(tid: int) -> str:
+            if issue_provider is None:
+                return ""
+            try:
+                return str(issue_provider(tid) or "")
+            except Exception as e:
+                logger.warning("urId={} issue no 查询失败: {}", tid, str(e)[:100])
+                return ""
+
+        task_id = int(task_dict.get("task_id", 0) or 0)
+        target = candidate_from_task(task_dict, None, _issue_no(task_id))
+        candidates = [
+            candidate_from_task(t, _record(tid), _issue_no(tid))
+            for t in self._get_cache_tasks()
+            if (tid := int(t.get("task_id", 0) or 0)) != target.task_id
+        ]
+        pair = DuplicateDetector().find_related(target, candidates)
+        if pair is None or pair.verdict != "strong":
+            return False
+        master_rec = _record(pair.master_id)
+        if not master_rec or not master_rec.get("root_causes"):
+            # 主单结论缺失（如缓存清理过）：宁可重盘不空转
+            return False
+        reused = apply_reused_conclusion({}, master_rec, pair)
+        result.root_causes = reused["root_causes"]
+        result.conclusion_review = reused["conclusion_review"]
+        if reused.get("deep_root_causes"):
+            result.deep_root_causes = reused["deep_root_causes"]
+        logger.info(
+            "urId={} 复用关联单 {} 的复盘结论（source={}，跳过根因 LLM 与结论域复审）",
+            task_id,
+            pair.master_id,
+            pair.source,
+        )
+        return True
 
     async def _analyze_code_changes(self, task_data: TaskInfo, result: PipelineResult) -> None:
         """分析代码变更（diff分析、模式检测、规范检查、LLM语义分析）。
@@ -467,6 +554,10 @@ class AnalysisPipeline:
         conclusion_verdict 待人工标记。存在撤销且已有深度结论时附
         deep_impact 标注；全专家连续失败时附 reviewer_error 可观测标注。
         """
+        if (result.conclusion_review or {}).get("reused_from"):
+            # 结论复用自主单（reused_from 审计在案），复审状态一并继承，
+            # 不重复消耗复审配额
+            return
         conclusions = result.root_causes or []
         if not conclusions:
             return

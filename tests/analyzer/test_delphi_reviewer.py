@@ -154,7 +154,7 @@ class TestDelphiReviewerConsensus:
         item = record["items"][0]
         assert item["final_verdict"] == "false_positive" and item["rounds"] == 2
         # 专家 A 第二轮调用应包含匿名反方意见（generate(SYSTEM, user) 位置传参）
-        provider_a = cast(MagicMock, reviewer._providers["expert_a"])
+        provider_a = cast("MagicMock", reviewer._providers["expert_a"])
         second_call = provider_a.generate.call_args_list[1]
         assert "匿名" in second_call.args[1]
 
@@ -213,7 +213,7 @@ class TestDelphiReviewerConsensus:
         """评审材料应包含条款、命中上下文与初筛误报形态提示。"""
         reviewer = _make_reviewer(["false_positive"], ["false_positive"])
         await reviewer.review(FAULT_INFO, [dict(VIOLATION)])
-        call = cast(MagicMock, reviewer._providers["expert_a"]).generate.call_args_list[0]
+        call = cast("MagicMock", reviewer._providers["expert_a"]).generate.call_args_list[0]
         user_prompt = call.args[1]
         assert "J000025" in user_prompt
         assert "paramMap = new HashMap<>" in user_prompt
